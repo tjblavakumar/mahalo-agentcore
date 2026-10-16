@@ -1,0 +1,7 @@
+{
+  "task_id": "task2-hitl-writes",
+  "task_description": "Add six human-in-the-loop (propose/approve) WRITE tools to the existing local Strands agent, gated by the native Strands 1.61.1 interrupt mechanism (a BeforeToolCallEvent HookProvider). Keep Task 1's 19 read tools and their tests untouched and green. Per the approved task2-design.md and task2-hitl-decision.md.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
