@@ -1,0 +1,7 @@
+{
+  "task_id": "task3-lambda-reimpl",
+  "task_description": "Reimplement the four mahalo-dock mocks (Jira, Confluence, GitHub, ServiceNow) as AWS Lambda functions behavior-equivalent to the local mocks, backed by per-service DynamoDB tables, with AWS CDK (Python) IaC. Built faithfully from the APPROVED docs/.agents/tasks/task3-design.md. Scope is the Lambda reimplementation only; Gateway/MCP wiring is Task 4.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

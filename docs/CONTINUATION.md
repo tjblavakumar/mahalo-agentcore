@@ -67,14 +67,16 @@ doesn't.
   because the tunnel/mocks on ports 5001-5004 are down — not fabricated),
   `build_agent()` constructs 25 tools with no network/creds, no LangChain.
   Code reviewed and APPROVED (`docs/.agents/tasks/task2-code-review.json`,
-  verdict APPROVED). Committed locally on branch main (NOT pushed — pushing is
-  out of scope per the working agreement until the user asks).
-  LIVE deferred to tunnel-up: the user runs the real propose->approve->write
-  commands once the SSH tunnel (5001-5004) and `lava` SSO are up — exact
-  commands are listed in `docs/.agents/tasks/task2-verification.md`.
-- NEXT: Task 3 — make the four mock systems AgentCore Gateway MCP tools (Lambdas)
-  per docs/PLAN.md (copy the seed data from mahalo-dock verbatim; never edit
-  mahalo-dock).
+  verdict APPROVED). Committed AND PUSHED to origin/main (commit cce2158).
+  LIVE VERIFICATION PASSED (2026-10-16, tunnel 5001-5004 + `lava` SSO up) via
+  `pwsh ./scripts/verify-task2-live.ps1`: live integration test ran green,
+  create-story propose->approve wrote (reject wrote nothing), and the
+  branch->commit->PR chain approved step-by-step with `[SYSTEM]` breadcrumbs
+  preventing re-proposals. Recorded in `docs/.agents/tasks/task2-verification.md`.
+- NEXT: Task 3 — reimplement the four mock systems (Jira, Confluence, GitHub,
+  ServiceNow) as AWS Lambdas, behavior-equivalent to the local mocks (copy the
+  seed data from mahalo-dock verbatim; never edit mahalo-dock). Per docs/PLAN.md
+  the AgentCore Gateway/MCP exposure is the SEPARATE Task 4.
 
 ## Task 2 — concrete definition (do this next)
 
