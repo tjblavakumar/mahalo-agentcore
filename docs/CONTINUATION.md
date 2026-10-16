@@ -37,9 +37,22 @@ doesn't.
 
 - Task 0 DONE: skeleton, docs, scripts/verify-agentcore.ps1, git repo. First
   commit pushed to https://github.com/tjblavakumar/mahalo-agentcore (branch main).
-- NEXT: Task 1 — a Strands agent running LOCALLY that calls the EXISTING
-  mahalo-dock mock services over HTTP (read tools first), proving the new loop
-  works with no LangChain.
+- Task 1 CODE-COMPLETE (local Strands agent, read-only): package under `agent/`
+  with env-driven config, a Bedrock-backed Strands agent (Claude Sonnet 4.5,
+  read_timeout=300s, creds from the `lava` profile), ported system prompts, 19
+  read tools over the four mocks (7 Jira / 4 GitHub / 3 Confluence / 5
+  ServiceNow), a `python -m agent.chat` CLI/REPL (dev-6 "Lava Dev" identity), and
+  tests. Zero LangChain imports. Offline verification done and recorded in
+  `docs/.agents/tasks/task1-verification.md`: unit suite 13/13 pass, full suite
+  13 pass + 1 integration test SKIPS (tunnel down), import/`build_agent()` succeed
+  without creds. Strands 1.61.1 API confirmed against the installed source.
+  - STILL TO RUN LIVE (user): open the SSH tunnel (ports 5001-5004), `aws sso
+    login --profile lava`, then confirm `python -m agent.chat "list my
+    repositories"` -> payment-service and `python -m agent.chat "show my
+    stories"` -> PAY stories, and that `pytest agent` runs (not skips) the
+    integration test. The real Bedrock + tunnel path could not be exercised
+    offline.
+- NEXT: Task 2 — propose/approve human-in-the-loop for the write tools.
 
 ## AWS environment (verified)
 
