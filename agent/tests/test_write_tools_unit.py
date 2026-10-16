@@ -11,6 +11,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from strands.interrupt import InterruptException
+
+from agent import chat
+from agent.approval import WRITE_TOOL_NAMES, WriteApprovalHook, build_proposal
 from agent.tools import github_write_tools, jira_tools, jira_write_tools, servicenow_write_tools
 from agent.tools.github_write_tools import _normalize_files_arg
 
@@ -311,3 +315,203 @@ def test_jira_update_story_transport_error_returns_string(monkeypatch):
     monkeypatch.setattr(jira_write_tools, "make_request", seam)
     out = jira_write_tools.jira_update_story("PAY-105", status="done")
     assert out == "❌ Failed to update story: tunnel down"
+
+
+# --------------------------------------------------------------------------- #
+# FEAT-002: WriteApprovalHook — propose path, reject path, read no-op
+# --------------------------------------------------------------------------- #
+
+class _FakeBeforeToolCallEvent:
+    """A tiny stand-in for BeforeToolCallEvent exposing the fields the hook uses.
+
+    ``interrupt(name, reason=None, response=None)`` mimics the SDK contract:
+    with no stored response (first/unanswered pass) it raises
+    ``InterruptException``; when seeded with ``_stored_response`` it returns it
+    (the resume pass).
+    """
+
+    def __init__(self, name, tool_input=None, stored_response=None):
+        self.tool_use = {"name": name, "input": tool_input or {}, "toolUseId": "tu-1"}
+        self.cancel_tool = False
+        self._stored_response = stored_response
+        self.interrupt_calls: list = []
+
+    def interrupt(self, name, reason=None, response=None):
+        self.interrupt_calls.append({"name": name, "reason": reason})
+        if self._stored_response is None:
+            interrupt = type("I", (), {"id": "i-1", "name": name, "reason": reason, "response": None})()
+            raise InterruptException(interrupt)
+        return self._stored_response
+
+
+def test_build_proposal_shapes_action_system_params_description():
+    tool_use = {
+        "name": "github_create_branch",
+        "input": {"repo_id": "payment-service", "branch_name": "feature/PAY-109", "from_branch": "main"},
+    }
+    proposal = build_proposal(tool_use)
+    assert proposal["action"] == "create_branch"
+    assert proposal["system"] == "github"
+    assert proposal["params"] == {
+        "repo_id": "payment-service",
+        "branch_name": "feature/PAY-109",
+        "from_branch": "main",
+    }
+    assert proposal["description"] == (
+        "Create branch 'feature/PAY-109' in payment-service from main"
+    )
+
+
+def test_hook_propose_path_raises_interrupt_for_every_write_tool(monkeypatch):
+    # Spy that fails the test if any write body issues a POST/PUT on the propose path.
+    def _no_write(*args, **kwargs):
+        raise AssertionError("no HTTP write must happen on the propose path")
+
+    monkeypatch.setattr(jira_write_tools, "make_request", _no_write)
+    monkeypatch.setattr(github_write_tools, "make_request", _no_write)
+    monkeypatch.setattr(servicenow_write_tools, "make_request", _no_write)
+
+    hook = WriteApprovalHook()
+    assert len(WRITE_TOOL_NAMES) == 6
+    for name in WRITE_TOOL_NAMES:
+        event = _FakeBeforeToolCallEvent(name, {"repo_id": "r", "branch_name": "b"})
+        with pytest.raises(InterruptException):
+            hook._before_tool_call(event)
+        # The hook interrupted with the stable literal name and a proposal reason.
+        assert event.interrupt_calls[0]["name"] == "write_approval"
+        assert event.interrupt_calls[0]["reason"]["action"]
+        # It did not cancel on the propose pass, and no body ran (spy untriggered).
+        assert event.cancel_tool is False
+
+
+def test_hook_is_noop_for_read_tool():
+    hook = WriteApprovalHook()
+    event = _FakeBeforeToolCallEvent("jira_get_story", {"story_id": "PAY-105"})
+    # No interrupt raised, nothing cancelled.
+    hook._before_tool_call(event)
+    assert event.interrupt_calls == []
+    assert event.cancel_tool is False
+
+
+def test_hook_reject_path_sets_cancel_tool(monkeypatch):
+    def _no_write(*args, **kwargs):
+        raise AssertionError("no HTTP write must happen when rejected")
+
+    monkeypatch.setattr(github_write_tools, "make_request", _no_write)
+
+    hook = WriteApprovalHook()
+    event = _FakeBeforeToolCallEvent(
+        "github_create_branch", {"repo_id": "r", "branch_name": "b"}, stored_response="REJECT"
+    )
+    hook._before_tool_call(event)
+    assert event.cancel_tool == "Write rejected by user."
+
+
+def test_hook_approve_path_lets_body_proceed():
+    hook = WriteApprovalHook()
+    event = _FakeBeforeToolCallEvent(
+        "github_create_branch", {"repo_id": "r", "branch_name": "b"}, stored_response="APPROVE"
+    )
+    hook._before_tool_call(event)
+    # Approved -> no cancel set, so the framework will run the body.
+    assert event.cancel_tool is False
+
+
+# --------------------------------------------------------------------------- #
+# FEAT-002: _ask approval driver — resume + [SYSTEM] on approve, nothing on reject
+# --------------------------------------------------------------------------- #
+
+class _FakeInterrupt:
+    def __init__(self, id_, reason):
+        self.id = id_
+        self.reason = reason
+
+
+class _FakeResult:
+    def __init__(self, stop_reason=None, interrupts=None, text=""):
+        self.stop_reason = stop_reason
+        self.interrupts = interrupts or []
+        self._text = text
+
+    def __str__(self):
+        return self._text
+
+
+class _FakeAgent:
+    """Returns an interrupt result on the first call, then a normal result."""
+
+    def __init__(self, proposal):
+        self.messages: list = []
+        self.calls: list = []
+        self._proposal = proposal
+        self._n = 0
+
+    def __call__(self, payload):
+        self.calls.append(payload)
+        self._n += 1
+        if self._n == 1:
+            itr = _FakeInterrupt("i-99", self._proposal)
+            return _FakeResult(stop_reason="interrupt", interrupts=[itr], text="paused")
+        return _FakeResult(stop_reason="end_turn", text="done")
+
+
+def test_ask_driver_approve_resumes_and_emits_system_signal(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda *a: "y")
+    proposal = {
+        "action": "create_branch",
+        "system": "github",
+        "params": {"repo_id": "payment-service", "branch_name": "feature/PAY-109"},
+        "description": "Create branch 'feature/PAY-109' in payment-service from main",
+    }
+    agent = _FakeAgent(proposal)
+
+    out = chat._ask(agent, "create a branch")
+
+    # Resumed with the correct interruptId + APPROVE response.
+    assert agent.calls[1] == [
+        {"interruptResponse": {"interruptId": "i-99", "response": "APPROVE"}}
+    ]
+    # A [SYSTEM] breadcrumb for the approved branch was appended.
+    assert len(agent.messages) == 1
+    sysmsg = agent.messages[0]
+    assert sysmsg["role"] == "assistant"
+    text = sysmsg["content"][0]["text"]
+    assert text.startswith("[SYSTEM] The user APPROVED and the branch 'feature/PAY-109'")
+    assert "payment-service" in text
+    assert out == "done"
+
+
+def test_ask_driver_reject_resumes_and_emits_nothing(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda *a: "n")
+    proposal = {
+        "action": "create_branch",
+        "system": "github",
+        "params": {"repo_id": "payment-service", "branch_name": "feature/PAY-109"},
+        "description": "Create branch 'feature/PAY-109' in payment-service from main",
+    }
+    agent = _FakeAgent(proposal)
+
+    out = chat._ask(agent, "create a branch")
+
+    assert agent.calls[1] == [
+        {"interruptResponse": {"interruptId": "i-99", "response": "REJECT"}}
+    ]
+    # Nothing appended on reject.
+    assert agent.messages == []
+    assert out == "done"
+
+
+def test_ask_driver_generic_signal_for_non_chain_write(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda *a: "y")
+    proposal = {
+        "action": "create_incident",
+        "system": "servicenow",
+        "params": {"title": "Auth outage", "affected_service": "auth-service"},
+        "description": "Open a P3 incident 'Auth outage' for auth-service",
+    }
+    agent = _FakeAgent(proposal)
+
+    chat._ask(agent, "open an incident")
+
+    text = agent.messages[0]["content"][0]["text"]
+    assert text == "[SYSTEM] The user approved and the 'create_incident' action was executed."
