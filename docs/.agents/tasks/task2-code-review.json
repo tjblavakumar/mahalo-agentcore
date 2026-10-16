@@ -1,0 +1,69 @@
+{
+  "task": "task2-hitl-writes",
+  "reviewer": "acp-client code reviewer",
+  "base": "origin/main (c25210a)",
+  "commits_reviewed": [
+    "f3d7ef6 feat: add six HITL write tools (FEAT-001)",
+    "5ffdb1f feat: wire HITL approval hook + REPL driver (FEAT-002)",
+    "2093ac4 docs: record Task 2 cross-FEAT offline verification results"
+  ],
+  "verdict": "APPROVED",
+  "summary": "All design contracts, HITL behavioral invariants, and the untouched-surface constraints are satisfied. Suite independently re-run: 42 passed, 1 skipped (live integration test skips because the mock tunnel on ports 5001-5004 is unreachable). No live results fabricated.",
+  "findings": [],
+  "confirmations": [
+    {
+      "check": "Six write tools match design contracts (names/params/verbs/endpoints/success strings)",
+      "status": "PASS",
+      "evidence": "jira_create_story -> POST /stories body=all params, '✅ Story created successfully: **{id}** - {title}'. jira_update_story -> pre-GET /stories/{id}, guards (not-found / unresolved-assignee / no-changes), PUT /stories/{id} with only provided fields, '✅ Story updated successfully: **{id}** - {title}'. github_create_branch -> POST /repos/{repo_id}/branches body={name,from_branch}, '✅ Branch created successfully: **{name}**'. github_commit_files -> POST /repos/{repo_id}/commits body={branch,message,files:_normalize_files_arg}, '✅ Committed {n} files to **{branch}**' (+ optional url). github_open_pull_request -> POST /repos/{repo_id}/pulls body={head,base,title:title or head,body}, '✅ Pull request opened: **#{number}** {title}' (+ optional url). servicenow_create_incident -> POST /incidents body=all params, '✅ Incident opened successfully: **{id}** - {title} ({severity})'. Verified by reading the three write modules and the test assertions."
+    },
+    {
+      "check": "409 / 'already exists' = success resilience",
+      "status": "PASS",
+      "evidence": "github_create_branch lowercases data['error'] and returns the '✅ Branch **{branch_name}** already exists — reusing it.' success string when the text contains 'status 409' or 'status 422' or 'already exists'; test_github_create_branch_already_exists_is_success asserts the 409 case yields the success string."
+    },
+    {
+      "check": "Propose path performs NO HTTP write; approve path DOES",
+      "status": "PASS",
+      "evidence": "The POST/PUT lives only in the tool body; WriteApprovalHook._before_tool_call calls event.interrupt('write_approval', ...) in BeforeToolCallEvent, which raises InterruptException on the first pass before the body runs. test_hook_propose_path_raises_interrupt_for_every_write_tool monkeypatches make_request to raise on any call and asserts InterruptException with zero write calls across all six tools. On resume interrupt() returns 'APPROVE', the hook does not cancel, and the body issues the real write."
+    },
+    {
+      "check": "Reject sets cancel_tool",
+      "status": "PASS",
+      "evidence": "On any non-'APPROVE' response the hook sets event.cancel_tool = 'Write rejected by user.'; test_hook_reject_path_sets_cancel_tool confirms and asserts no body runs. test_hook_approve_path_lets_body_proceed confirms cancel_tool stays False on approve."
+    },
+    {
+      "check": "[SYSTEM] chaining signal",
+      "status": "PASS",
+      "evidence": "chat._emit_system_signal switches on proposal['action'] with the three verbatim templates (create_branch / commit_files / open_pull_request) substituting params keys repo_id/branch_name/branch/head/base, plus the generic fallback \"[SYSTEM] The user approved and the '{action}' action was executed.\" for the other writes; appended as an assistant-role message to agent.messages on APPROVE only. Driver tests confirm the branch breadcrumb on approve, nothing on reject, and the generic fallback for create_incident."
+    },
+    {
+      "check": "agent/prompts.py UNCHANGED",
+      "status": "PASS",
+      "evidence": "git diff origin/main --name-only -- agent/prompts.py returns empty."
+    },
+    {
+      "check": "Task 1 read modules untouched (except permitted import from jira_tools.py)",
+      "status": "PASS",
+      "evidence": "git diff origin/main --name-only over jira_tools.py, github_tools.py, confluence_tools.py, servicenow_tools.py, http.py, config.py, test_tools_unit.py, test_integration_live.py all return empty. jira_write_tools.py imports _resolve_assignee and _fetch_developers from agent.tools.jira_tools (the documented one-way dependency) without modifying it."
+    },
+    {
+      "check": "No LangChain",
+      "status": "PASS",
+      "evidence": "Independent scan over agent/**/*.py (excluding .venv) -> 'LANGCHAIN FOUND: []', exit 0. Write modules use 'from strands import tool'."
+    },
+    {
+      "check": "Suite green with live integration test SKIPPING (tunnel down; not fabricated)",
+      "status": "PASS",
+      "evidence": "Reviewer re-ran `pytest agent -v` -> 42 passed, 1 skipped. test_live_agent_reads_repos_and_my_stories SKIPPED with reason 'mocks/tunnel unreachable (ports 5001-5004)' (test_integration_live.py:36). Matches task2-verification.md; no live write/Bedrock results claimed."
+    },
+    {
+      "check": "Transport-error wrap on write bodies",
+      "status": "PASS",
+      "evidence": "Every write body wraps the POST/PUT make_request in try/except (httpx.HTTPError, OSError) returning '❌ Failed to {verb}: {exc}'; six transport-error tests confirm no raise. jira_update_story leaves the pre-GET outside the wrap (intentional - existence check)."
+    }
+  ],
+  "notes": [
+    "Scope respected: only new files + the two permitted edits (strands_agent.py tool/hook registration, chat.py driver). READ_TOOLS=19, WRITE_TOOLS=6 (25 total) confirmed by build_agent() offline construction.",
+    "Live end-to-end stop/resume through the real event loop + Bedrock remains the user's documented manual check (tunnel currently down). The resume re-fire of BeforeToolCallEvent is grounded in installed strands 1.61.1 source per task2-hitl-decision.md; this is not something the offline suite can prove end-to-end, and the design correctly defers it to the live check without fabricating results."
+  ]
+}

@@ -53,7 +53,28 @@ doesn't.
     `python -m agent.chat "list my repositories"` -> payment-service (via
     github_list_repos); `python -m agent.chat "show PAY-109"` -> full story with
     assignee resolved to "Lava Dev (you)" = dev-6. End-to-end path confirmed.
-- NEXT: Task 2 — propose/approve human-in-the-loop for the 7 write tools.
+- Task 2 DONE (write tools + HITL approval gate): added six WRITE `@tool`
+  functions (jira_create_story, jira_update_story, github_create_branch,
+  github_commit_files, github_open_pull_request, servicenow_create_incident)
+  plus a `WriteApprovalHook` (Strands `BeforeToolCallEvent` interrupt) and the
+  `chat.py` propose/approve/reject driver, wired in `strands_agent.build_agent()`
+  (`tools=[*READ_TOOLS(19), *WRITE_TOOLS(6)]`, `hooks=[WriteApprovalHook()]`).
+  Preserves propose-don't-execute (no HTTP on propose), "branch already exists =
+  success" resilience, and branch->commit->PR chaining via `[SYSTEM]` breadcrumbs.
+  `agent/prompts.py` and the Task 1 read modules are untouched; zero LangChain.
+  Offline-verified (`docs/.agents/tasks/task2-verification.md`): full suite
+  `pytest agent -q` = 42 passed, 1 skipped (the ONE live integration test SKIPS
+  because the tunnel/mocks on ports 5001-5004 are down — not fabricated),
+  `build_agent()` constructs 25 tools with no network/creds, no LangChain.
+  Code reviewed and APPROVED (`docs/.agents/tasks/task2-code-review.json`,
+  verdict APPROVED). Committed locally on branch main (NOT pushed — pushing is
+  out of scope per the working agreement until the user asks).
+  LIVE deferred to tunnel-up: the user runs the real propose->approve->write
+  commands once the SSH tunnel (5001-5004) and `lava` SSO are up — exact
+  commands are listed in `docs/.agents/tasks/task2-verification.md`.
+- NEXT: Task 3 — make the four mock systems AgentCore Gateway MCP tools (Lambdas)
+  per docs/PLAN.md (copy the seed data from mahalo-dock verbatim; never edit
+  mahalo-dock).
 
 ## Task 2 — concrete definition (do this next)
 
