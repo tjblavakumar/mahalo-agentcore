@@ -1,0 +1,30 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "title": "jira_update_story server-side assignee resolution has no execution home (behavior-equivalence gap + §3.4/§5.3 conflict)",
+      "location": "§3.4 (last bullet), §5.3 (jira_update_story row), §1/§11 (Decision A equivalence)",
+      "problem": "DIRECT jira_update_story resolves assignee name->dev-id via _resolve_assignee before the PUT (verified in agent/tools/jira_write_tools.py), but the Jira update_story route stores body['assignee'] verbatim with no resolution (verified in tools-lambdas/jira/routes.py). §3.4 says resolution happens server-side, yet §5.3 classifies jira_update_story as a plain non-composite PUT whose adapter path (§5.2 step 4) never calls a resolver. As written, GATEWAY mode would store the raw name instead of the dev-id, breaking the data equivalence Decision A promises. jira_create_story does NOT need this (its @tool passes assignee unresolved).",
+      "fix": "Make jira_update_story a composite: tools-lambdas/jira/composites.py::update_story(store,args) that GETs the story (404->error), calls common.assignee.resolve_assignee when assignee is present, assembles changed-fields-only, then dispatches the PUT; change the §5.3 row to '*composite* jira.composites.update_story'. Extend the §8 composite-parity test to assert assignee='Raj' yields the same resolved dev-id the DIRECT @tool sends."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "title": "jira_search_stories keyword filter not called out as ported logic or parity-tested",
+      "location": "§3.4 (Jira composites bullet), §8 (parity test)",
+      "problem": "DIRECT jira_search_stories applies an agent-side case-insensitive keyword filter over title/description (verified in agent/tools/jira_tools.py) in addition to assignee resolution and fan-out. §3.4's porting bullet pins only the resolver and fan-out; §8 parity covers resolution + the ServiceNow aggregation but not keyword matching.",
+      "fix": "State in §3.4 that jira.composites.search_stories reproduces the keyword filter (case-insensitive substring over title and description; empty/None query = match-all) and add a §8 parity assertion that a keyword fixture returns the same story-id set from both implementations."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "_resolve_assignee has a seventh (empty-assignee) branch the parity test does not enumerate",
+      "location": "§3.4 and §8 (\"all six branches\")",
+      "problem": "Source _resolve_assignee (agent/tools/jira_tools.py) also has a leading 'if not assignee: return None' guard beyond the six enumerated branches. common/assignee.py::resolve_assignee(assignee, developers) must define empty/None behavior to stay equivalent.",
+      "fix": "Add the empty/None assignee case to the §8 parity test (resolve_assignee('', devs) is None; resolve_assignee(None, devs) is None) and have common/assignee.py short-circuit falsy input before touching the developer list."
+    }
+  ],
+  "reviewDoc": "docs/.agents/tasks/task4-design-review.md"
+}

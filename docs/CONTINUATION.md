@@ -73,10 +73,49 @@ doesn't.
   create-story propose->approve wrote (reject wrote nothing), and the
   branch->commit->PR chain approved step-by-step with `[SYSTEM]` breadcrumbs
   preventing re-proposals. Recorded in `docs/.agents/tasks/task2-verification.md`.
-- NEXT: Task 3 — reimplement the four mock systems (Jira, Confluence, GitHub,
-  ServiceNow) as AWS Lambdas, behavior-equivalent to the local mocks (copy the
-  seed data from mahalo-dock verbatim; never edit mahalo-dock). Per docs/PLAN.md
-  the AgentCore Gateway/MCP exposure is the SEPARATE Task 4.
+- Task 3 DONE (four mocks reimplemented as AWS Lambdas): the Jira, Confluence,
+  GitHub, and ServiceNow mocks are re-implemented under `tools-lambdas/` as four
+  Function-URL Lambdas (Python 3.13) backed by DynamoDB, behavior-equivalent to
+  the mahalo-dock mocks (seed data copied verbatim; mahalo-dock untouched). A
+  shared `common/` provides the router, auth (`X-API-Token`), and store. IaC
+  added under `infra-cdk/` as four `MockServiceStack`s. Offline-verified
+  (`docs/.agents/tasks/task3-verification.md`): `pytest tools-lambdas/tests -q`
+  = 68 passed (moto-backed, offline); `cdk synth` produced all four stack
+  templates; `infra-cdk` assertion suite = 20 passed. Code reviewed and APPROVED
+  (`docs/.agents/tasks/task3-code-review.json`). Live AWS deploy + Function-URL
+  integration check are DEFERRED operator actions.
+- Task 4 DONE (AgentCore Gateway + MCP exposure, OFFLINE GATE GREEN): the four
+  Task-3 Lambdas are placed behind one `MahaloGatewayStack` (`CfnGateway` MCP +
+  four `CfnGatewayTarget`s with inline toolSchema + Gateway IAM role + per-Lambda
+  invoke permission; `authorizerType` CfnParameter default `AWS_IAM`). A single
+  `tools-lambdas/common/tool_schemas.py` (25-tool source of truth) feeds BOTH the
+  CDK toolSchema and a new in-Lambda `gateway_adapter.py` that turns a flat
+  Gateway invocation into a synthetic Function-URL request through the frozen
+  router (DIRECT HTTP path untouched). Three server-side composites
+  (`jira_search_stories`, `jira_get_stories_by_assignee`,
+  `servicenow_deployment_status_by_project`) reproduce the agent-only
+  orchestration. The agent gains a dual-mode toggle (`MAHALO_TOOL_MODE`, default
+  `direct`); gateway mode builds an `MCPClient` (constructed, NOT started — stays
+  offline-safe) and `build_agent` returns `(agent, mcp_client)`. HITL is
+  preserved under Gateway's `target___tool` rename via `_bare_name` in
+  `WriteApprovalHook`/`build_proposal`, so the six writes stay gated. Zero
+  LangChain. Code reviewed and APPROVED
+  (`docs/.agents/tasks/task4-code-review.json`, verdict APPROVED).
+  Offline gate re-run and recorded in `docs/.agents/tasks/task4-verification.md`:
+  `cdk synth --all` exit 0 (5 templates; gateway = 1 Gateway + 4 Targets);
+  infra-cdk assertion suite **26 passed**; tools-lambdas suite **94 passed**;
+  agent suite **52 passed, 1 skipped** (DIRECT Task-1/2 baseline 42/1 preserved);
+  `build_agent(tool_mode='gateway')` constructs offline → `Agent MCPClient False`;
+  zero LangChain. The `lava` SSO session was up but NO live probe was run (a
+  meaningful probe needs a deployed Gateway endpoint = the deferred deploy); no
+  live/deploy results fabricated. DEFERRED LIVE operator steps (deploy the four
+  Lambdas; create the Gateway + four Lambda targets + inbound auth; point the
+  agent at the Gateway MCP endpoint via `MAHALO_GATEWAY_MCP_URL`/
+  `MAHALO_TOOL_MODE=gateway`; run an end-to-end READ and a HITL WRITE through the
+  Gateway) are documented in `docs/.agents/tasks/task4-verification.md`.
+- NEXT: Task 5 — add AgentCore Memory for session state/conversation history
+  (replacing the old in-memory session.py) and AgentCore Identity for brokering
+  tool credentials. See docs/PLAN.md.
 
 ## Task 2 — concrete definition (do this next)
 

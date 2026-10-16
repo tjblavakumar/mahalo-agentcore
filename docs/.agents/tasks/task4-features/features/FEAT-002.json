@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Agent-side Gateway-MCP mode: the dual-mode toggle (DIRECT default | GATEWAY), the offline-safe MCP client builder, build_agent wiring, HITL preservation over the Gateway '___'-prefixed tool names, the chat.py MCP context-manager wrap, and the agent-side unit tests. Depends on FEAT-001 only for the shared `___`-strip invariant and WRITE_TOOL_NAMES (no runtime dependency at construct time, since the MCP client is constructed-not-started). Also collapses the duplicate assignee resolver to FEAT-001's single source. Grounded in investigation sections 1.1-1.4 and design sections 4 and 6.",
+  "status": "pending",
+  "steps": [
+    "Refactor agent/tools/jira_tools.py::_resolve_assignee into a thin wrapper that calls _fetch_developers() and delegates to common.assignee.resolve_assignee, keeping the SAME private names _resolve_assignee and _fetch_developers so the existing import in agent/tools/jira_write_tools.py keeps working. Add a guarded, offline-safe sys.path shim so the agent can import tools-lambdas/common/assignee.py (or vendor the single pure function if a clean import is awkward, enforcing equivalence via FEAT-001's parity test). No other change to agent/tools/*.",
+    "Add three _getenv-backed fields to agent/config.py: tool_mode (MAHALO_TOOL_MODE, default 'direct'), gateway_mcp_url (MAHALO_GATEWAY_MCP_URL, default ''), gateway_region (MAHALO_GATEWAY_REGION, default = aws_region).",
+    "Create agent/gateway_client.py with _build_gateway_mcp_client() that constructs strands.tools.mcp.MCPClient(url=settings.gateway_mcp_url, ...) behind a pluggable auth-provider factory and does NOT call start() (offline-safe construction).",
+    "Modify agent/strands_agent.py::build_agent to accept a tool_mode parameter (default settings.tool_mode): in 'gateway' mode build the MCP client, construct Agent(model=..., tools=[mcp_client], system_prompt=..., hooks=[WriteApprovalHook()]) and return (agent, mcp_client); DIRECT mode unchanged (bare Agent with the 25 local tools).",
+    "Modify agent/approval.py: add _bare_name(name)=name.rsplit('___',1)[-1]; use it in WriteApprovalHook._before_tool_call (`if _bare_name(event.tool_use['name']) not in WRITE_TOOL_NAMES: return`) and in build_proposal (bare=_bare_name(tool_use['name']); prefix,_,action=bare.partition('_')). No-op for DIRECT local names.",
+    "Modify agent/chat.py: in GATEWAY mode unpack (agent, mcp_client)=build_agent(tool_mode='gateway', ...) and wrap the invocation in `with mcp_client:`; DIRECT mode path unchanged.",
+    "Add prefix cases to agent/tests/test_write_tools_unit.py: _bare_name strips '___'; a mock-github___github_create_branch tool_use triggers event.interrupt; a non-APPROVE resume sets event.cancel_tool; a read tool passes through.",
+    "Create agent/tests/test_gateway_mode.py: build_agent(tool_mode='gateway') imports/constructs cleanly offline with NO AWS/network and returns the (agent, mcp_client) tuple (MCP client constructed, not started); assert no name in WRITE_TOOL_NAMES contains '___'."
+  ],
+  "acceptance_criteria": [
+    "`python -m pytest agent -q` keeps the DIRECT baseline (42 passed, 1 skipped) and adds the new gateway/HITL tests, still exactly 1 skipped.",
+    "`python -c \"from agent.strands_agent import build_agent; a,c=build_agent(tool_mode='gateway')\"` succeeds with no AWS creds/network and returns a 2-tuple.",
+    "DIRECT mode (default) is byte-for-byte unchanged: build_agent() returns a bare Agent with the 25 local tools and the WriteApprovalHook.",
+    "The six write names still gate under both a bare name and a mock-<svc>___<tool> name."
+  ],
+  "verification": [
+    "python -m pytest agent -q"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

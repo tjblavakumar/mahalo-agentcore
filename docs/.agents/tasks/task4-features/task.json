@@ -1,0 +1,7 @@
+{
+  "task_id": "task4-gateway-mcp",
+  "task_description": "Place the four Task 3 mock-service Lambdas behind one Amazon Bedrock AgentCore Gateway and expose their 25 operations as MCP tools, preserving data equivalence and the six-write HITL gate. Add a dual-mode (DIRECT default | GATEWAY) toggle to the Strands agent, a mandatory Gateway->Router adapter in each Lambda, a native CDK MahaloGatewayStack, new unit tests, and an offline verification gate. Live deploy/auth steps are deferred to a human operator.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}

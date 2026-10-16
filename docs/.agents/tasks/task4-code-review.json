@@ -1,0 +1,24 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "INFO",
+      "confidence": "confirmed",
+      "label": "Offline-safety deviation (resolved)",
+      "detail": "The design claimed a bare MCPClient in Agent(tools=[...]) constructs offline; against installed strands 1.61.1 it eagerly starts the client. The coder correctly builds gateway-mode with tools=[] + attach_gateway_tools inside 'with mcp_client:', documented the deviation, and the offline gate confirms _is_session_active() is False. No action; not blocking."
+    },
+    {
+      "severity": "INFO",
+      "confidence": "confirmed",
+      "label": "Inbound-auth mechanism unverified (deferred by design)",
+      "detail": "SigV4-over-MCP vs the Cognito JWT fallback is an explicit LIVE operator step; the offline gate only proves the MCP client constructs. Accept as deferred. Operator must record which mechanism the AWS_IAM authorizer accepts (plan section 9 step 4). Not blocking."
+    },
+    {
+      "severity": "INFO",
+      "confidence": "confirmed",
+      "label": "No live deployment yet (deferred by design)",
+      "detail": "The Gateway and Lambdas were not deployed and the end-to-end GATEWAY-mode run is unexecuted. Accept as deferred (operator section 9 step 5). Nothing in the offline gate is fabricated. Not blocking."
+    }
+  ],
+  "reviewDoc": "docs/.agents/tasks/task4-code-review.md"
+}
