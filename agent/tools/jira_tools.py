@@ -10,12 +10,30 @@ Task 2.
 
 from __future__ import annotations
 
+import os
+import sys
 from typing import Optional
 
 from strands import tool
 
 from agent.config import settings
 from agent.tools.http import make_request
+
+# Pin assignee name->dev-id resolution to the SINGLE source of truth shared with
+# the Gateway-mode Lambda composites (tools-lambdas/common/assignee.py). The
+# resolver body lives there; this module keeps the thin HTTP-fetching wrapper.
+# The shim adds the repo-root ``tools-lambdas`` dir to ``sys.path`` so ``common``
+# imports as a top-level package exactly as it does inside each Lambda asset.
+# This is import-time only, offline-safe (no AWS/network), and a no-op if the
+# path is already present.
+_TOOLS_LAMBDAS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tools-lambdas",
+)
+if _TOOLS_LAMBDAS_DIR not in sys.path:
+    sys.path.append(_TOOLS_LAMBDAS_DIR)
+
+from common.assignee import resolve_assignee as _resolve_assignee_impl  # noqa: E402
 
 
 def _jira_request(endpoint: str = "", params: Optional[dict] = None) -> dict:
@@ -35,28 +53,17 @@ def _resolve_assignee(assignee: str) -> Optional[str]:
     Accepts a developer ID (dev-1..dev-5) as-is, or resolves a person's
     name (full name, first name, or email local-part) to their dev-ID.
     Returns None if no confident match is found.
+
+    Thin wrapper over the shared ``common.assignee.resolve_assignee`` body (the
+    one source of truth also used by the Gateway-mode Jira composites). The
+    ``dev-`` short-circuit avoids an unnecessary ``/developers`` fetch, matching
+    the resolver's own short-circuit.
     """
     if not assignee:
         return None
-    val = assignee.strip().lower()
-    # Already a developer ID
-    if val.startswith("dev-"):
-        return val
-    developers = _fetch_developers()
-    # Exact full-name or email match first
-    for d in developers:
-        if val == d["name"].lower() or val == d.get("email", "").lower():
-            return d["id"]
-    # First-name / partial match (e.g. "raj" -> "Raj Patel")
-    matches = [
-        d for d in developers
-        if val in d["name"].lower()
-        or val == d.get("email", "").split("@")[0].lower()
-        or d["name"].lower().split()[0] == val
-    ]
-    if len(matches) == 1:
-        return matches[0]["id"]
-    return None
+    if assignee.strip().lower().startswith("dev-"):
+        return _resolve_assignee_impl(assignee, [])
+    return _resolve_assignee_impl(assignee, _fetch_developers())
 
 
 def _format_stories(results: list[dict], label: str, developers: Optional[list[dict]] = None) -> str:

@@ -27,6 +27,7 @@ from strands.models import BedrockModel
 
 from agent.approval import WriteApprovalHook
 from agent.config import settings
+from agent.gateway_client import _build_gateway_mcp_client
 from agent.prompts import ROLE_PROMPTS
 from agent.tools.confluence_tools import CONFLUENCE_TOOLS
 from agent.tools.github_tools import GITHUB_TOOLS
@@ -86,14 +87,28 @@ def build_agent(
     user_name: str = "Lava Dev",
     user_role: str = "Developer",
     developer_id: str = "dev-6",
-) -> Agent:
-    """Build and return a configured Strands Agent with the read-only tools.
+    tool_mode: str | None = None,
+):
+    """Build and return a configured Strands Agent.
 
     The system prompt is the selected role prompt (default: developer) with the
     integrations context and user identity filled in, plus a CURRENT USER
     IDENTITY block so "me"/"my"/"mine"/"assigned to me" resolve to ``developer_id``
     (default dev-6, the demo "Lava Dev" identity).
+
+    ``tool_mode`` selects the tool source (defaults to ``settings.tool_mode``,
+    i.e. ``MAHALO_TOOL_MODE`` or ``"direct"``):
+
+    * ``direct`` (default) — the 25 local ``@tool``s hitting HTTP endpoints;
+      returns the bare ``Agent``. This is the unchanged Task 1-2 behavior.
+    * ``gateway`` — a Gateway-backed ``MCPClient`` is passed into the agent;
+      returns ``(agent, mcp_client)`` because MCP tools are only usable inside
+      the client's context manager. The client is constructed OFFLINE-SAFE
+      (not started).
+
+    Either way the same prefix-aware ``WriteApprovalHook`` gates the six writes.
     """
+    mode = (tool_mode or settings.tool_mode).lower()
     model = _build_bedrock_model()
 
     system_prompt = ROLE_PROMPTS[role].format(
@@ -109,9 +124,34 @@ def build_agent(
         f"not try to resolve their name; it is already known.\n"
     )
 
+    if mode == "gateway":
+        mcp_client = _build_gateway_mcp_client()  # constructed, NOT started
+        # The agent is built WITHOUT the MCP tools here so construction stays
+        # offline-safe: passing an MCPClient into ``Agent(tools=[...])`` would
+        # eagerly ``load_tools()`` (starting the client / hitting the network).
+        # The caller attaches the provider with ``attach_gateway_tools`` once it
+        # is inside ``with mcp_client:`` (see agent/chat.py).
+        agent = Agent(
+            model=model,
+            tools=[],
+            system_prompt=system_prompt,
+            hooks=[WriteApprovalHook()],
+        )
+        return agent, mcp_client
+
     return Agent(
         model=model,
         tools=[*READ_TOOLS, *WRITE_TOOLS],
         system_prompt=system_prompt,
         hooks=[WriteApprovalHook()],
     )
+
+
+def attach_gateway_tools(agent, mcp_client) -> None:
+    """Register the Gateway MCP tools onto ``agent`` inside the client context.
+
+    Call this ONLY after entering ``with mcp_client:`` — the MCP client must be
+    started before its tools can be loaded. This keeps ``build_agent`` offline-
+    safe while still exposing the Gateway tools for a live invocation.
+    """
+    agent.tool_registry.process_tools([mcp_client])

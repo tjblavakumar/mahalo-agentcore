@@ -5,6 +5,7 @@ import os
 
 from botocore.exceptions import ClientError
 
+from common import gateway_adapter
 from common.dynamo_store import Store
 from common.responses import error
 
@@ -27,10 +28,21 @@ def _get_router():
     return _store, _router
 
 
+def _gateway_tool_name(context):
+    """Return the Gateway tool name if this is a Gateway invocation, else None."""
+    custom = getattr(getattr(context, "client_context", None), "custom", None)
+    if isinstance(custom, dict):
+        return custom.get("bedrockAgentCoreToolName")
+    return None
+
+
 def lambda_handler(event, context):
     try:
         store, router = _get_router()
         store.ensure_seeded()
+        tool_name = _gateway_tool_name(context)
+        if tool_name is not None:
+            return gateway_adapter.handle(tool_name, store, router, event, _TOKEN)
         return router.dispatch(event)
     except ClientError:
         logger.exception("DynamoDB error")

@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import sys
 
-from agent.strands_agent import build_agent
+from agent.config import settings
+from agent.strands_agent import attach_gateway_tools, build_agent
 
 _IDENTITY = {
     "role": "developer",
@@ -93,12 +94,29 @@ def _emit_system_signal(agent, proposal: dict) -> None:
 
 
 def _run_single(message: str) -> None:
+    if settings.tool_mode.lower() == "gateway":
+        # GATEWAY mode: MCP tools are only usable inside the client's context.
+        agent, mcp_client = build_agent(tool_mode="gateway", **_IDENTITY)
+        with mcp_client:
+            attach_gateway_tools(agent, mcp_client)
+            print(_ask(agent, message))
+        return
     agent = build_agent(**_IDENTITY)
     print(_ask(agent, message))
 
 
 def _run_repl() -> None:
+    if settings.tool_mode.lower() == "gateway":
+        agent, mcp_client = build_agent(tool_mode="gateway", **_IDENTITY)
+        with mcp_client:
+            attach_gateway_tools(agent, mcp_client)
+            _repl_loop(agent)
+        return
     agent = build_agent(**_IDENTITY)
+    _repl_loop(agent)
+
+
+def _repl_loop(agent) -> None:
     print("mahalo agent (developer / dev-6). Type 'quit' or 'exit' to leave.")
     while True:
         try:

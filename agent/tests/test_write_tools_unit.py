@@ -393,6 +393,63 @@ def test_hook_is_noop_for_read_tool():
     assert event.cancel_tool is False
 
 
+# --------------------------------------------------------------------------- #
+# Task 4: Gateway ``<target>___<tool>`` prefix handling in the HITL hook
+# --------------------------------------------------------------------------- #
+
+def test_bare_name_strips_gateway_prefix():
+    from agent.approval import _bare_name
+
+    assert _bare_name("mock-github___github_create_branch") == "github_create_branch"
+    # A bare local name has no ``___`` -> unchanged (DIRECT mode).
+    assert _bare_name("github_create_branch") == "github_create_branch"
+
+
+def test_hook_interrupts_on_prefixed_write_name():
+    hook = WriteApprovalHook()
+    event = _FakeBeforeToolCallEvent(
+        "mock-github___github_create_branch", {"repo_id": "r", "branch_name": "b"}
+    )
+    with pytest.raises(InterruptException):
+        hook._before_tool_call(event)
+    assert event.interrupt_calls[0]["name"] == "write_approval"
+    # The proposal is built from the BARE name, so action/system are correct.
+    assert event.interrupt_calls[0]["reason"]["action"] == "create_branch"
+    assert event.interrupt_calls[0]["reason"]["system"] == "github"
+
+
+def test_hook_prefixed_reject_sets_cancel_tool():
+    hook = WriteApprovalHook()
+    event = _FakeBeforeToolCallEvent(
+        "mock-github___github_create_branch",
+        {"repo_id": "r", "branch_name": "b"},
+        stored_response="REJECT",
+    )
+    hook._before_tool_call(event)
+    assert event.cancel_tool == "Write rejected by user."
+
+
+def test_hook_noop_for_prefixed_read_tool():
+    hook = WriteApprovalHook()
+    event = _FakeBeforeToolCallEvent("mock-jira___jira_get_story", {"story_id": "PAY-105"})
+    hook._before_tool_call(event)
+    assert event.interrupt_calls == []
+    assert event.cancel_tool is False
+
+
+def test_build_proposal_strips_gateway_prefix():
+    tool_use = {
+        "name": "mock-github___github_create_branch",
+        "input": {"repo_id": "payment-service", "branch_name": "feature/PAY-109", "from_branch": "main"},
+    }
+    proposal = build_proposal(tool_use)
+    assert proposal["action"] == "create_branch"
+    assert proposal["system"] == "github"
+    assert proposal["description"] == (
+        "Create branch 'feature/PAY-109' in payment-service from main"
+    )
+
+
 def test_hook_reject_path_sets_cancel_tool(monkeypatch):
     def _no_write(*args, **kwargs):
         raise AssertionError("no HTTP write must happen when rejected")

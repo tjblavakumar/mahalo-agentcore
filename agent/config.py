@@ -67,5 +67,18 @@ class Settings:
         default_factory=lambda: float(_getenv("HTTP_TIMEOUT", "10.0"))
     )
 
+    # --- Tool mode (Task 4: DIRECT-HTTP default | Gateway-MCP opt-in) ---
+    tool_mode: str = field(
+        default_factory=lambda: _getenv("MAHALO_TOOL_MODE", "direct")
+    )
+    gateway_mcp_url: str = field(
+        default_factory=lambda: _getenv("MAHALO_GATEWAY_MCP_URL", "")
+    )
+    gateway_region: str = field(
+        default_factory=lambda: _getenv(
+            "MAHALO_GATEWAY_REGION", _getenv("AWS_REGION", "us-east-1")
+        )
+    )
+
 
 settings = Settings()

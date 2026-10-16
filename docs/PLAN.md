@@ -32,9 +32,29 @@ surfaced for approval before any action is taken.
 Reimplement the four mock systems (Jira, Confluence, GitHub, ServiceNow) as AWS Lambdas,
 keeping their behavior equivalent to the local mocks.
 
-## Task 4 - Gateway MCP
+## Task 4 - Gateway MCP (OFFLINE-COMPLETE; live deploy deferred)
 
 Place the Lambdas behind AgentCore Gateway and expose them as MCP tools the agent can call.
+
+Progress: implemented as `infra-cdk/mahalo_infra/gateway_stack.py`
+(`MahaloGatewayStack`: one `CfnGateway` MCP + four `CfnGatewayTarget`s with inline
+toolSchema + a least-privilege Gateway IAM role + per-Lambda invoke permission;
+`authorizerType` CfnParameter default `AWS_IAM`). Scope refinement during the
+task: a single `tools-lambdas/common/tool_schemas.py` (25-tool source of truth)
+feeds BOTH the CDK toolSchema and a new in-Lambda `gateway_adapter.py` (synthetic
+Function-URL request through the frozen router), so the model's schema and the
+wire call cannot drift; three server-side composites reproduce the agent-only
+orchestration; the agent gets a dual-mode toggle (`MAHALO_TOOL_MODE`, default
+`direct` — DIRECT HTTP stays the baseline) with a `build_agent(tool_mode=...)`
+branch returning `(agent, mcp_client)`; and HITL is preserved under Gateway's
+`target___tool` rename so the six writes stay gated. Zero LangChain. Offline gate
+GREEN (`docs/.agents/tasks/task4-verification.md`): `cdk synth --all` exit 0
+(gateway = 1 Gateway + 4 Targets), infra-cdk 26 pass, tools-lambdas 94 pass,
+agent 52 pass / 1 skip (DIRECT 42/1 preserved), gateway-mode `build_agent`
+constructs offline. Code reviewed and APPROVED
+(`docs/.agents/tasks/task4-code-review.json`). The live deploy (four Lambdas +
+Gateway + targets + inbound auth) and the end-to-end READ / HITL-WRITE through
+the Gateway are DEFERRED operator steps.
 
 ## Task 5 - Memory and Identity
 

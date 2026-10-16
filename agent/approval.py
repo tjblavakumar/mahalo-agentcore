@@ -39,6 +39,17 @@ _SYSTEM_BY_PREFIX = {
 }
 
 
+def _bare_name(name: str) -> str:
+    """Return the bare tool name.
+
+    In GATEWAY mode the Gateway renames every tool to ``"<target>___<tool>"``
+    (triple underscore); in DIRECT mode the name is already bare. ``rsplit`` on
+    ``___`` strips the Gateway prefix and is a no-op for a bare local name, so
+    one code path serves both modes.
+    """
+    return name.rsplit("___", 1)[-1]
+
+
 def build_proposal(tool_use) -> dict:
     """Build the human-readable approval proposal from a tool-use payload.
 
@@ -48,7 +59,7 @@ def build_proposal(tool_use) -> dict:
     ``servicenow``), ``params`` is a copy of ``tool_use["input"]`` (its keys are
     the tool's own parameter names), and ``description`` is a human sentence.
     """
-    name = tool_use["name"]
+    name = _bare_name(tool_use["name"])
     prefix, _, action = name.partition("_")
     system = _SYSTEM_BY_PREFIX.get(prefix, prefix)
     params = dict(tool_use.get("input") or {})
@@ -105,8 +116,9 @@ class WriteApprovalHook(HookProvider):
         registry.add_callback(BeforeToolCallEvent, self._before_tool_call)
 
     def _before_tool_call(self, event: BeforeToolCallEvent) -> None:
-        name = event.tool_use["name"]
-        if name not in WRITE_TOOL_NAMES:
+        # Strip the Gateway ``<target>___<tool>`` prefix before matching so the
+        # six write names are recognized in both DIRECT and GATEWAY modes.
+        if _bare_name(event.tool_use["name"]) not in WRITE_TOOL_NAMES:
             # Read tools pass straight through (no-op).
             return
 

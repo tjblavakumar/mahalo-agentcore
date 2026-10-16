@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "IaC + offline verification gate: the native CDK MahaloGatewayStack (CfnGateway + 4x CfnGatewayTarget + Gateway IAM role + Lambda invoke permissions) wired via direct construct reference from the four MockServiceStacks (Task 3 stays frozen, no Fn.import_value), the CDK assertion test, the requirements floor bump, and the final OFFLINE verification gate recorded in task4-verification.md. Depends on FEAT-001 (reads tool_schemas.py for the inline toolSchema). Grounded in investigation section 4 and design section 7.",
+  "status": "pending",
+  "steps": [
+    "Create infra-cdk/mahalo_infra/gateway_stack.py: MahaloGatewayStack taking the four MockServiceStack instances as constructor args (direct construct reference). Using aws_cdk.aws_bedrockagentcore L1 constructs: a Gateway IAM service role (trust bedrock-agentcore.amazonaws.com; inline lambda:InvokeFunction on the four stack.function.function_arn only); one CfnGateway (protocolType='MCP', roleArn, authorizerType as a CfnParameter defaulting to 'AWS_IAM', protocolConfiguration.mcp.supportedVersions); four CfnGatewayTarget (name='mock-<svc>', targetConfiguration.mcp.lambda with lambdaArn + inline toolSchema built from common.tool_schemas, credentialProviderConfigurations=[{credentialProviderType:'GATEWAY_IAM_ROLE'}]); a fn.add_permission(...) invoke grant per function; CfnOutputs GatewayId, GatewayArn, GatewayMcpUrl.",
+    "Modify infra-cdk/app.py: capture the four MockServiceStack instances and pass them into MahaloGatewayStack (CDK auto-wires the cross-stack dependency). Do NOT change mock_service_stack.py.",
+    "Bump infra-cdk/requirements.txt floor to aws-cdk-lib>=2.251,<3 (2.273.0 already satisfies it).",
+    "Create infra-cdk/tests/test_gateway_stack.py (pattern from infra-cdk/tests/test_synth.py): synth MahaloGatewayStack given the four mock stacks; assert exactly one CfnGateway (authorizerType default AWS_IAM), four targets whose toolSchema tool-name sets match the per-service expected names, the Gateway role with lambda:InvokeFunction on the four function ARNs, four invoke permissions, and no Fn::ImportValue in the template.",
+    "Run the full OFFLINE gate and fix any cross-FEAT seams: (1) cd infra-cdk && cdk synth --all; (2) cd infra-cdk && python -m pytest tests -q; (3) cd tools-lambdas && python -m pytest tests -q; (4) python -m pytest agent -q (42 passed, 1 skipped baseline + new tests); (5) build_agent(tool_mode='gateway') constructs offline; (6) confirm zero LangChain (grep -ri langchain agent tools-lambdas infra-cdk returns nothing). Record outcomes in docs/.agents/tasks/task4-verification.md.",
+    "Document the DEFERRED live operator steps (cdk deploy --all --profile lava; set MAHALO_GATEWAY_MCP_URL + MAHALO_TOOL_MODE=gateway; confirm bedrock-agentcore:InvokeGateway; validate inbound auth with SigV4 fallback to CUSTOM_JWT+Cognito; run the live GATEWAY-mode integration check) in task4-verification.md as NOT executed."
+  ],
+  "acceptance_criteria": [
+    "`cd infra-cdk && cdk synth --all` succeeds for MahaloGatewayStack plus the four mock stacks with no AWS creds/network.",
+    "`cd infra-cdk && python -m pytest tests -q` passes, including the new gateway-stack assertions and the unchanged mock-stack synth tests.",
+    "The synthesized template contains one CfnGateway, four CfnGatewayTargets, a least-privilege Gateway role, four invoke permissions, and NO Fn::ImportValue; mock_service_stack.py is unchanged.",
+    "docs/.agents/tasks/task4-verification.md records all six offline-gate outcomes and the deferred live steps; zero LangChain confirmed."
+  ],
+  "verification": [
+    "cd infra-cdk && cdk synth --all",
+    "cd infra-cdk && python -m pytest tests -q"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
