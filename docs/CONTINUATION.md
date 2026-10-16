@@ -37,22 +37,65 @@ doesn't.
 
 - Task 0 DONE: skeleton, docs, scripts/verify-agentcore.ps1, git repo. First
   commit pushed to https://github.com/tjblavakumar/mahalo-agentcore (branch main).
-- Task 1 CODE-COMPLETE (local Strands agent, read-only): package under `agent/`
+- Task 1 DONE (local Strands agent, read-only): package under `agent/`
   with env-driven config, a Bedrock-backed Strands agent (Claude Sonnet 4.5,
   read_timeout=300s, creds from the `lava` profile), ported system prompts, 19
   read tools over the four mocks (7 Jira / 4 GitHub / 3 Confluence / 5
   ServiceNow), a `python -m agent.chat` CLI/REPL (dev-6 "Lava Dev" identity), and
-  tests. Zero LangChain imports. Offline verification done and recorded in
+  tests. Zero LangChain imports. Offline verification recorded in
   `docs/.agents/tasks/task1-verification.md`: unit suite 13/13 pass, full suite
   13 pass + 1 integration test SKIPS (tunnel down), import/`build_agent()` succeed
   without creds. Strands 1.61.1 API confirmed against the installed source.
-  - STILL TO RUN LIVE (user): open the SSH tunnel (ports 5001-5004), `aws sso
-    login --profile lava`, then confirm `python -m agent.chat "list my
-    repositories"` -> payment-service and `python -m agent.chat "show my
-    stories"` -> PAY stories, and that `pytest agent` runs (not skips) the
-    integration test. The real Bedrock + tunnel path could not be exercised
-    offline.
-- NEXT: Task 2 — propose/approve human-in-the-loop for the write tools.
+  Code reviewed and APPROVED (docs/.agents/tasks/task1-review.md).
+  Committed AND PUSHED to origin/main (commit 727ba7b).
+  - LIVE VERIFICATION PASSED (2026-10-15, with tunnel + `lava` SSO up): routed
+    through Strands -> Bedrock Sonnet 4.5 -> live EC2 mocks with zero LangChain.
+    `python -m agent.chat "list my repositories"` -> payment-service (via
+    github_list_repos); `python -m agent.chat "show PAY-109"` -> full story with
+    assignee resolved to "Lava Dev (you)" = dev-6. End-to-end path confirmed.
+- NEXT: Task 2 — propose/approve human-in-the-loop for the 7 write tools.
+
+## Task 2 — concrete definition (do this next)
+
+Goal: add the WRITE tools to the Strands agent with a human-in-the-loop
+propose/approve gate, so no write executes until the user approves it. Build on
+Task 1's agent package; keep everything read-only still working. Tunnel + SSO
+were live at end of Task 1, so Task 2 can be verified end-to-end (real
+propose -> approve -> write against the mocks) in-session, not just offline.
+
+The 7 write actions to add (contracts match the mahalo-dock tool modules under
+`mahalo-dock/backend/app/agent/tools/*_tools.py` — read them for exact params):
+- jira_create_story, jira_update_story
+- github_create_branch, github_commit_files, github_open_pull_request
+- servicenow_create_incident
+
+Required behaviors to preserve (from the 7-write-actions section below and the
+mahalo-dock originals):
+- Propose, don't execute: a write-tool call returns a PROPOSAL for the user to
+  approve; only after approval does the agent perform the real HTTP write
+  (POST/PUT) against the mock. Decide HOW to model this in Strands 1.61.1 FIRST
+  (investigate the installed SDK for a native human-in-the-loop / tool-interrupt
+  / approval mechanism) rather than blindly porting mahalo-dock's
+  `__PROPOSAL__...__END_PROPOSAL__` string sentinel. Pick the idiomatic Strands
+  approach and document the decision.
+- Resilience: "branch already exists" = success (not an error).
+- Chaining: branch -> commit -> PR, each a separate approved step; a `[SYSTEM]`
+  signal records which steps are already done so the agent never re-proposes a
+  completed step.
+- github_commit_files must carry the COMPLETE file contents (never a diff),
+  re-emitting the full generated code.
+- Keep the write-tool docstrings/behavioral rules (repo-NAME discipline, resolve
+  people to dev-ids, UPDATE vs CREATE for existing story keys).
+- Write HTTP verbs: jira create=POST /..., update=PUT; github create branch /
+  commit / open PR = POST; servicenow create incident = POST. Confirm exact
+  endpoints against the live mocks (tunnel) or mahalo-dock source.
+
+Verification for Task 2 (tunnel + `lava` SSO up): a write request (e.g. "create
+a story in PAY titled X" or "create a feature branch for PAY-109") produces a
+PROPOSAL (nothing written yet), and only after an explicit approve does the mock
+actually change (confirm by a follow-up read). Unit-test the propose path
+(no HTTP on proposal) and the approve path (mocked HTTP write). Keep the Task 1
+integration test green.
 
 ## AWS environment (verified)
 
