@@ -25,14 +25,19 @@ from botocore.config import Config
 from strands import Agent
 from strands.models import BedrockModel
 
+from agent.approval import WriteApprovalHook
 from agent.config import settings
 from agent.prompts import ROLE_PROMPTS
 from agent.tools.confluence_tools import CONFLUENCE_TOOLS
 from agent.tools.github_tools import GITHUB_TOOLS
+from agent.tools.github_write_tools import GITHUB_WRITE_TOOLS
 from agent.tools.jira_tools import JIRA_TOOLS
+from agent.tools.jira_write_tools import JIRA_WRITE_TOOLS
 from agent.tools.servicenow_tools import SERVICENOW_TOOLS
+from agent.tools.servicenow_write_tools import SERVICENOW_WRITE_TOOLS
 
 READ_TOOLS = [*JIRA_TOOLS, *GITHUB_TOOLS, *CONFLUENCE_TOOLS, *SERVICENOW_TOOLS]
+WRITE_TOOLS = [*JIRA_WRITE_TOOLS, *GITHUB_WRITE_TOOLS, *SERVICENOW_WRITE_TOOLS]
 
 
 def _integrations_context() -> str:
@@ -104,4 +109,9 @@ def build_agent(
         f"not try to resolve their name; it is already known.\n"
     )
 
-    return Agent(model=model, tools=READ_TOOLS, system_prompt=system_prompt)
+    return Agent(
+        model=model,
+        tools=[*READ_TOOLS, *WRITE_TOOLS],
+        system_prompt=system_prompt,
+        hooks=[WriteApprovalHook()],
+    )
