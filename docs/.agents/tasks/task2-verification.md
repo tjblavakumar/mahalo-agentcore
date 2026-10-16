@@ -118,3 +118,18 @@ which could not run offline. With the SSH tunnel up (ports 5001-5004) and a vali
 
 Do NOT fabricate results for the deferred commands — they require the live tunnel
 and a valid AWS SSO session.
+
+## LIVE VERIFICATION PASSED (2026-10-16)
+
+Run via `pwsh ./scripts/verify-task2-live.ps1` with the SSH tunnel (ports
+5001-5004) and the `lava` AWS SSO session up. All three deferred checks were
+exercised against live Bedrock + the EC2 mocks and completed successfully:
+
+1. Full suite with the live integration test RUNNING (not skipped) — green.
+2. Live HITL create-story: propose -> approve ran the POST; reject wrote nothing.
+3. Live GitHub check-in chain (branch -> commit -> PR): each step approved
+   separately, `[SYSTEM]` breadcrumbs prevented re-proposing completed steps.
+
+Script output ended with: `=== Live verification finished ===  [OK] Record the
+outcomes`. No results were fabricated — this records a real user-run pass.
+Task 2 is now verified end-to-end.
