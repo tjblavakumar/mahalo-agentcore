@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+build/
+
+# AWS CDK
+cdk.out/
+cdk.context.json
+
+# Environment files (keep .env.example)
+.env
+*.env
+!.env.example
+
+# OS
+.DS_Store
