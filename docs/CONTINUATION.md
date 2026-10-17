@@ -113,9 +113,69 @@ doesn't.
   agent at the Gateway MCP endpoint via `MAHALO_GATEWAY_MCP_URL`/
   `MAHALO_TOOL_MODE=gateway`; run an end-to-end READ and a HITL WRITE through the
   Gateway) are documented in `docs/.agents/tasks/task4-verification.md`.
+  - LIVE DEPLOY DONE (2026-10-16, `lava` SSO up): `cdk bootstrap` +
+    `cdk deploy --all --require-approval never --profile lava` → all five stacks
+    CREATE_COMPLETE in account 051570254217 / us-east-1. **These resources are
+    STILL DEPLOYED and incurring (small) cost.** Deployed outputs:
+    - Gateway MCP URL: `https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp`
+      (GatewayId `mahalo-gateway-bex2gwexvv`).
+    - Lambda Function URLs: jira `https://6jysjgpotsbtmps4reiphgm4y40qxfph.lambda-url.us-east-1.on.aws/`,
+      confluence `https://xs4ceoejtdhjn255utn4uxhysy0mkgou.lambda-url.us-east-1.on.aws/`,
+      github `https://hgfughfqvq5omyacdydghzrzom0zcmft.lambda-url.us-east-1.on.aws/`,
+      servicenow `https://joz5k452zdqp6zpehiapftyc5m0mkwqu.lambda-url.us-east-1.on.aws/`.
+    - Lambda smoke (direct, bypassing Gateway): `GET <jira>/projects` with the
+      `X-API-Token` → HTTP 200 seeded data; no token → HTTP 401. Lambdas healthy.
+    - INBOUND-AUTH RESOLVED: the default AWS_IAM authorizer ACCEPTS a SigV4-signed
+      MCP request when the signing SERVICE NAME is **`bedrock-agentcore`** (HTTP
+      200, returns the tool catalog with Gateway-prefixed names like
+      `mock-confluence___confluence_get_page`); `bedrock` is rejected (401);
+      unsigned is rejected (401). So AWS_IAM is viable for the demo — NO Cognito
+      needed now (CUSTOM_JWT/Cognito still the documented dev-mode path).
+    Recorded in `docs/.agents/tasks/task4-verification.md` ("LIVE DEPLOY + AUTH
+    VALIDATION").
+
+  - LIVE E2E FULLY PASSED (2026-10-17): the Task-4 live-finish is complete.
+    Two live bugs were found by deploying and fixed in-session:
+    1. MCP client DOUBLE-START — `with mcp_client:` + `attach_gateway_tools`
+       (which calls `load_tools()` → starts again) raised
+       `ToolProviderException: the client session is currently running`. Fixed:
+       `attach_gateway_tools` is the SINGLE start; `chat.py` uses
+       `try: attach...; finally: mcp_client.stop(None,None,None)` (no outer
+       `with`). The offline test only asserted construct-not-started, so it
+       missed this — deploying first surfaced it.
+    2. HITL RESUME history corruption — `chat.py::_ask` emitted the `[SYSTEM]`
+       breadcrumb via `agent.messages.append` after EVERY resume, including a
+       resume that re-interrupted, wedging a zero-toolUse assistant message
+       between an open toolUse and its pending toolResult → Bedrock
+       `ValidationException: toolResult blocks ... exceeds toolUse blocks of
+       previous turn`. Fixed: defer approved breadcrumbs, flush only when a
+       resume returns a NON-interrupt result (tool cycle fully closed).
+       Mode-agnostic; DIRECT unchanged & still default; branch→commit→PR
+       chaining preserved both modes.
+    Also implemented the SigV4 `httpx.Auth` provider (`agent/gateway_client.py`
+    `SigV4Auth`, signing service `bedrock-agentcore`) as the default auth factory.
+    Verified LIVE against the deployed Gateway: READ (`list my repositories` →
+    payment-service et al.) routed Strands→Bedrock→SigV4→Gateway MCP→github
+    Lambda→DynamoDB; HITL APPROVE (gate fires on `mock-github___github_create_branch`,
+    write runs once, no ValidationException) and REJECT (nothing written, clean)
+    both pass. The write's "repository not found" is the EXPECTED pre-existing
+    mock repo-id-vs-name keying, NOT a bug. Offline gate: `pytest agent -q` =
+    **55 passed, 1 skipped** (+2 resume regression tests; DIRECT 42/1 preserved).
+    Full detail in `docs/.agents/tasks/task4-verification.md`
+    ("GATEWAY-mode live E2E" + "GATEWAY HITL resume fix (live)").
+    Live driver kept as `scripts/gw_hitl_smoke.py`. Committed + pushed to
+    origin/main.
 - NEXT: Task 5 — add AgentCore Memory for session state/conversation history
   (replacing the old in-memory session.py) and AgentCore Identity for brokering
   tool credentials. See docs/PLAN.md.
+  - ⚠️ AWS COST / DEPLOYED STATE: the five app stacks (Gateway + 4 Lambdas + 4
+    DynamoDB tables) PLUS `CDKToolkit` are STILL DEPLOYED in 051570254217/us-east-1
+    as of the Task-4 live-finish. If not actively testing, tear down to stop
+    spend: from `infra-cdk/` with its venv active
+    (`& .\.venv\Scripts\Activate.ps1`), run
+    `cdk destroy --all --force --profile lava`. Redeploys cleanly via
+    `cdk deploy --all` (~7 min). Gateway MCP URL (while up):
+    `https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp`.
 
 ## Task 2 — concrete definition (do this next)
 

@@ -15,16 +15,80 @@ operator step wires the concrete provider.
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
 
 import httpx
 from strands.tools.mcp import MCPClient
 
 from agent.config import settings
 
+# SigV4 signing service name for the AgentCore Gateway MCP endpoint. Validated
+# LIVE (2026-10-16): signing as ``bedrock-agentcore`` is accepted by the default
+# AWS_IAM authorizer (HTTP 200); ``bedrock`` is rejected (401). See
+# docs/.agents/tasks/task4-verification.md.
+_GATEWAY_SIGNING_SERVICE = "bedrock-agentcore"
+
+
+class SigV4Auth(httpx.Auth):
+    """``httpx.Auth`` that SigV4-signs each request for the AWS_IAM authorizer.
+
+    Signs with the resolved AWS credentials (from the standard chain / the
+    ``lava`` profile) against the ``bedrock-agentcore`` service. Credentials are
+    read per request so refreshed SSO/STS sessions are picked up. The request
+    body is required for signing, so this must sign the fully-built request.
+    """
+
+    def __init__(self, region: str, service: str = _GATEWAY_SIGNING_SERVICE) -> None:
+        self._region = region
+        self._service = service
+
+    def auth_flow(self, request: httpx.Request) -> Iterator[httpx.Request]:
+        # Imported lazily so offline construction never requires boto3 unless a
+        # real GATEWAY invocation actually signs a request.
+        import boto3
+        from botocore.auth import SigV4Auth as _BotoSigV4Auth
+        from botocore.awsrequest import AWSRequest
+
+        creds = boto3.Session().get_credentials()
+        if creds is None:
+            raise RuntimeError(
+                "No AWS credentials available to sign the Gateway MCP request "
+                "(expected the `lava` SSO profile / standard credential chain)."
+            )
+        frozen = creds.get_frozen_credentials()
+
+        body = request.content or b""
+        aws_req = AWSRequest(
+            method=request.method,
+            url=str(request.url),
+            data=body,
+            headers=dict(request.headers),
+        )
+        _BotoSigV4Auth(frozen, self._service, self._region).add_auth(aws_req)
+
+        # Copy the signed headers (Authorization, X-Amz-Date, X-Amz-Security-Token)
+        # back onto the outgoing httpx request.
+        for key, value in aws_req.headers.items():
+            request.headers[key] = value
+        yield request
+
+
+def _default_auth_provider_factory() -> Optional[httpx.Auth]:
+    """Build the SigV4 provider for the AWS_IAM authorizer (the deployed default).
+
+    Returns ``None`` only when no Gateway URL is configured, keeping offline
+    construction dependency-free. When GATEWAY mode is actually used, a valid
+    URL is set and this returns a live SigV4 signer.
+    """
+    if not settings.gateway_mcp_url:
+        return None
+    return SigV4Auth(region=settings.gateway_region)
+
+
 # A factory returning an optional ``httpx.Auth`` to sign Gateway MCP requests.
-# Overridable at the LIVE step; the offline default supplies no provider.
-_auth_provider_factory: Callable[[], Optional[httpx.Auth]] = lambda: None
+# Defaults to the LIVE-validated SigV4 signer; overridable (e.g. to a Cognito
+# bearer-token provider for the CUSTOM_JWT fallback) via ``set_auth_provider_factory``.
+_auth_provider_factory: Callable[[], Optional[httpx.Auth]] = _default_auth_provider_factory
 
 
 def set_auth_provider_factory(factory: Callable[[], Optional[httpx.Auth]]) -> None:

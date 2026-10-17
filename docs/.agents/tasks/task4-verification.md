@@ -236,3 +236,213 @@ resources, so they are left for the operator:
      interrupt fires → approve → branch created (confirm by a follow-up read);
      a reject writes nothing.
    Record the real outcomes here when run.
+
+---
+
+## LIVE DEPLOY + AUTH VALIDATION (2026-10-16, operator-run)
+
+Deployed to account 051570254217 / us-east-1 via the `lava` SSO admin role. Real
+results (no fabrication):
+
+### Bootstrap + deploy
+- `cdk bootstrap aws://051570254217/us-east-1 --profile lava` → `CDKToolkit`
+  CREATE_COMPLETE (12/12 resources).
+- `cdk deploy --all --require-approval never --profile lava` → all five stacks
+  CREATE_COMPLETE in ~421s. Deployed outputs:
+  - `GatewayMcpUrl` = `https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp`
+  - `GatewayId` = `mahalo-gateway-bex2gwexvv`
+  - Function URLs: jira `https://6jysjgpotsbtmps4reiphgm4y40qxfph.lambda-url.us-east-1.on.aws/`,
+    confluence `https://xs4ceoejtdhjn255utn4uxhysy0mkgou.lambda-url.us-east-1.on.aws/`,
+    github `https://hgfughfqvq5omyacdydghzrzom0zcmft.lambda-url.us-east-1.on.aws/`,
+    servicenow `https://joz5k452zdqp6zpehiapftyc5m0mkwqu.lambda-url.us-east-1.on.aws/`
+
+### Lambda Function URL smoke (direct, bypassing Gateway)
+- `GET <jiraUrl>/projects` with `X-API-Token: mock-jira-token-12345` → HTTP 200,
+  seeded projects (AUTH, CART, ...). DynamoDB lazy-seed + in-handler auth work live.
+- Same path with NO token → HTTP 401. Auth enforced.
+
+### Gateway inbound-auth validation (the design's open §6.4 item) — RESOLVED
+- Unsigned POST `tools/list` to the Gateway MCP URL → HTTP 401 (AWS_IAM rejects
+  unsigned, as expected).
+- **SigV4-signed with signing service `bedrock-agentcore`** → **HTTP 200**, MCP
+  `tools/list` returned the tool catalog with Gateway-prefixed names
+  (e.g. `mock-confluence___confluence_get_page`) — confirming both the AWS_IAM
+  path AND the `<target>___<tool>` prefix the HITL hook strips.
+- SigV4-signed with signing service `bedrock` → HTTP 401 (wrong service name).
+
+**Conclusion:** the default AWS_IAM authorizer is viable for the demo with the
+SSO admin role; the correct SigV4 signing service name is **`bedrock-agentcore`**.
+No Cognito/CUSTOM_JWT fallback needed. The `agent/gateway_client.py` auth factory
+(currently returns `None`) must install a SigV4 `httpx.Auth` signing as
+`bedrock-agentcore` for a full in-agent GATEWAY-mode run — pending, scoped, and
+now fully de-risked by the probe above.
+
+---
+
+## GATEWAY-mode live E2E (2026-10-17, lifecycle fix + partial)
+
+Gateway still deployed from 2026-10-16. `lava` SSO re-authed. Env:
+`MAHALO_TOOL_MODE=gateway`,
+`MAHALO_GATEWAY_MCP_URL=https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp`.
+
+### Offline gate (after the MCP double-start lifecycle fix)
+`& "agent/.venv/Scripts/python.exe" -m pytest agent -q` → **53 passed, 1 skipped**
+(52 + 1 new lifecycle regression test; DIRECT 42/1 preserved).
+
+### LIVE READ through the Gateway — PASS
+`python -m agent.chat "list my repositories"` (GATEWAY mode) returned the real
+seeded repos including **payment-service** (+ cart/auth/product/order-service).
+Full chain proven live: Strands → Bedrock Sonnet 4.5 → SigV4(`bedrock-agentcore`)
+→ AgentCore Gateway MCP → github Lambda → DynamoDB. The lifecycle fix
+(single start via `attach_gateway_tools`, `mcp_client.stop()` in `finally`)
+resolved the double-start.
+
+### LIVE HITL WRITE through the Gateway — PARTIAL (gate fires; resume bug)
+Driver: `scripts/_gw_hitl_smoke.py approve "create a feature branch ... in repo repo-1"`.
+- GOOD: the agent resolved repo-1 → payment-service via a live `mock-github___github_list_repos`
+  call, then the write tool `mock-github___github_create_branch` triggered the
+  `WriteApprovalHook` interrupt correctly — `PROPOSED: Create branch
+  'feature/gw-smoke' in payment-service from main` / `Approve this write? [y/N]`.
+  So HITL PROPOSE-not-execute + the Gateway `___`-prefix strip both work LIVE.
+- BUG: after APPROVE, the agent re-proposed the same branch and then the run
+  crashed with `ValidationException ... The number of toolResult blocks at
+  messages.7.content exceeds the number of toolUse blocks of previous turn`
+  (Strands ConverseStream). The interrupt-resume + `_emit_system_signal` history
+  threading corrupts the tool-use/tool-result pairing in GATEWAY (MCP-sourced
+  tools) mode. DIRECT mode is unaffected. This is the remaining Task-4 bug;
+  reject path not yet exercised. Fix in progress.
+
+## GATEWAY HITL resume fix (live)
+
+### Root cause (confirmed against installed strands-agents 1.61.1 + live dump)
+
+The interrupt/resume contract in `strands/event_loop/event_loop.py` +
+`strands/interrupt.py` works like this:
+
+- On the interrupt turn the model's assistant message that carries the open
+  `toolUse` is appended to `agent.messages` (`_handle_model_execution`,
+  `await agent._append_messages(message)`), then `_handle_tool_execution` raises
+  the interrupt via `_stop_for_interrupts`. The matching `toolResult` is **not**
+  appended yet — the toolUse is left "open".
+- On resume, `agent(prompt)` calls `_interrupt_state.resume(prompt)` and
+  `_convert_prompt_to_messages` returns `[]` while `activated` is True, so the
+  `interruptResponse` list is NOT appended to history (SDK side is clean). The
+  event loop replays `pending_tool_execution.assistant_message`, runs the tool,
+  and only then `await agent._append_messages(tool_result_message)` appends the
+  `toolResult` as a `user` turn — closing the cycle.
+
+The defect was in `agent/chat.py::_ask`. It called `_emit_system_signal` (which
+does `agent.messages.append({"role":"assistant","content":[{"text": "[SYSTEM]…"}]})`)
+immediately after EVERY `agent(responses)` resume — including a resume that
+**re-interrupted**. In GATEWAY mode the first approved write 404s (mock keys by
+repo id, agent passes the name) so the model re-proposes `github_create_branch`,
+producing a SECOND interrupt whose `toolUse` is still open. Appending the
+`[SYSTEM]` assistant message at that moment wedged a zero-`toolUse` assistant
+turn between the open `toolUse` and its pending `toolResult`. Live `agent.messages`
+dump at the crash (temp `scripts/_gw_dump.py`):
+
+```
+[3] assistant {text, toolUse}   <- 1st proposal (approved) → ran, 404
+[4] user      {toolResult}
+[5] assistant {text, toolUse}   <- model RE-PROPOSED (approved) — OPEN toolUse
+[6] assistant {text}            <- [SYSTEM] breadcrumb INSERTED mid-cycle  ← BUG
+[7] user      {toolResult}      <- result for toolUse#5; its previous turn [6] has 0 toolUse
+```
+
+So the next ConverseStream call failed with exactly
+`The number of toolResult blocks at messages.7.content exceeds the number of
+toolUse blocks of previous turn`. DIRECT mode never hit this because each
+approved write's resume closed its own cycle before the breadcrumb landed.
+
+### The fix
+
+`agent/chat.py::_ask` now DEFERS the `[SYSTEM]` breadcrumbs: approved proposals
+are collected in `pending_breadcrumbs` and flushed via `_emit_system_signal`
+ONLY when a resume returns a non-interrupt result (the tool cycle is fully
+closed and the `toolResult` has landed). While another interrupt is pending the
+toolUse is still open, so no assistant message is inserted. This is
+mode-agnostic: in DIRECT mode each write's resume closes its own cycle, so the
+breadcrumb still lands before the model proposes the next chained step — the
+branch→commit→PR chaining and "don't re-propose a completed step" semantics are
+preserved in BOTH modes. `_emit_system_signal` itself is unchanged; APPROVE still
+records the breadcrumb, REJECT still records nothing. DIRECT mode is otherwise
+byte-for-byte unchanged and remains the default.
+
+### Offline gate
+
+`& "agent/.venv/Scripts/python.exe" -m pytest agent -q` → **55 passed, 1 skipped**
+(was 53/1; +2 new regression tests in `agent/tests/test_write_tools_unit.py`:
+`test_ask_driver_gateway_resume_reinterrupt_keeps_history_valid` and
+`test_ask_driver_gateway_reject_then_reinterrupt_writes_nothing`). The new
+APPROVE test reproduces the malformed history with a fake MCP-sourced tool whose
+resume re-interrupts, and asserts every `toolResult` turn's count matches the
+previous turn's `toolUse` count (the Bedrock contract) and that breadcrumbs land
+only after the final `toolResult`. Verified it FAILS against the old eager-emit
+behavior with `message 4 has 1 toolResult block(s) but the previous turn has 0
+toolUse block(s)` — the same defect the live crash reported. DIRECT 42/1
+preserved.
+
+### Live APPROVE (deployed Gateway, SSO `lava`, us-east-1, acct 051570254217)
+
+`scripts/_gw_hitl_smoke.py approve 'create a feature branch called feature/gw-smoke in repo repo-1'`:
+
+```
+=== AGENT FINAL ANSWER ===
+... Tool #1: mock-github___github_list_repos
+Perfect! I can see that "repo-1" maps to **payment-service**. ...
+Tool #2: mock-github___github_create_branch
+PROPOSED: Create branch 'feature/gw-smoke' in payment-service from main
+Approve this write? [y/N] y   <- scripted APPROVE
+I'm getting a repository not found error. Let me try listing repos again ...
+Tool #3: mock-github___github_list_repos
+... Tool #4: mock-github___github_create_branch
+PROPOSED: Create branch 'feature/gw-smoke' in payment-service from main
+Approve this write? [y/N] y   <- scripted APPROVE
+Tool #5: mock-github___github_get_repo_stats
+There seems to be a system issue with accessing the GitHub repositories. ...
+Available repositories: payment-service (repo-1) ... order-service (repo-5)
+Could you confirm which repository you'd like me to create the branch in? ...
+(exit code 0)
+```
+
+Outcome: the `WriteApprovalHook` interrupt fired on the Gateway-prefixed
+`mock-github___github_create_branch`; after APPROVE the write executed ONCE per
+approval; the resume completed with a clean final answer and **exit code 0 — NO
+ValidationException**. The write itself returns "repository not found" because
+the mock keys GitHub collections by repo id (`repo-1`) while the agent passes the
+repo NAME (`payment-service`) in `/repos/{repo_id}/branches` per preserved
+mahalo-dock behavior — this by-name 404 is EXPECTED pre-existing behavior, not the
+resume bug. Required assertion met: resume no longer crashes, the gate fires and
+executes-once. An alternate phrasing (`'create a branch named feature/gw-smoke in
+the payment-service repository'`) produced the same clean, non-crashing result
+(exit 0) and the same expected mock 404 — no phrasing made the by-name mock
+accept the write, confirming it is the mock's id-vs-name keying, independent of
+the resume fix.
+
+### Live REJECT (deployed Gateway)
+
+`scripts/_gw_hitl_smoke.py reject 'create a feature branch called feature/gw-smoke2 in repo repo-1'`:
+
+```
+=== AGENT FINAL ANSWER ===
+Tool #1: mock-github___github_list_repos
+I see you want to create a branch in "repo-1". The repository ID "repo-1"
+corresponds to payment-service. I'll create the feature branch feature/gw-smoke2 ...
+Tool #2: mock-github___github_create_branch
+PROPOSED: Create branch 'feature/gw-smoke2' in payment-service from main
+Approve this write? [y/N] n   <- scripted REJECT
+The branch creation proposal was rejected. If you'd like to proceed, please
+approve the write action ...
+(exit code 0)
+```
+
+Outcome: the gate fired, the scripted REJECT cancelled the tool (nothing
+written), and the agent returned a clean, non-crashing final answer (exit 0). No
+`[SYSTEM]` breadcrumb recorded on reject.
+
+### Verdict
+
+The GATEWAY-mode HITL write-resume `ValidationException` is **GONE**. APPROVE runs
+the write once with no re-corruption of history, REJECT writes nothing, DIRECT
+mode is unchanged and still default, and the offline suite is 55 passed / 1
+skipped (DIRECT 42/1 preserved).

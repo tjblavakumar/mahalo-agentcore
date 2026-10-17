@@ -35,24 +35,44 @@ def _ask(agent, message) -> str:
     with an ``interruptResponse`` block. On approve the write body runs and we
     append a ``[SYSTEM]`` breadcrumb so the chain (branch -> commit -> PR) is not
     re-proposed; on reject nothing is written and nothing is appended.
+
+    Breadcrumb timing matters for history validity. The resume turn replays the
+    still-open ``toolUse`` assistant message and only appends its matching
+    ``toolResult`` when the tool cycle closes. If that resume turn ends in ANOTHER
+    interrupt (a chained or re-proposed write), the ``toolUse`` is still open and
+    its ``toolResult`` has not landed yet; appending an assistant ``[SYSTEM]``
+    message at that point wedges a zero-``toolUse`` turn between the open
+    ``toolUse`` and its pending ``toolResult``, so the next Converse call fails
+    with "toolResult blocks ... exceeds ... toolUse blocks of previous turn".
+    So we DEFER each approved breadcrumb and flush the pending ones only once a
+    resume returns a non-interrupt result (the cycle is fully closed and the
+    message history is valid). This is mode-agnostic: in DIRECT mode each write's
+    resume closes its own cycle, so the breadcrumb still lands before the model
+    proposes the next chained step, keeping branch -> commit -> PR intact.
     """
     result = agent(message)
+    pending_breadcrumbs: list[dict] = []  # approved proposals awaiting a closed cycle
     while getattr(result, "stop_reason", None) == "interrupt":
         responses = []
-        approved = []  # proposal dicts captured BEFORE the resume
         for itr in result.interrupts:
             proposal = itr.reason  # {"action","system","params","description"}
             print(f"\nPROPOSED: {proposal['description']}")
             ans = input("Approve this write? [y/N] ").strip().lower()
             decision = "APPROVE" if ans in {"y", "yes"} else "REJECT"
             if decision == "APPROVE":
-                approved.append(proposal)
+                pending_breadcrumbs.append(proposal)
             responses.append(
                 {"interruptResponse": {"interruptId": itr.id, "response": decision}}
             )
         result = agent(responses)
-        for proposal in approved:
-            _emit_system_signal(agent, proposal)
+        # Only flush breadcrumbs once the tool cycle is fully closed (this resume
+        # did NOT re-interrupt). While another interrupt is pending the toolUse is
+        # still open awaiting its toolResult, so inserting an assistant message
+        # now would corrupt the toolUse/toolResult pairing.
+        if getattr(result, "stop_reason", None) != "interrupt":
+            for proposal in pending_breadcrumbs:
+                _emit_system_signal(agent, proposal)
+            pending_breadcrumbs = []
     return str(result).strip()
 
 
@@ -95,11 +115,17 @@ def _emit_system_signal(agent, proposal: dict) -> None:
 
 def _run_single(message: str) -> None:
     if settings.tool_mode.lower() == "gateway":
-        # GATEWAY mode: MCP tools are only usable inside the client's context.
+        # GATEWAY mode: attach_gateway_tools performs the SINGLE MCP start (its
+        # load_tools() owns startup in strands 1.61.1); do NOT wrap in an outer
+        # ``with mcp_client:`` or the client double-starts and raises. The
+        # started session must stay open for every agent turn, so we stop it in
+        # ``finally`` after the call completes.
         agent, mcp_client = build_agent(tool_mode="gateway", **_IDENTITY)
-        with mcp_client:
+        try:
             attach_gateway_tools(agent, mcp_client)
             print(_ask(agent, message))
+        finally:
+            mcp_client.stop(None, None, None)
         return
     agent = build_agent(**_IDENTITY)
     print(_ask(agent, message))
@@ -107,10 +133,14 @@ def _run_single(message: str) -> None:
 
 def _run_repl() -> None:
     if settings.tool_mode.lower() == "gateway":
+        # Single start via attach_gateway_tools (see _run_single); the session
+        # spans every REPL turn and is torn down once the loop exits.
         agent, mcp_client = build_agent(tool_mode="gateway", **_IDENTITY)
-        with mcp_client:
+        try:
             attach_gateway_tools(agent, mcp_client)
             _repl_loop(agent)
+        finally:
+            mcp_client.stop(None, None, None)
         return
     agent = build_agent(**_IDENTITY)
     _repl_loop(agent)
