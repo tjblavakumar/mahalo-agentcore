@@ -4,6 +4,12 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> For a one-page "where are we / what's left" snapshot, read `docs/STATUS.md`
+> first. As of 2026-10-17: Tasks 0-5 DONE and pushed (`main` @ `98ca3b3`);
+> nothing of ours is deployed (Task-4 stacks were deployed, validated, then torn
+> down); NEXT is Task 6 (Runtime hosting). This CONTINUATION file has the full
+> operational detail behind that summary.
+
 > HARD RULE: Only create or modify files UNDER
 > `D:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to
 > `D:\<USER>\LavaCode\AI\mahalo-dock` — that is the original, working
