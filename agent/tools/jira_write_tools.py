@@ -20,9 +20,33 @@ import httpx
 
 from strands import tool
 
+# Module-level import is a plain import (no network, no IdentityClient / boto3
+# client built). The @requires_api_key decorator is applied ONLY to the
+# body-local ``_inner`` inside ``_fetch_jira_token`` below, which is defined and
+# invoked solely on a real Identity-enabled call — so importing this module and
+# constructing ``build_agent(identity=True)`` both stay fully offline.
+from bedrock_agentcore.identity.auth import requires_api_key
+
 from agent.config import settings
 from agent.tools.http import make_request
 from agent.tools.jira_tools import _fetch_developers, _resolve_assignee
+
+
+def _fetch_jira_token() -> str:
+    """Fetch the brokered Jira API key via AgentCore Identity (call-time only).
+
+    ``@requires_api_key`` is applied to the INNER function, which is defined only
+    when this helper runs, so the ``IdentityClient`` / boto3 clients are built
+    only on a real call with identity enabled — never at import. The decorator
+    injects ``api_key=`` into ``_inner`` at call time. The fetched key is a return
+    value (never a tool parameter) and is never logged.
+    """
+
+    @requires_api_key(provider_name=settings.identity_jira_provider, into="api_key")
+    def _inner(*, api_key: str) -> str:
+        return api_key
+
+    return _inner()
 
 
 @tool
@@ -48,10 +72,21 @@ def jira_create_story(
         "story_points": story_points,
         "assignee": assignee,
     }
+    # Toggle is a plain body-level conditional; the decorator is never
+    # "un-applied". With identity off, read the static token exactly as before.
+    # The broad ``except`` is justified because the @tool contract is "never
+    # raise"; the message is type-name-only and never contains the key value.
+    try:
+        token = _fetch_jira_token() if settings.identity_enabled else settings.jira_token
+    except Exception as exc:  # noqa: BLE001 - ClientError / ValueError / etc.
+        return (
+            f"❌ Failed to create story: credential fetch failed "
+            f"({type(exc).__name__})"
+        )
     try:
         data = make_request(
             settings.jira_url,
-            settings.jira_token,
+            token,
             endpoint="/stories",
             method="POST",
             body=body,

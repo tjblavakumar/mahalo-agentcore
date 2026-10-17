@@ -14,10 +14,13 @@ Bedrock endpoint (and the mock tunnel for the tools to return data).
 
 from __future__ import annotations
 
+import argparse
+import os
 import sys
+import uuid
 
 from agent.config import settings
-from agent.strands_agent import attach_gateway_tools, build_agent
+from agent.strands_agent import attach_gateway_tools, attach_memory, build_agent
 
 _IDENTITY = {
     "role": "developer",
@@ -113,37 +116,56 @@ def _emit_system_signal(agent, proposal: dict) -> None:
     agent.messages.append({"role": "assistant", "content": [{"text": msg}]})
 
 
-def _run_single(message: str) -> None:
+def _wire_memory(result, session_id: str | None) -> None:
+    """Attach Memory live (the single AWS-touching step) when enabled.
+
+    Only runs when ``build_agent`` returned a session manager (i.e. Memory is on).
+    The resume/new-session notice is printed ONLY in that case so default output
+    is unchanged.
+    """
+    if result.session_manager is None:
+        return
+    # attach_memory builds the live manager from the offline spec (single AWS
+    # touch) and returns it; its session_id matches the spec's.
+    manager = attach_memory(result.agent, result.session_manager)
+    print(f"[memory] session {manager.session_id}")
+
+
+def _run_single(message: str, *, session_id: str | None = None) -> None:
     if settings.tool_mode.lower() == "gateway":
         # GATEWAY mode: attach_gateway_tools performs the SINGLE MCP start (its
         # load_tools() owns startup in strands 1.61.1); do NOT wrap in an outer
         # ``with mcp_client:`` or the client double-starts and raises. The
         # started session must stay open for every agent turn, so we stop it in
         # ``finally`` after the call completes.
-        agent, mcp_client = build_agent(tool_mode="gateway", **_IDENTITY)
+        result = build_agent(tool_mode="gateway", session_id=session_id, **_IDENTITY)
         try:
-            attach_gateway_tools(agent, mcp_client)
-            print(_ask(agent, message))
+            attach_gateway_tools(result.agent, result.mcp_client)
+            _wire_memory(result, session_id)
+            print(_ask(result.agent, message))
         finally:
-            mcp_client.stop(None, None, None)
+            result.mcp_client.stop(None, None, None)
         return
-    agent = build_agent(**_IDENTITY)
-    print(_ask(agent, message))
+    result = build_agent(session_id=session_id, **_IDENTITY)
+    _wire_memory(result, session_id)
+    print(_ask(result.agent, message))
 
 
-def _run_repl() -> None:
+def _run_repl(*, session_id: str | None = None) -> None:
     if settings.tool_mode.lower() == "gateway":
         # Single start via attach_gateway_tools (see _run_single); the session
         # spans every REPL turn and is torn down once the loop exits.
-        agent, mcp_client = build_agent(tool_mode="gateway", **_IDENTITY)
+        result = build_agent(tool_mode="gateway", session_id=session_id, **_IDENTITY)
         try:
-            attach_gateway_tools(agent, mcp_client)
-            _repl_loop(agent)
+            attach_gateway_tools(result.agent, result.mcp_client)
+            _wire_memory(result, session_id)
+            _repl_loop(result.agent)
         finally:
-            mcp_client.stop(None, None, None)
+            result.mcp_client.stop(None, None, None)
         return
-    agent = build_agent(**_IDENTITY)
-    _repl_loop(agent)
+    result = build_agent(session_id=session_id, **_IDENTITY)
+    _wire_memory(result, session_id)
+    _repl_loop(result.agent)
 
 
 def _repl_loop(agent) -> None:
@@ -161,12 +183,37 @@ def _repl_loop(agent) -> None:
         print(_ask(agent, message))
 
 
+def _resolve_session_id(flag_value: str | None) -> str | None:
+    """Session-id precedence: ``--session-id`` > ``MAHALO_SESSION_ID`` > uuid4.
+
+    The uuid4 fallback is used ONLY when Memory is enabled and neither the flag
+    nor the env var supplied an id; when Memory is off this returns ``None`` and
+    the id is never used. Returns a stripped non-empty string or ``None``.
+    """
+    if flag_value is not None and flag_value.strip():
+        return flag_value.strip()
+    env_value = os.getenv("MAHALO_SESSION_ID", "").strip()
+    if env_value:
+        return env_value
+    if settings.memory_enabled:
+        return uuid.uuid4().hex
+    return None
+
+
 def main(argv: list[str] | None = None) -> None:
     args = sys.argv[1:] if argv is None else argv
-    if args:
-        _run_single(" ".join(args))
+    parser = argparse.ArgumentParser(prog="agent.chat", add_help=True)
+    parser.add_argument("--session-id", dest="session_id", default=None)
+    parser.add_argument("message", nargs="*")
+    ns = parser.parse_args(args)
+    session_id = _resolve_session_id(ns.session_id)
+    # Message words after options are joined with a single space, so
+    # ``python -m agent.chat "show my stories"`` is unchanged and the bare-REPL
+    # invocation (no message words) still enters the REPL.
+    if ns.message:
+        _run_single(" ".join(ns.message), session_id=session_id)
     else:
-        _run_repl()
+        _run_repl(session_id=session_id)
 
 
 if __name__ == "__main__":

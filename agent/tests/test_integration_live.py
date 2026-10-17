@@ -39,7 +39,7 @@ def test_live_agent_reads_repos_and_my_stories():
     from agent.strands_agent import build_agent
 
     try:
-        agent = build_agent()
+        agent = build_agent().agent
     except Exception as exc:  # pragma: no cover - env dependent
         pytest.skip(f"could not build agent (AWS creds/profile?): {exc}")
 

@@ -17,6 +17,11 @@ def _getenv(name: str, default: str) -> str:
     return os.getenv(name, default)
 
 
+def _getbool(name: str, default: str = "false") -> bool:
+    """Tolerant boolean parse: ``1``/``true``/``yes`` (any case) -> True."""
+    return _getenv(name, default).strip().lower() in {"1", "true", "yes"}
+
+
 @dataclass(frozen=True)
 class Settings:
     """Resolved configuration, populated from environment variables."""
@@ -77,6 +82,30 @@ class Settings:
     gateway_region: str = field(
         default_factory=lambda: _getenv(
             "MAHALO_GATEWAY_REGION", _getenv("AWS_REGION", "us-east-1")
+        )
+    )
+
+    # --- Memory (Task 5: AgentCore Memory session persistence, opt-in) ---
+    # All default off/empty so DIRECT and GATEWAY behavior is byte-for-byte
+    # unchanged when the toggle is not set.
+    memory_enabled: bool = field(
+        default_factory=lambda: _getbool("MAHALO_MEMORY_ENABLED")
+    )
+    memory_id: str = field(default_factory=lambda: _getenv("MAHALO_MEMORY_ID", ""))
+    memory_region: str = field(
+        default_factory=lambda: _getenv(
+            "MAHALO_MEMORY_REGION", _getenv("AWS_REGION", "us-east-1")
+        )
+    )
+    session_id: str = field(default_factory=lambda: _getenv("MAHALO_SESSION_ID", ""))
+
+    # --- Identity (Task 5: AgentCore Identity credential brokering, opt-in) ---
+    identity_enabled: bool = field(
+        default_factory=lambda: _getbool("MAHALO_IDENTITY_ENABLED")
+    )
+    identity_jira_provider: str = field(
+        default_factory=lambda: _getenv(
+            "MAHALO_IDENTITY_JIRA_PROVIDER", "mahalo-jira-apikey"
         )
     )
 

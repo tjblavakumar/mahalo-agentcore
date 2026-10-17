@@ -56,9 +56,41 @@ constructs offline. Code reviewed and APPROVED
 Gateway + targets + inbound auth) and the end-to-end READ / HITL-WRITE through
 the Gateway are DEFERRED operator steps.
 
-## Task 5 - Memory and Identity
+## Task 5 - Memory and Identity (OFFLINE-COMPLETE; live deploy deferred)
 
 Add AgentCore Memory for session state and AgentCore Identity for tool credentials.
+
+Progress: implemented as two **opt-in / additive** capabilities — with the
+toggles off, DIRECT and GATEWAY behave byte-for-byte as before. Scope
+refinement during the task: Memory is wired through the native Strands
+`session_manager=` seam (`AgentCoreMemorySessionManager`) and scoped to
+**short-term conversation memory only** (bare `CfnMemory`, no long-term
+strategies; a `with_long_term` seam is left off by default), replacing
+mahalo-dock's in-memory `_sessions` with a durable session-id-keyed store. Since
+the installed `bedrock-agentcore 1.24.1` manager `__init__` performs a live
+`ListEvents` read, the offline-safe construction was relocated: `build_agent`
+builds only a plain-data `MemorySessionSpec`, and the live manager is constructed
+inside a new `attach_memory` helper (the single AWS touch) — the
+"construct-not-started" pattern from Task 4. Identity is scoped to the **smallest
+real slice**: provision a `CfnWorkloadIdentity` + one `CfnApiKeyCredentialProvider`
+and wire **one** representative outbound path (`jira_create_story`, DIRECT mode)
+to fetch its key at call time behind `MAHALO_IDENTITY_ENABLED` (per-service
+brokering and the Runtime Workload-Access-Token path deferred to Task 6; Task-4
+inbound auth untouched). `build_agent` now returns a `BuildResult(agent,
+mcp_client, session_manager)` dataclass instead of a variable-arity tuple; six
+new off-by-default settings; `agent/chat.py` gains argparse `--session-id`. New
+`infra-cdk/mahalo_infra/memory_identity_stack.py` (`MahaloMemoryIdentityStack`,
+wired in `app.py`). Zero LangChain. Offline gate GREEN
+(`docs/.agents/tasks/task5-verification.md`): `pytest agent -q` = 69 pass / 1 skip
+(55 baseline + 14 new; DIRECT path 49/1 preserving the Task-2 42/1, Task-4
+GATEWAY/HITL 6/6), `build_agent(memory=True, identity=True)` and
+`build_agent(tool_mode='gateway', memory=True)` construct offline with no creds,
+`cdk synth --all` exit 0 (six templates), infra-cdk 31 pass, tools-lambdas 94
+pass. Code reviewed and APPROVED
+(`docs/.agents/tasks/task5-code-review.json`). The live deploy of
+`MahaloMemoryIdentityStack`, the two-invocation persist/reload-history check via
+AgentCore Memory, and the Identity-brokered credential exercise are DEFERRED
+operator steps.
 
 ## Task 6 - Runtime hosting
 

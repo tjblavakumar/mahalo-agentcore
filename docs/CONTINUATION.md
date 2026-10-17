@@ -165,17 +165,58 @@ doesn't.
     ("GATEWAY-mode live E2E" + "GATEWAY HITL resume fix (live)").
     Live driver kept as `scripts/gw_hitl_smoke.py`. Committed + pushed to
     origin/main.
-- NEXT: Task 5 — add AgentCore Memory for session state/conversation history
-  (replacing the old in-memory session.py) and AgentCore Identity for brokering
-  tool credentials. See docs/PLAN.md.
-  - ⚠️ AWS COST / DEPLOYED STATE: the five app stacks (Gateway + 4 Lambdas + 4
-    DynamoDB tables) PLUS `CDKToolkit` are STILL DEPLOYED in <AWS_ACCOUNT_ID>/us-east-1
-    as of the Task-4 live-finish. If not actively testing, tear down to stop
-    spend: from `infra-cdk/` with its venv active
-    (`& .\.venv\Scripts\Activate.ps1`), run
-    `cdk destroy --all --force --profile lava`. Redeploys cleanly via
-    `cdk deploy --all` (~7 min). Gateway MCP URL (while up):
-    `https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp`.
+- Task 5 DONE (AgentCore Memory + Identity, OFFLINE GATE GREEN; code-review
+  APPROVED): added two **opt-in / additive** capabilities that leave DIRECT and
+  GATEWAY modes (and the full existing baseline) byte-for-byte unchanged when the
+  toggles are off.
+  - **Memory** plugs AgentCore Memory into Strands via the native
+    `session_manager=` seam (`AgentCoreMemorySessionManager`), replacing
+    mahalo-dock's in-memory `_sessions` dict with a durable session-id-keyed STM
+    store. New module `agent/memory_client.py` assembles the config offline;
+    `build_agent` only builds a plain-data `MemorySessionSpec` (the installed
+    `bedrock-agentcore 1.24.1` manager `__init__` does a live `ListEvents`, so the
+    live manager is constructed inside `attach_memory` — the single AWS touch,
+    recorded as **Option 1**). `agent/chat.py` gains argparse `--session-id`
+    (precedence `--session-id` > `MAHALO_SESSION_ID` > uuid4 when memory on).
+  - **Identity** wires ONE representative outbound path (`jira_create_story`,
+    DIRECT mode) to fetch its API key via AgentCore Identity at call time behind
+    `MAHALO_IDENTITY_ENABLED`; `@requires_api_key` decorates a body-local `_inner`
+    so no `IdentityClient`/boto3 is built at import. Task-4 inbound auth untouched.
+  - `build_agent` now always returns a `BuildResult(agent, mcp_client,
+    session_manager)` dataclass (no more variable-arity tuple); callers/tests
+    migrated to read attributes. Six new off-by-default settings in
+    `agent/config.py`. New CDK `MahaloMemoryIdentityStack`
+    (`infra-cdk/mahalo_infra/memory_identity_stack.py`, wired in `app.py`):
+    `CfnMemory` (STM, name `mahalo_memory` — underscore, the construct rejects
+    hyphens), `CfnWorkloadIdentity` (`mahalo-agent`), `CfnApiKeyCredentialProvider`
+    (`mahalo-jira-apikey`, no-echo `CfnParameter`), with `MemoryId` /
+    `WorkloadIdentityArn` / `JiraApiKeyProviderName` outputs.
+  - Code reviewed and APPROVED (`docs/.agents/tasks/task5-code-review.json`,
+    verdict APPROVED). Offline gate re-run with REAL output and recorded in
+    `docs/.agents/tasks/task5-verification.md`: `pytest agent -q` = **69 passed,
+    1 skipped** (55 baseline + 14 new; DIRECT path 49/1 preserving the Task-2 42/1,
+    Task-4 GATEWAY/HITL 6/6); `build_agent(memory=True, identity=True)` and
+    `build_agent(tool_mode='gateway', memory=True)` both CONSTRUCT OFFLINE with no
+    AWS creds (session manager constructed-but-not-attached ⇒ no rehydrate at
+    build); `cdk synth --all` exit 0 (SIX templates incl.
+    `MahaloMemoryIdentityStack`); infra-cdk assertions **31 passed**;
+    tools-lambdas **94 passed**; zero LangChain. NO deploy was run and NO
+    live/Memory/Identity results were fabricated. DEFERRED LIVE operator steps
+    (deploy `MahaloMemoryIdentityStack`; run a two-invocation session that
+    persists + reloads history across invocations via AgentCore Memory; exercise
+    the Identity-brokered `jira_create_story` credential; `cdk deploy --all
+    --profile lava`; teardown) are documented in
+    `docs/.agents/tasks/task5-verification.md` and in the operator runbook below.
+- NEXT: Task 6 — Runtime hosting (host the agent on AgentCore Runtime behind a
+  thin API; reuse the `build_agent(..., memory=..., session_id=...)` seam with a
+  real per-request `session_id`/`actor_id`, and the Runtime-minted Workload Access
+  Token path for Identity). See docs/PLAN.md.
+  - AWS COST / DEPLOYED STATE: the five app stacks (Gateway + 4 Lambdas + 4
+    DynamoDB tables) were TORN DOWN 2026-10-17 via
+    `cdk destroy --all --force --profile lava` (confirmed: no `Mahalo*` stacks
+    remain). Only `CDKToolkit` (the free bootstrap stack) is left, so NO ongoing
+    Task-4 spend. Redeploy cleanly any time via `cdk deploy --all --profile lava`
+    (~7 min; Gateway gets a NEW id/MCP URL each deploy — re-read the CfnOutputs).
 
 ## Task 2 — concrete definition (do this next)
 
@@ -341,3 +382,40 @@ Defer the write/propose/approve flow to Task 2.
   a clear message; keep mahalo-dock's git history separate.
 - Update this file's "Status" section and docs/PLAN.md as tasks complete.
 - Each task should produce something runnable (phased build).
+
+## Task 5 — Memory & Identity operator runbook (live, NOT run in the offline gate)
+
+Memory and Identity are opt-in and additive; with the toggles off, DIRECT and
+GATEWAY behave exactly as before. The automated gate is offline (synth / unit
+tests / import). The steps below are for exercising the live capabilities.
+
+1. `aws sso login --profile lava`.
+2. `cd infra-cdk && cdk deploy MahaloMemoryIdentityStack --profile lava` (supply
+   the `JiraApiKey` parameter or accept the mock default). Note the stack
+   outputs: `MemoryId`, `WorkloadIdentityArn`, `JiraApiKeyProviderName`.
+3. Export the Memory toggles:
+   - `$env:MAHALO_MEMORY_ENABLED = "true"`
+   - `$env:MAHALO_MEMORY_ID = "<MemoryId output>"`
+   - optionally `$env:MAHALO_IDENTITY_ENABLED = "true"`.
+4. Two-invocation persistence check (STM across invocations):
+   - `python -m agent.chat --session-id demo-1 "remember my favorite repo is payment-service"`
+   - then `python -m agent.chat --session-id demo-1 "what's my favorite repo?"`
+   - the second answer should reflect the reloaded history.
+   With Identity on, run a `jira_create_story` write and confirm it succeeds
+   using the brokered API key (fetched at call time, not from the static env).
+
+   **Local workload-identity note:** the first Identity-enabled run from the
+   local CLI uses the SDK's local dev-auth path, which self-provisions a *local*
+   workload identity and writes a `.agentcore.json` file into the run directory.
+   It does NOT use the CDK `CfnWorkloadIdentity` (`mahalo-agent`), which is for
+   the Task-6 Runtime path. Expect that file to appear; it is a dev-auth cache
+   and can be deleted to force re-provisioning. The brokered key itself comes
+   from the CDK `CfnApiKeyCredentialProvider` (`mahalo-jira-apikey`).
+5. When done for the day, `cdk destroy MahaloMemoryIdentityStack` to stop Memory
+   charges (and optionally delete `.agentcore.json`).
+
+**Construction-boundary note:** the installed `bedrock-agentcore 1.24.1`
+`AgentCoreMemorySessionManager.__init__` is NOT offline-safe — it performs a live
+`ListEvents` read at construction. So `build_agent(memory=True)` only assembles an
+offline `MemorySessionSpec`; the live manager is built inside `attach_memory`
+(the single AWS touch). See `docs/.agents/tasks/task5-verification.md`.

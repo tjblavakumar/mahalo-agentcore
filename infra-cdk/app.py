@@ -9,6 +9,7 @@ a ``MockServiceStack`` for one of jira/confluence/github/servicenow.
 import aws_cdk as cdk
 
 from mahalo_infra.gateway_stack import MahaloGatewayStack
+from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 
 # Account / region per the approved design (Decision 4).
@@ -34,6 +35,13 @@ def main() -> None:
         app,
         "MahaloGatewayStack",
         mock_stacks=mock_stacks,
+        env=_ENV,
+    )
+    # Task 5: AgentCore Memory (STM) + Identity. Independent of the mock/gateway
+    # stacks (no cross-references), so synth ordering is unaffected.
+    MahaloMemoryIdentityStack(
+        app,
+        "MahaloMemoryIdentityStack",
         env=_ENV,
     )
     app.synth()

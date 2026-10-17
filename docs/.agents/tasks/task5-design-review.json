@@ -1,0 +1,43 @@
+{
+  "verdict": "APPROVED",
+  "reviewDoc": "docs/.agents/tasks/task5-design-review.md",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "title": "_resolve_session_id references settings.memory_enabled but the shown main snippet never threads memory/attach_memory; the attach wiring is prose-only",
+      "location": "Decision A — agent/chat.py snippet (main / _resolve_session_id) and Files-to-modify agent/chat.py bullet",
+      "fix": "Add a sketch of the updated _run_single/_run_repl showing build_agent(memory=settings.memory_enabled, session_id=...), the post-construction 'if result.session_manager is not None: attach_memory(result.agent, result.session_manager)', and the resume/new-session print, so the flag cannot be wired without the attach."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "title": "'resuming' vs 'new session' notice has no defined source of truth",
+      "location": "Decision A and Decision C — the one-line session notice",
+      "fix": "Define it mechanically without a network call: print 'new session <id>' only when the id was uuid4-generated this run (neither flag nor env supplied it); otherwise 'using session <id>' instead of asserting 'resuming'. Have _resolve_session_id also return whether it generated the id, or expose a sibling predicate."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "argparse nargs='*' mis-parses a message token beginning with '-'",
+      "location": "Decision A — argparse snippet (parser.add_argument('message', nargs='*'))",
+      "fix": "A prompt starting with '-' errors under argparse though it passes verbatim today. Either document the limitation, use parse_known_args()/'--' handling, or pull --session-id out manually and treat the remainder as the message verbatim (snippet in the review doc)."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "title": "BuildResult.session_manager/mcp_client typed as 'object | None', erasing the surface Task 6 and attach_memory read",
+      "location": "Decision C — BuildResult dataclass",
+      "fix": "Annotate with the real types under a TYPE_CHECKING import (MCPClient, AgentCoreMemorySessionManager) to keep imports offline-safe while carrying intent for .session_id/.initialize/.register_hooks."
+    }
+  ],
+  "counts": { "HIGH": 0, "MEDIUM": 0, "NIT": 4 },
+  "decisionCoverage": {
+    "A_memory_scope": "resolved",
+    "B_identity_slice": "resolved",
+    "C_dual_mode_toggles": "resolved",
+    "D_iac_and_offline_build": "resolved"
+  },
+  "offlineGateAchievable": true,
+  "changesDirectOrGatewayDefaults": false
+}

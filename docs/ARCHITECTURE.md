@@ -36,3 +36,22 @@ flowchart TD
     GW --> LSNOW["Lambda: ServiceNow"]
     LGH --> GITEA["Self-hosted Gitea"]
 ```
+
+## Memory & Identity wiring (Task 5)
+
+Both capabilities are **opt-in and additive** — DIRECT and GATEWAY tool modes behave exactly
+as before when the toggles are off.
+
+- **Memory** is session-id-keyed short-term memory via the native Strands session-manager
+  (`AgentCoreMemorySessionManager`, keyed on `(memory_id, actor_id, session_id)`), replacing
+  the old in-memory session store with a durable managed one. It is enabled with
+  `MAHALO_MEMORY_ENABLED` + `MAHALO_MEMORY_ID`; the conversation id comes from `--session-id`
+  / `MAHALO_SESSION_ID` (a uuid is generated when neither is supplied). `build_agent` stays
+  fully offline — it only assembles a lightweight session spec; the single AWS touch (building
+  the live session manager, which rehydrates history) happens in `attach_memory`, because the
+  SDK's manager constructor itself performs a live read. STM only (30-day retention, no
+  long-term strategies).
+- **Identity** brokers the Jira API key at call time for one representative outbound path
+  (`jira_create_story`) when `MAHALO_IDENTITY_ENABLED` is on, via `@requires_api_key` applied
+  to a body-local helper so no credential client is built at import/build. Task-4 inbound auth
+  (Gateway SigV4 / `GATEWAY_IAM_ROLE` / the Lambda `X-API-Token`) is untouched.

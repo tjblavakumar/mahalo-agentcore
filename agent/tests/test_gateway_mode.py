@@ -79,7 +79,7 @@ def test_build_agent_gateway_mode_offline(monkeypatch):
         _restore()
 
 
-def test_build_agent_gateway_returns_tuple(monkeypatch):
+def test_build_agent_gateway_returns_build_result(monkeypatch):
     # The live settings default mode is "direct"; pass tool_mode explicitly and
     # give the client a URL via the reloaded module so no network is touched.
     import agent.strands_agent as sa
@@ -89,9 +89,11 @@ def test_build_agent_gateway_returns_tuple(monkeypatch):
         import importlib
 
         importlib.reload(sa)
-        agent, mcp_client = sa.build_agent(tool_mode="gateway", **_IDENTITY)
-        assert isinstance(agent, Agent)
-        assert isinstance(mcp_client, MCPClient)
+        result = sa.build_agent(tool_mode="gateway", **_IDENTITY)
+        assert isinstance(result.agent, Agent)
+        assert isinstance(result.mcp_client, MCPClient)
+        # Memory is off by default, so no session manager is constructed.
+        assert result.session_manager is None
     finally:
         _restore()
 
