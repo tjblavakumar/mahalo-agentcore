@@ -572,3 +572,162 @@ def test_ask_driver_generic_signal_for_non_chain_write(monkeypatch):
 
     text = agent.messages[0]["content"][0]["text"]
     assert text == "[SYSTEM] The user approved and the 'create_incident' action was executed."
+
+
+# --------------------------------------------------------------------------- #
+# FEAT-002 regression: GATEWAY/MCP HITL resume must not corrupt toolUse/toolResult
+# pairing. Repro of the live ValidationException "toolResult blocks ... exceeds
+# ... toolUse blocks of previous turn": when a resume RE-INTERRUPTS (a re-proposed
+# or chained write), the just-approved breadcrumb must NOT be inserted between the
+# still-open toolUse and its pending toolResult. Fully offline (no MCP, no network).
+# --------------------------------------------------------------------------- #
+
+class _FakeMcpAgent:
+    """Faithfully mimics the strands 1.61.1 interrupt/resume history contract.
+
+    The SDK appends the assistant ``toolUse`` message to ``messages`` on the
+    interrupt turn and only appends the matching ``user``/``toolResult`` message
+    when the tool cycle closes on resume. This fake reproduces that ordering and
+    the GATEWAY scenario where the first approved write's result makes the model
+    re-propose (a SECOND interrupt) before the first tool cycle has emitted its
+    toolResult. The second resume then closes the cycle. Any assistant message
+    the driver appends while a toolUse is still open corrupts the pairing, which
+    is exactly what the live Bedrock ValidationException reports.
+    """
+
+    def __init__(self, proposal):
+        self.messages: list = []
+        self.calls: list = []
+        self._proposal = proposal
+        self._n = 0
+
+    def _append_open_tooluse(self, tool_use_id):
+        self.messages.append(
+            {
+                "role": "assistant",
+                "content": [
+                    {"text": "proposing a write"},
+                    {"toolUse": {"toolUseId": tool_use_id, "name": "mock-github___github_create_branch", "input": {}}},
+                ],
+            }
+        )
+
+    def _close_tool_cycle(self, tool_use_id):
+        # The resume turn appends the toolResult for the open toolUse.
+        self.messages.append(
+            {
+                "role": "user",
+                "content": [{"toolResult": {"toolUseId": tool_use_id, "status": "success", "content": []}}],
+            }
+        )
+
+    def __call__(self, payload):
+        self.calls.append(payload)
+        self._n += 1
+        if self._n == 1:
+            # First proposal: open toolUse #1, pause.
+            self._append_open_tooluse("tu-1")
+            itr = _FakeInterrupt("i-1", self._proposal)
+            return _FakeResult(stop_reason="interrupt", interrupts=[itr], text="paused")
+        if self._n == 2:
+            # Resume #1: close toolUse #1, model RE-PROPOSES -> open toolUse #2, pause again.
+            self._close_tool_cycle("tu-1")
+            self._append_open_tooluse("tu-2")
+            itr = _FakeInterrupt("i-2", self._proposal)
+            return _FakeResult(stop_reason="interrupt", interrupts=[itr], text="paused")
+        # Resume #2: close toolUse #2, finish.
+        self._close_tool_cycle("tu-2")
+        return _FakeResult(stop_reason="end_turn", text="done")
+
+
+def _assert_valid_tool_pairing(messages):
+    """Assert every toolResult turn's count matches the previous turn's toolUse count.
+
+    This is the Bedrock Converse contract the live ValidationException enforces:
+    a ``toolResult``-bearing turn must be immediately preceded by an assistant
+    turn carrying exactly that many ``toolUse`` blocks. An assistant ``[SYSTEM]``
+    breadcrumb wedged between the toolUse and its toolResult breaks it.
+    """
+    for i, msg in enumerate(messages):
+        n_results = sum(1 for c in msg["content"] if "toolResult" in c)
+        if n_results == 0:
+            continue
+        assert i > 0, "a toolResult turn cannot be the first message"
+        prev = messages[i - 1]
+        n_uses = sum(1 for c in prev["content"] if "toolUse" in c)
+        assert n_uses == n_results, (
+            f"message {i} has {n_results} toolResult block(s) but the previous "
+            f"turn has {n_uses} toolUse block(s): {[list(c)[0] for c in prev['content']]}"
+        )
+
+
+def test_ask_driver_gateway_resume_reinterrupt_keeps_history_valid(monkeypatch):
+    """A re-proposed GATEWAY write must not break the toolUse/toolResult pairing.
+
+    Reproduces the live crash path: APPROVE -> resume re-proposes -> APPROVE ->
+    resume closes. The [SYSTEM] breadcrumb must be deferred until the cycle fully
+    closes so it is never inserted between an open toolUse and its toolResult.
+    """
+    monkeypatch.setattr("builtins.input", lambda *a: "y")
+    proposal = {
+        "action": "create_branch",
+        "system": "github",
+        "params": {"repo_id": "repo-1", "branch_name": "feature/gw-smoke"},
+        "description": "Create branch 'feature/gw-smoke' in repo-1 from main",
+    }
+    agent = _FakeMcpAgent(proposal)
+
+    out = chat._ask(agent, "create a feature branch called feature/gw-smoke in repo repo-1")
+
+    # Both interrupts were approved and resumed with APPROVE.
+    assert agent.calls[1] == [{"interruptResponse": {"interruptId": "i-1", "response": "APPROVE"}}]
+    assert agent.calls[2] == [{"interruptResponse": {"interruptId": "i-2", "response": "APPROVE"}}]
+    assert out == "done"
+
+    # History must be valid: no ValidationException-triggering pairing.
+    _assert_valid_tool_pairing(agent.messages)
+
+    # The [SYSTEM] breadcrumbs land only AFTER the final toolResult closed the
+    # cycle (as trailing assistant messages), never wedged mid-cycle.
+    last_tool_result_idx = max(
+        i for i, m in enumerate(agent.messages) if any("toolResult" in c for c in m["content"])
+    )
+    breadcrumb_idxs = [
+        i
+        for i, m in enumerate(agent.messages)
+        if m["role"] == "assistant"
+        and any(c.get("text", "").startswith("[SYSTEM]") for c in m["content"])
+    ]
+    assert breadcrumb_idxs, "an approved write must still record a [SYSTEM] breadcrumb"
+    assert all(i > last_tool_result_idx for i in breadcrumb_idxs), (
+        "a [SYSTEM] breadcrumb must not precede a pending toolResult (that corrupts history)"
+    )
+    # One breadcrumb per approved write (two approves here).
+    assert len(breadcrumb_idxs) == 2
+
+
+def test_ask_driver_gateway_reject_then_reinterrupt_writes_nothing(monkeypatch):
+    """REJECT path through a re-interrupting resume still records no breadcrumb."""
+    answers = iter(["n", "n"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(answers))
+    proposal = {
+        "action": "create_branch",
+        "system": "github",
+        "params": {"repo_id": "repo-1", "branch_name": "feature/gw-smoke2"},
+        "description": "Create branch 'feature/gw-smoke2' in repo-1 from main",
+    }
+    agent = _FakeMcpAgent(proposal)
+
+    out = chat._ask(agent, "create a feature branch called feature/gw-smoke2 in repo repo-1")
+
+    assert agent.calls[1] == [{"interruptResponse": {"interruptId": "i-1", "response": "REJECT"}}]
+    assert agent.calls[2] == [{"interruptResponse": {"interruptId": "i-2", "response": "REJECT"}}]
+    assert out == "done"
+    _assert_valid_tool_pairing(agent.messages)
+    # Nothing written: no [SYSTEM] breadcrumb anywhere.
+    assert not [
+        m
+        for m in agent.messages
+        if m["role"] == "assistant"
+        and any(c.get("text", "").startswith("[SYSTEM]") for c in m["content"])
+    ]

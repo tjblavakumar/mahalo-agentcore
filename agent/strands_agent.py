@@ -101,10 +101,10 @@ def build_agent(
 
     * ``direct`` (default) — the 25 local ``@tool``s hitting HTTP endpoints;
       returns the bare ``Agent``. This is the unchanged Task 1-2 behavior.
-    * ``gateway`` — a Gateway-backed ``MCPClient`` is passed into the agent;
-      returns ``(agent, mcp_client)`` because MCP tools are only usable inside
-      the client's context manager. The client is constructed OFFLINE-SAFE
-      (not started).
+    * ``gateway`` — a Gateway-backed ``MCPClient`` is returned alongside the
+      agent as ``(agent, mcp_client)``. The client is constructed OFFLINE-SAFE
+      (NOT started); the caller attaches it via ``attach_gateway_tools`` (which
+      performs the single ``load_tools()``-owned start) and stops it when done.
 
     Either way the same prefix-aware ``WriteApprovalHook`` gates the six writes.
     """
@@ -129,8 +129,8 @@ def build_agent(
         # The agent is built WITHOUT the MCP tools here so construction stays
         # offline-safe: passing an MCPClient into ``Agent(tools=[...])`` would
         # eagerly ``load_tools()`` (starting the client / hitting the network).
-        # The caller attaches the provider with ``attach_gateway_tools`` once it
-        # is inside ``with mcp_client:`` (see agent/chat.py).
+        # The caller attaches the provider with ``attach_gateway_tools`` (the
+        # single start) and stops the client afterwards (see agent/chat.py).
         agent = Agent(
             model=model,
             tools=[],
@@ -148,10 +148,18 @@ def build_agent(
 
 
 def attach_gateway_tools(agent, mcp_client) -> None:
-    """Register the Gateway MCP tools onto ``agent`` inside the client context.
+    """Register the Gateway MCP tools onto ``agent``, starting the client once.
 
-    Call this ONLY after entering ``with mcp_client:`` — the MCP client must be
-    started before its tools can be loaded. This keeps ``build_agent`` offline-
-    safe while still exposing the Gateway tools for a live invocation.
+    In strands-agents 1.61.1 an ``MCPClient`` is a ``ToolProvider``:
+    ``process_tools([mcp_client])`` registers it as a provider and calls its
+    ``load_tools()``, which OWNS the single startup — it calls ``start()`` and
+    sets ``_tool_provider_started``. Wrapping this in an outer ``with
+    mcp_client:`` first calls ``start()`` without flipping that flag, so
+    ``load_tools()`` tries to ``start()`` a second time and raises
+    ``MCPClientInitializationError: the client session is currently running``
+    (surfaced as ``ToolProviderException`` -> ``ValueError``). So the client must
+    NOT be pre-started; this helper is the single start. The caller keeps the
+    started session alive for every agent turn and tears it down with
+    ``mcp_client.stop(...)`` afterwards (see agent/chat.py).
     """
     agent.tool_registry.process_tools([mcp_client])

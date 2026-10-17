@@ -112,6 +112,92 @@ def test_default_mode_is_direct():
 
 
 # --------------------------------------------------------------------------- #
+# Regression: the GATEWAY wiring must start the MCP client EXACTLY ONCE.
+#
+# Against strands 1.61.1 the double-start bug was: ``with mcp_client:`` started
+# the client, then ``attach_gateway_tools`` -> ``process_tools`` -> provider
+# ``load_tools()`` started it AGAIN and raised. This fake mimics the ToolProvider
+# contract and raises on a SECOND ``start()``, so the old double-start ordering
+# would fail here; the fixed single-start wiring attaches cleanly.
+# --------------------------------------------------------------------------- #
+
+from strands.tools.tool_provider import ToolProvider  # noqa: E402
+
+
+class _FakeMCPClient(ToolProvider):
+    """A ToolProvider that mirrors MCPClient's two-flag start semantics.
+
+    * ``start()`` raises if the SESSION is already active (like
+      ``MCPClient.start`` guarding on ``_is_session_active``).
+    * ``load_tools()`` OWNS startup via a SEPARATE ``_tool_provider_started``
+      flag (like the real client). So a client pre-started by an outer
+      ``with`` (session active, but provider flag still False) makes
+      ``load_tools()`` call ``start()`` again -> raises. This is exactly the
+      double-start bug.
+    """
+
+    def __init__(self):
+        self.start_calls = 0
+        self._session_active = False
+        self._tool_provider_started = False
+
+    def start(self):
+        if self._session_active:
+            raise RuntimeError("the client session is currently running")
+        self.start_calls += 1
+        self._session_active = True
+        return self
+
+    # Context-manager surface, so an accidental ``with client:`` also starts it.
+    def __enter__(self):
+        return self.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._session_active = False
+
+    async def load_tools(self, **kwargs):
+        if not self._tool_provider_started:
+            self.start()
+            self._tool_provider_started = True
+        return []
+
+    def add_consumer(self, consumer_id, **kwargs):
+        pass
+
+    def remove_consumer(self, consumer_id, **kwargs):
+        pass
+
+
+def test_attach_gateway_tools_starts_client_exactly_once():
+    import agent.strands_agent as sa
+
+    # A minimal agent-like object exposing the real ToolRegistry process path.
+    from strands.tools.registry import ToolRegistry
+
+    class _AgentStub:
+        def __init__(self):
+            self.tool_registry = ToolRegistry()
+
+    agent = _AgentStub()
+    fake = _FakeMCPClient()
+
+    # The fixed wiring: attach_gateway_tools performs the single start. This must
+    # NOT raise, and the client must have been started exactly once.
+    sa.attach_gateway_tools(agent, fake)
+
+    assert fake.start_calls == 1
+
+    # Demonstrate the old double-start ordering would have raised: pre-starting
+    # (as the removed ``with mcp_client:`` did) makes a provider load_tools()
+    # start a second time.
+    pre_started = _FakeMCPClient()
+    pre_started.start()  # what ``with mcp_client:`` used to do
+    agent2 = _AgentStub()
+    with pytest.raises(ValueError):
+        agent2.tool_registry.process_tools([pre_started])
+
+
+# --------------------------------------------------------------------------- #
 # Exact arg-set parity against the live @tool signatures.
 # --------------------------------------------------------------------------- #
 
