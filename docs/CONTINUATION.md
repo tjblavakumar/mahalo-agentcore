@@ -5,10 +5,12 @@ root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
 > For a one-page "where are we / what's left" snapshot, read `docs/STATUS.md`
-> first. As of 2026-10-17: Tasks 0-5 DONE and pushed (`main` @ `98ca3b3`);
-> nothing of ours is deployed (Task-4 stacks were deployed, validated, then torn
-> down); NEXT is Task 6 (Runtime hosting). This CONTINUATION file has the full
-> operational detail behind that summary.
+> first. As of 2026-10-18: Tasks 0-5 DONE and pushed; **Task 6 (Runtime hosting)
+> is OFFLINE-COMPLETE + code-review APPROVED** (offline gate green; live deploy is
+> a deferred operator step — NOT run); nothing of ours is deployed (Task-4 stacks
+> were deployed, validated, then torn down); NEXT is Task 7 (Gitea + frontend
+> hosting). This CONTINUATION file has the full operational detail behind that
+> summary.
 
 > HARD RULE: Only create or modify files UNDER
 > `D:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to
@@ -213,10 +215,56 @@ doesn't.
     the Identity-brokered `jira_create_story` credential; `cdk deploy --all
     --profile lava`; teardown) are documented in
     `docs/.agents/tasks/task5-verification.md` and in the operator runbook below.
-- NEXT: Task 6 — Runtime hosting (host the agent on AgentCore Runtime behind a
-  thin API; reuse the `build_agent(..., memory=..., session_id=...)` seam with a
-  real per-request `session_id`/`actor_id`, and the Runtime-minted Workload Access
-  Token path for Identity). See docs/PLAN.md.
+- Task 6 DONE (AgentCore Runtime hosting behind a thin stateless API, OFFLINE
+  GATE GREEN; code-review APPROVED): the existing `agent/` package is hosted
+  UNCHANGED on **Amazon Bedrock AgentCore Runtime** via a thin harness
+  (`agent/runtime_app.py`: `BedrockAgentCoreApp` + a single `@app.entrypoint
+  invoke`) that reuses the `build_agent -> attach_gateway_tools -> attach_memory`
+  seam through `agent/runtime_session.build_and_attach` — no second agent. A thin,
+  stateless **FastAPI forwarder** (`api/`, Mangum on a Function-URL Lambda) speaks
+  a small `{action, prompt/decision, interrupt_id, ...}` request /
+  `{response, proposal?, session_id, status, error?}` response contract and imports
+  **zero `agent`/LangChain** code. Per-request **sessions** arrive on the runtime
+  session-id header (surfaced as `context.session_id`, never in the body) and wire
+  straight into Task-5 **Memory** via `build_agent(memory=True, session_id=...)`.
+  **HITL** is a two-call propose->approve protocol at the Runtime boundary; the
+  `[SYSTEM]` chain breadcrumb is derived from the Runtime's OWN restored interrupt
+  state, so chain correctness does NOT depend on the client echoing the proposal
+  (approve/reject + branch->commit->PR chaining preserved). The deferred
+  **Identity** Runtime path LANDED but is descoped from the AWS_IAM MVP live gate:
+  the Workload-Access-Token plumbing (`MAHALO_IDENTITY_ENABLED` env, per-user
+  `grant_invoke_runtime_for_user`, `runtimeUserId` forwarding) is in place and
+  flip-enabled, off by default under SigV4 inbound. IaC adds two stacks
+  (`infra-cdk/mahalo_infra/runtime_stack.py` `MahaloRuntimeStack` — the **CDK L2
+  `aws_bedrockagentcore.Runtime`** suite, auto-created exec role + app-level
+  Bedrock/Memory/Gateway grants; `api_stack.py` `MahaloApiStack`), both wired in
+  `app.py`; the Docker branches (image build + Lambda dep bundling) are flag-gated
+  (`-c buildImage=1` / `MAHALO_BUILD_IMAGE=1`) so `cdk synth` stays Docker-free.
+  DIRECT stays the default and unchanged; GATEWAY/Memory/Identity remain opt-in.
+  Zero LangChain. Code reviewed and APPROVED
+  (`docs/.agents/tasks/task6-code-review.json`, 0 blocking; 2 non-blocking
+  "possible" items scheduled for the live gate). Offline gate re-run with REAL
+  output and recorded in `docs/.agents/tasks/task6-verification.md`:
+  `pytest agent -q` = **99 passed, 1 skipped** (69/1 baseline + 30 Task-6; DIRECT
+  42/1 and Task-4 GATEWAY / Task-5 Memory-Identity preserved); thin-API
+  `pytest api -q` = **15 passed**; `pytest tools-lambdas/tests -q` = **94 passed**;
+  infra-cdk `pytest tests -q` = **42 passed, 1 skipped** (the 1 skip is the
+  operator-only Docker from_asset deploy branch); `cdk synth --all` exit 0 (**EIGHT
+  templates** incl. `MahaloRuntimeStack` + `MahaloApiStack`); the Runtime
+  entrypoint and thin API both import/construct OFFLINE with no creds (thin API
+  loads zero `agent.*`/`langchain*`); zero LangChain anywhere. NO deploy was run
+  and NO live/Memory/Identity results were fabricated. DEFERRED LIVE operator
+  steps (pre-deploy `aws sts get-caller-identity --profile lava`; build/push the
+  ARM64 agent image + bundle the Lambda deps via `MAHALO_BUILD_IMAGE=1`;
+  `cdk deploy --all --profile lava`; then through the deployed thin API a READ, a
+  HITL WRITE via the two-call approve protocol, and a cross-invocation Memory
+  persistence check; measure the synchronous invoke budget; teardown) are
+  documented in `docs/.agents/tasks/task6-verification.md` and
+  `docs/.agents/tasks/task6-deploy-runbook.md`.
+- NEXT: Task 7 — Gitea + frontend hosting (stand up self-hosted Gitea on an
+  always-on host — the GitHub-mock Lambda targets it — and deploy the reused
+  Next.js frontend from mahalo-dock). See docs/PLAN.md. Task 6's live Runtime
+  deploy/E2E remains a deferred operator step (not a Task-7 blocker).
   - AWS COST / DEPLOYED STATE: the five app stacks (Gateway + 4 Lambdas + 4
     DynamoDB tables) were TORN DOWN 2026-10-17 via
     `cdk destroy --all --force --profile lava` (confirmed: no `Mahalo*` stacks

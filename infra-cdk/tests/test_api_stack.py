@@ -1,0 +1,62 @@
+"""CDK synth assertion tests for MahaloApiStack (Task 6), offline.
+
+On the offline/default branch the API Lambda synthesizes Docker-free: one
+python3.13 Lambda with handler app.main.handler, a Function URL AuthType=AWS_IAM,
+the InvokeAgentRuntime grant on the Runtime ARN, and MAHALO_RUNTIME_ARN wired in.
+"""
+
+import aws_cdk as cdk
+from aws_cdk import assertions
+
+from mahalo_infra.api_stack import MahaloApiStack
+from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
+from mahalo_infra.runtime_stack import MahaloRuntimeStack
+
+_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+
+
+def _api_template():
+    app = cdk.App()
+    memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack", env=_ENV)
+    runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
+    api = MahaloApiStack(app, "MahaloApiStack", runtime_stack=runtime, env=_ENV)
+    return assertions.Template.from_stack(api)
+
+
+def test_single_python313_lambda():
+    tmpl = _api_template()
+    tmpl.resource_count_is("AWS::Lambda::Function", 1)
+    tmpl.has_resource_properties(
+        "AWS::Lambda::Function",
+        {"Runtime": "python3.13", "Handler": "app.main.handler"},
+    )
+
+
+def test_function_url_auth_iam():
+    tmpl = _api_template()
+    tmpl.resource_count_is("AWS::Lambda::Url", 1)
+    tmpl.has_resource_properties("AWS::Lambda::Url", {"AuthType": "AWS_IAM"})
+
+
+def test_runtime_arn_env_and_output():
+    tmpl = _api_template()
+    fns = tmpl.find_resources("AWS::Lambda::Function")
+    (fn,) = fns.values()
+    env = fn["Properties"]["Environment"]["Variables"]
+    assert "MAHALO_RUNTIME_ARN" in env
+    assert env["MAHALO_IDENTITY_ENABLED"] == "false"
+    outputs = tmpl.to_json().get("Outputs", {})
+    assert "RuntimeApiUrl" in outputs
+
+
+def test_lambda_role_can_invoke_runtime():
+    tmpl = _api_template()
+    policies = tmpl.find_resources("AWS::IAM::Policy")
+    actions = set()
+    for policy in policies.values():
+        for stmt in policy["Properties"]["PolicyDocument"]["Statement"]:
+            act = stmt["Action"]
+            actions.update(act if isinstance(act, list) else [act])
+    assert "bedrock-agentcore:InvokeAgentRuntime" in actions
+    # Identity off in the MVP: the per-user action is NOT granted.
+    assert "bedrock-agentcore:InvokeAgentRuntimeForUser" not in actions

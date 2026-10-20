@@ -1,0 +1,98 @@
+"""Thin-API Function-URL Lambda (Task 6, design §E.2).
+
+``MahaloApiStack`` provisions the stateless FastAPI forwarder in ``api/`` as a
+``python3.13`` Lambda behind a Function URL with ``AuthType=AWS_IAM``. The Lambda
+role is granted ``bedrock-agentcore:InvokeAgentRuntime`` on the Runtime ARN, and
+``MAHALO_RUNTIME_ARN`` is wired in from the Runtime stack.
+
+Offline-safety (§E.4): dependency bundling runs Docker, which the offline gate
+forbids, so bundling is flag-gated exactly like the image build. On the default
+branch the Lambda is packaged as a plain asset (``Code.from_asset("../api")``) so
+``cdk synth`` never invokes Docker; on the operator-deploy branch
+(``-c buildImage=1`` / ``MAHALO_BUILD_IMAGE=1``) ``BundlingOptions`` installs
+``requirements.txt`` into the asset so ``fastapi``/``mangum``/``boto3`` ship.
+"""
+
+from __future__ import annotations
+
+import os
+
+from aws_cdk import BundlingOptions, CfnOutput, Duration, Stack
+from aws_cdk import aws_lambda as lambda_
+from constructs import Construct
+
+# …/infra-cdk/mahalo_infra/api_stack.py -> repo root -> api/.
+_API_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "api",
+)
+
+
+class MahaloApiStack(Stack):
+    """Function-URL Lambda forwarding to the AgentCore Runtime."""
+
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        *,
+        runtime_stack: "Stack",
+        identity_enabled: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        runtime = runtime_stack.runtime
+
+        build_image = bool(self.node.try_get_context("buildImage")) or (
+            os.environ.get("MAHALO_BUILD_IMAGE") == "1"
+        )
+        if build_image:
+            # Operator deploy: bundle deps into the asset via Docker.
+            code = lambda_.Code.from_asset(
+                _API_DIR,
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_13.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install -r requirements.txt -t /asset-output "
+                        "&& cp -r app /asset-output",
+                    ],
+                ),
+            )
+        else:
+            # Offline gate: plain asset, no Docker. (A pre-built deps layer is the
+            # offline-branch fallback for a runnable Lambda; for the synth gate the
+            # plain asset is sufficient and Docker-free.)
+            code = lambda_.Code.from_asset(_API_DIR)
+
+        fn = lambda_.Function(
+            self,
+            "ApiFn",
+            runtime=lambda_.Runtime.PYTHON_3_13,
+            handler="app.main.handler",
+            code=code,
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            environment={
+                # AWS_REGION is provided automatically by the Lambda runtime and
+                # is read by api/app/config.py; it must not be set here (reserved).
+                "MAHALO_RUNTIME_ARN": runtime.agent_runtime_arn,
+                "MAHALO_IDENTITY_ENABLED": "true" if identity_enabled else "false",
+            },
+        )
+
+        # Thin API -> Runtime: SigV4-signed InvokeAgentRuntime on the Runtime ARN.
+        runtime.grant_invoke_runtime(fn)
+        if identity_enabled:
+            # Per-user invoke requires the additional IAM action (§B.5 / §D.4).
+            runtime.grant_invoke_runtime_for_user(fn)
+
+        url = fn.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.AWS_IAM,
+        )
+
+        CfnOutput(self, "RuntimeApiUrl", value=url.url)
+
+        self.function = fn

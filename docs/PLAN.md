@@ -92,9 +92,54 @@ pass. Code reviewed and APPROVED
 AgentCore Memory, and the Identity-brokered credential exercise are DEFERRED
 operator steps.
 
-## Task 6 - Runtime hosting
+## Task 6 - Runtime hosting (OFFLINE-COMPLETE; live deploy deferred)
 
 Host the Strands agent on AgentCore Runtime and route traffic to it through the thin API.
+
+Progress: implemented and offline-verified. The agent `build_agent` seam is
+hosted UNCHANGED on **Amazon Bedrock AgentCore Runtime** via a thin harness
+(`agent/runtime_app.py`: `BedrockAgentCoreApp` + a single `@app.entrypoint invoke`
+that reuses `build_agent -> attach_gateway_tools -> attach_memory` through
+`agent/runtime_session.build_and_attach` — no second agent, no duplication).
+Traffic flows through a thin, stateless FastAPI forwarder (`api/`, Mangum on a
+Function-URL Lambda) that speaks a small `{action, prompt/decision, interrupt_id,
+...}` request / `{response, proposal?, session_id, status, error?}` response
+contract and imports **zero `agent`/LangChain** code. IaC adds two stacks
+(`infra-cdk/mahalo_infra/runtime_stack.py` `MahaloRuntimeStack`,
+`api_stack.py` `MahaloApiStack`, wired in `app.py`).
+
+Scope refinements during the task:
+- **Provisioning via the CDK L2 `aws_bedrockagentcore.Runtime`** construct suite
+  (`Runtime` + `AgentRuntimeArtifact` + `add_endpoint`), not boto3/starter-toolkit
+  — the L2 was discovered in the installed CDK during design review and auto-
+  creates the execution role (app-level Bedrock/Memory/Gateway grants added on
+  top). Docker branches (image build + Lambda dep bundling) are flag-gated
+  (`-c buildImage=1` / `MAHALO_BUILD_IMAGE=1`) so `cdk synth` stays Docker-free.
+- **Per-request sessions** arrive on the runtime session-id header (surfaced as
+  `context.session_id`, never in the body) and are wired straight into Task-5
+  Memory via `build_agent(memory=True, session_id=...)`.
+- **HITL** is a two-call propose->approve protocol at the Runtime boundary; the
+  `[SYSTEM]` chain breadcrumb is derived from the Runtime's own restored interrupt
+  state, so chain correctness does NOT depend on the client echoing the proposal.
+- **Identity Runtime path landed but descoped from the AWS_IAM MVP live gate**:
+  the Workload-Access-Token plumbing (`MAHALO_IDENTITY_ENABLED` env, per-user
+  `grant_invoke_runtime_for_user`, `runtimeUserId` forwarding) is in place and
+  flip-enabled; off by default under SigV4 inbound auth.
+- Inbound auth is **AWS_IAM/SigV4** (the L2 default); a Cognito branch stub is left
+  for the dev-mode upgrade.
+
+Zero LangChain. Offline gate GREEN (`docs/.agents/tasks/task6-verification.md`):
+`pytest agent -q` = 99 pass / 1 skip (69/1 baseline + 30 Task-6; DIRECT 42/1 and
+Task-4 GATEWAY / Task-5 Memory-Identity preserved), thin-API `pytest api -q` = 15
+pass, `pytest tools-lambdas/tests -q` = 94 pass, infra-cdk `pytest tests -q` = 42
+pass / 1 skip (the Docker from_asset branch is operator-only), `cdk synth --all`
+exit 0 (EIGHT templates incl. `MahaloRuntimeStack` + `MahaloApiStack`), Runtime
+entrypoint + thin API import/construct offline with no creds. Code reviewed and
+APPROVED (`docs/.agents/tasks/task6-code-review.json`, 0 blocking). The live
+deploy (container build/push + `cdk deploy --all`), the end-to-end READ, the HITL
+WRITE via the two-call approve protocol, and the cross-invocation Memory
+persistence check are DEFERRED operator steps documented in
+`docs/.agents/tasks/task6-verification.md` and `task6-deploy-runbook.md`.
 
 ## Task 7 - Gitea and frontend hosting
 

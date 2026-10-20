@@ -1,0 +1,30 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "title": "Stale \"L1\" wording survives the L2 re-base",
+      "where": "\u00a7E.5 step 6 and Edge-cases/Assumptions lifecycle-config citations",
+      "problem": "After \u00a7E.0 adopted the L2 agentcore.Runtime, two references still label the Runtime constructs and the LifecycleConfiguration docstring as \"L1\". The facts are correct but the label is now internally inconsistent and could lead an implementer to reach for CfnRuntime.",
+      "fix": "Replace 'the Runtime L1s' in \u00a7E.5 step 6 with 'the Runtime L2 constructs (and underlying CfnResources where exposed)'; change 'the installed CDK L1 docstring' in the lifecycle citations to 'the installed CDK LifecycleConfiguration docstring' (L2 wrapper at __init__.py line ~65795 carries the same 900s/28800s defaults)."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "title": "add_endpoint first argument is positional endpoint_name, not keyword name",
+      "where": "\u00a7E.1 step 4 / prose paraphrase of runtime.add_endpoint",
+      "problem": "Installed L2 signature is add_endpoint(endpoint_name: str, *, description=None, version=None). The positional call runtime.add_endpoint(\"default\") is correct, but the prose paraphrase 'add_endpoint(name, ...)' names the first param 'name'; a keyword call add_endpoint(name=...) would TypeError.",
+      "fix": "Paraphrase as add_endpoint(endpoint_name, *, description=None, version=None)."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "Investigation \u00a75 still describes only the L1; it now contradicts the design on the IaC surface",
+      "where": "investigation \u00a75.1\u2013\u00a75.3 + Citations index vs design \u00a7E.0",
+      "problem": "The design correctly adopts the verified L2 agentcore.Runtime suite, but the investigation it claims to be grounded in still concludes 'our deploy path is CDK CfnRuntime' (L1). A reader cross-checking the two docs hits a direct contradiction on the single most load-bearing deploy decision. The design acknowledges this inline, so it is not blocking, but the source doc is left stale.",
+      "fix": "Add a one-line note at investigation \u00a75.1 pointing to design \u00a7E.0: 'An L2 agentcore.Runtime suite also ships and is the chosen surface \u2014 see design \u00a7E.0.'"
+    }
+  ],
+  "reviewDoc": "docs/.agents/tasks/task6-design-review.md"
+}

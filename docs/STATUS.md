@@ -1,7 +1,9 @@
 # mahalo-agentcore — Project Status
 
-**Snapshot date:** 2026-10-17
-**Branch:** `main` @ `98ca3b3` (pushed to origin — working tree clean)
+**Snapshot date:** 2026-10-18
+**Branch:** `main` — Tasks 0-5 committed + pushed; **Task 6 is offline-complete +
+code-review APPROVED** and lives as uncommitted changes in the working tree
+(commit/push is the operator's call — this verification step did not commit).
 **Repo:** https://github.com/tjblavakumar/mahalo-agentcore
 
 This is the one-page "where are we" view. For per-task depth see `docs/PLAN.md`
@@ -37,13 +39,16 @@ provisioned by AWS CDK (Python) that survives a monthly account reset.
 | 3 | Four mocks reimplemented as **AWS Lambdas** (DynamoDB-backed) + CDK `MockServiceStack`×4; seed data byte-identical to mahalo-dock | offline: 94 lambda tests, cdk synth, 20→ infra tests | deploy deferred→done in Task 4 |
 | 4 | **AgentCore Gateway** + 4 targets expose the 25 tools as MCP; agent dual-mode (`MAHALO_TOOL_MODE`, DIRECT default / GATEWAY opt-in); SigV4/AWS_IAM inbound auth; HITL preserved over MCP | offline gate green; **live E2E passed** (read + HITL approve/reject through the deployed Gateway) | ✅ deployed, validated, then **torn down** |
 | 5 | **AgentCore Memory** (short-term conversation, session-id keyed) + **Identity** (one API-key-brokered outbound path); both opt-in/additive; CDK `MahaloMemoryIdentityStack` | offline: agent 69/1, infra-cdk 31, lambdas 94, zero LangChain | deploy + persist/reload check deferred |
+| 6 | **AgentCore Runtime** hosts the agent (`agent/runtime_app.py`, L2 `agentcore.Runtime`) behind a **thin stateless FastAPI forwarder** (`api/`, Function-URL Lambda); per-request sessions → Task-5 Memory; two-call HITL approve/reject at the Runtime boundary; Identity Runtime path plumbed (off for the AWS_IAM MVP); CDK `MahaloRuntimeStack` + `MahaloApiStack` | offline gate green: agent 99/1, api 15, infra-cdk 42/1, lambdas 94, `cdk synth --all` exit 0 (8 templates), entrypoint + thin API import offline, zero LangChain | deploy + E2E read / HITL write / Memory-persist check deferred |
 
-**Current test baseline (clean env):** agent `69 passed, 1 skipped`;
-infra-cdk `31 passed` + `cdk synth` exit 0; tools-lambdas `94 passed`; zero
-LangChain anywhere.
+**Current test baseline (clean env):** agent `99 passed, 1 skipped`; thin-API
+`15 passed`; infra-cdk `42 passed, 1 skipped` (the 1 skip is the operator-only
+Docker from_asset branch) + `cdk synth --all` exit 0 (8 templates);
+tools-lambdas `94 passed`; zero LangChain anywhere.
 
 **DIRECT mode is always the default** and stays byte-for-byte unchanged across
-Tasks 4–5; GATEWAY / Memory / Identity are all opt-in via `MAHALO_*` env toggles.
+Tasks 4–6; GATEWAY / Memory / Identity are all opt-in via `MAHALO_*` env toggles.
+The Runtime harness and thin API reuse the same `build_agent` seam the CLI uses.
 
 ---
 
@@ -69,13 +74,16 @@ exercise end-to-end (billable; run under `lava` SSO). Commands are in each task'
   CLI twice with the same `--session-id` and confirm conversation history
   persists/reloads via AgentCore Memory; exercise the Identity-brokered
   `jira_create_story` API-key path.
+- **Task 6 Runtime live gate** — build/push the agent image + deploy
+  `MahaloRuntimeStack` + `MahaloApiStack` (`MAHALO_BUILD_IMAGE=1`, `cdk deploy
+  --all --profile lava`), then through the deployed thin API: a **READ**, a
+  **HITL WRITE** via the two-call approve protocol (propose → approve/reject,
+  branch→commit→PR chain), and a **cross-invocation Memory persistence** check
+  (same `session_id` across two `/chat` calls). Also measure the synchronous
+  `InvokeAgentRuntime` budget on a code-gen commit. Exact commands in
+  `docs/.agents/tasks/task6-verification.md` + `task6-deploy-runbook.md`.
 
 ### Remaining tasks (not started) — see `docs/PLAN.md`
-- **Task 6 — Runtime hosting.** Host the Strands agent on AgentCore Runtime and
-  route traffic through a thin stateless API. This is the convergence point:
-  real multi-user **sessions** arrive here (wiring Task 5 Memory to actual
-  request sessions), and the **deferred Identity** pieces (per-service credential
-  brokering, the Runtime Workload-Access-Token path) land here. Expected heavy.
 - **Task 7 — Gitea + frontend hosting.** Stand up self-hosted Gitea on an
   always-on host (the GitHub-mock Lambda targets it) and deploy the reused
   Next.js frontend (portable from mahalo-dock).
@@ -110,4 +118,7 @@ exercise end-to-end (billable; run under `lava` SSO). Commands are in each task'
    rule: only ever write under `mahalo-agentcore`, never edit `mahalo-dock`).
 3. Re-auth if needed: `aws sso login --profile lava`, verify with
    `aws sts get-caller-identity --profile lava`.
-4. Next planned work: **Task 6 — Runtime hosting** (per `docs/PLAN.md`).
+4. Next planned work: **Task 7 — Gitea + frontend hosting** (per `docs/PLAN.md`).
+   Task 6 (Runtime hosting) is offline-complete + code-review APPROVED; its live
+   deploy/E2E gate is a deferred operator step (see
+   `docs/.agents/tasks/task6-verification.md`).

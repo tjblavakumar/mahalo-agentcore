@@ -1,0 +1,8 @@
+# Thin stateless API — forwards to the AgentCore Runtime (Task 6).
+# NO langchain, NO agent import. boto3/botocore must be new enough to carry the
+# bedrock-agentcore 2024-02-28 data-plane model (InvokeAgentRuntime).
+fastapi==0.115.6
+mangum==0.19.0
+pydantic==2.10.4
+boto3==1.35.90
+botocore==1.35.90

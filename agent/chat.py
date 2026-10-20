@@ -20,6 +20,7 @@ import sys
 import uuid
 
 from agent.config import settings
+from agent.hitl import emit_system_signal, resume_once
 from agent.strands_agent import attach_gateway_tools, attach_memory, build_agent
 
 _IDENTITY = {
@@ -74,46 +75,9 @@ def _ask(agent, message) -> str:
         # now would corrupt the toolUse/toolResult pairing.
         if getattr(result, "stop_reason", None) != "interrupt":
             for proposal in pending_breadcrumbs:
-                _emit_system_signal(agent, proposal)
+                emit_system_signal(agent, proposal)
             pending_breadcrumbs = []
     return str(result).strip()
-
-
-def _emit_system_signal(agent, proposal: dict) -> None:
-    """Append a ``[SYSTEM]`` breadcrumb to history after an APPROVED write.
-
-    Keyed on ``proposal["action"]`` using the three verbatim templates from
-    task2-design.md for the GitHub chain, with a generic fallback for the other
-    writes. Called on approve only; nothing is emitted on reject.
-    """
-    action = proposal["action"]
-    p = proposal["params"]
-
-    if action == "create_branch":
-        msg = (
-            f"[SYSTEM] The user APPROVED and the branch '{p['branch_name']}' "
-            f"now exists in repo '{p['repo_id']}'. Do NOT propose creating it "
-            f"again. Next, if the user asked to commit code, propose "
-            f"github_commit_files to that branch with the full file contents you "
-            f"prepared earlier."
-        )
-    elif action == "commit_files":
-        msg = (
-            f"[SYSTEM] The user APPROVED and the files were committed to branch "
-            f"'{p['branch']}' in repo '{p['repo_id']}'. Do NOT propose "
-            f"committing again. Next, if the user wants a PR, propose "
-            f"github_open_pull_request from '{p['branch']}' into main."
-        )
-    elif action == "open_pull_request":
-        msg = (
-            f"[SYSTEM] The user APPROVED and a pull request was opened from "
-            f"'{p['head']}' into '{p.get('base', 'main')}' in repo "
-            f"'{p['repo_id']}'. The check-in flow is complete."
-        )
-    else:
-        msg = f"[SYSTEM] The user approved and the '{action}' action was executed."
-
-    agent.messages.append({"role": "assistant", "content": [{"text": msg}]})
 
 
 def _wire_memory(result, session_id: str | None) -> None:

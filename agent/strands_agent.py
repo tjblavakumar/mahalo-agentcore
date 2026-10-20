@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import boto3
+import botocore.session
 from botocore.config import Config
 from strands import Agent
 from strands.models import BedrockModel
@@ -86,9 +87,16 @@ def _build_bedrock_model() -> BedrockModel:
     """Construct the Bedrock model with a 300s read timeout and the lava profile.
 
     Credentials come from the AWS profile (default ``lava``) via a boto3 Session
-    so no AWS keys are baked into code. If that profile is unavailable we fall
-    back to the default credential chain, keeping offline import/construction
-    working regardless.
+    so no AWS keys are baked into code. The profile is decided *before* the
+    Session is constructed: ``boto3.Session(profile_name=...)`` does NOT raise at
+    construction (``ProfileNotFound`` is lazy — raised later inside the first
+    model call, outside this function), so we must not rely on a construction-time
+    raise to fall back. Instead we check ``botocore``'s ``available_profiles``
+    (reads the config file only — no creds, no network, offline-safe) and pass
+    ``profile_name`` only when the profile actually exists. When it is absent
+    (the Runtime container, which sets no ``AWS_PROFILE``), the Session is built
+    with no profile so boto3 uses the default credential chain = the execution
+    role (design §A.6 / Task 6 Finding 1).
     """
     boto_config = Config(
         read_timeout=settings.bedrock_read_timeout,
@@ -96,12 +104,15 @@ def _build_bedrock_model() -> BedrockModel:
         retries={"max_attempts": 3, "mode": "adaptive"},
     )
 
-    try:
+    profile = settings.aws_profile
+    available = botocore.session.Session().available_profiles
+    if profile and profile in available:
         session = boto3.Session(
-            profile_name=settings.aws_profile, region_name=settings.aws_region
+            profile_name=profile, region_name=settings.aws_region
         )
-    except Exception:
-        # Profile missing/misconfigured — defer to the default credential chain.
+    else:
+        # Profile absent (the container) or empty — defer to the default
+        # credential chain (= the Runtime execution role in-container).
         session = boto3.Session(region_name=settings.aws_region)
 
     # NOTE: BedrockModel rejects passing BOTH ``region_name`` and ``boto_session``
@@ -123,6 +134,7 @@ def build_agent(
     memory: bool | None = None,
     session_id: str | None = None,
     identity: bool | None = None,
+    pending_write: bool = False,
 ) -> "BuildResult":
     """Build and return a configured Strands Agent wrapped in a ``BuildResult``.
 
@@ -157,6 +169,12 @@ def build_agent(
     ``agent/tools/jira_write_tools.py`` at call time. The parameter is accepted so
     callers (and Task 6) can resolve it explicitly, but the default (``None`` ->
     ``settings.identity_enabled``) leaves construction untouched.
+
+    ``pending_write`` (Task 6, design §C.4; opt-in, default ``False``) is forwarded
+    into ``build_memory_session_spec`` so a pending-write (HITL approve-leg) build
+    gets ``filter_restored_tool_context=False`` on its Memory spec. Default
+    ``False`` keeps the Task-5 STM behavior (filter on) for every other build, so
+    the DIRECT/GATEWAY CLI and the Task-5 tests are byte-for-byte unchanged.
 
     Either way the same prefix-aware ``WriteApprovalHook`` gates the six writes.
     """
@@ -193,6 +211,7 @@ def build_agent(
             resolved_session_id,
             actor_id=developer_id,
             region=settings.memory_region,
+            pending_write=pending_write,
         )
 
     if mode == "gateway":
