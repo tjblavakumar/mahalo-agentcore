@@ -5,12 +5,47 @@ root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
 > For a one-page "where are we / what's left" snapshot, read `docs/STATUS.md`
-> first. As of 2026-10-18: Tasks 0-5 DONE and pushed; **Task 6 (Runtime hosting)
-> is OFFLINE-COMPLETE + code-review APPROVED** (offline gate green; live deploy is
-> a deferred operator step — NOT run); nothing of ours is deployed (Task-4 stacks
-> were deployed, validated, then torn down); NEXT is Task 7 (Gitea + frontend
-> hosting). This CONTINUATION file has the full operational detail behind that
-> summary.
+> first. As of 2026-10-18: Tasks 0-6 DONE (6 is OFFLINE-COMPLETE + code-review
+> APPROVED, committed+pushed as `172890c`); live deploy is a deferred operator
+> step; nothing of ours is deployed; **Task 7 (Gitea + frontend hosting) is
+> IN PROGRESS — design phase, not yet implemented.** This CONTINUATION file has
+> the full operational detail.
+
+> ⏸️ RESUME TOMORROW — Task 7 in-flight (workflow `wf_15b843019e9d877e`, PAUSED):
+> Task 7 (port the mahalo-dock Next.js frontend to the Task-6 thin API + stand up
+> self-hosted Gitea) is mid-DESIGN. The design went 5 iterations and is one PROSE
+> fix from APPROVED — the last confirming review hadn't run when we paused. Git is
+> clean at `172890c` (Task 6); Task 7 has produced ONLY doc artifacts so far
+> (`docs/.agents/tasks/task7-investigation.md`, `task7-design.md`,
+> `task7-design-review.{md,json}`) and NO code — nothing to commit yet.
+>
+> The design is SOUND and verified against source; the hard problems are resolved:
+> (A) chat-surface-only frontend port with the two-call `/chat` + `/chat/approve`
+> HITL (interrupt_id already on the wire — no backend change); (B) browser auth via
+> a Cognito UNAUTHENTICATED Identity Pool -> temp IAM creds -> in-browser SigV4
+> (aws4fetch) direct to the Function URL at the AWS_IAM edge; (C) Gitea on EC2+EBS
+> (SQLite), additive behind `GITHUB_MODE=real` (mock path stays default, 94
+> lambda tests green); (D) frontend as S3+CloudFront static export (dropped
+> `next/font/google` so the offline `npm build` needs no network), `NEXT_PUBLIC_API_URL`
+> from the `RuntimeApiUrl` CfnOutput via a two-phase operator build; (E) two new
+> offline-synthing CDK stacks (`MahaloGiteaStack` + `MahaloFrontendStack`, 8->10
+> templates, asset builds flag-gated). The ONLY open item is review Finding 1
+> (MEDIUM, prose-only): §D.2/§E.1 mis-state WHY `frontend_stack` takes `api_stack`
+> — fix the sentence to say it reads `api_stack.function.function_arn` for the
+> unauthenticated Cognito role's `lambda:InvokeFunctionUrl` policy, and that
+> `NEXT_PUBLIC_API_URL`/CORS are operator steps, not done by the stack.
+>
+> TO RESUME: inspect `wf_15b843019e9d877e`. If it settled paused mid-design, either
+> resume it (it should finish the fix -> confirming review -> APPROVED -> plan ->
+> build-loop -> verify), or if it's in a bad state, relaunch Task 7 from a
+> `run_workflow` prompt noting the design is already near-APPROVED (reuse the
+> existing `task7-design.md`, apply only Finding 1, then proceed to build). After
+> implementation: offline gate = frontend `npm ci && npm run build` + lint +
+> vitest `--run`, plus Python gates green (agent 99/1 clean-env with NO `MAHALO_*`
+> env vars, api 15, tools-lambdas 94, infra-cdk synth+tests), zero LangChain.
+> Then COMMIT+PUSH Task 7, and the PLAN is: do the full end-to-end LIVE deploy +
+> validation (frontend -> thin API -> Runtime -> Gateway -> Lambdas, incl. the
+> two-call HITL in the browser) WITH the user, since the frontend is now in place.
 
 > HARD RULE: Only create or modify files UNDER
 > `D:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to
