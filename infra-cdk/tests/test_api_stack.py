@@ -38,6 +38,30 @@ def test_function_url_auth_iam():
     tmpl.has_resource_properties("AWS::Lambda::Url", {"AuthType": "AWS_IAM"})
 
 
+def test_function_url_cors_block():
+    # Task 7 (§B.4): the Function URL gains a CORS block while the auth type
+    # stays AWS_IAM (no downgrade). The browser calls the URL directly and signs
+    # SigV4; CORS lets the CloudFront origin + the SigV4 headers through.
+    tmpl = _api_template()
+    urls = tmpl.find_resources("AWS::Lambda::Url")
+    (url,) = urls.values()
+    props = url["Properties"]
+    assert props["AuthType"] == "AWS_IAM"
+    cors = props["Cors"]
+    assert set(cors["AllowMethods"]) == {"POST", "GET"}
+    for header in (
+        "Authorization",
+        "X-Amz-Date",
+        "X-Amz-Security-Token",
+        "X-Amz-Content-Sha256",
+        "Content-Type",
+    ):
+        assert header in cors["AllowHeaders"]
+    assert cors["MaxAge"] == 300
+    # Allowed origin is a parameter reference, NOT a '*' wildcard.
+    assert cors["AllowOrigins"] != ["*"]
+
+
 def test_runtime_arn_env_and_output():
     tmpl = _api_template()
     fns = tmpl.find_resources("AWS::Lambda::Function")

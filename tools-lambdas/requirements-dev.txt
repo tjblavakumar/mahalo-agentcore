@@ -1,3 +1,6 @@
 pytest==8.3.4
 moto[dynamodb]==5.0.28
 boto3==1.35.90
+# Real-mode (GITHUB_MODE=real) Gitea adapter HTTP client; also used by its
+# offline unit tests (httpx.MockTransport, no live Gitea).
+httpx==0.28.1

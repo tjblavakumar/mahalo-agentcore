@@ -20,6 +20,7 @@ from common.responses import error, json_response
 from common.router import Router
 
 from . import seed_data
+from .backend_base import BackendError
 
 PK_REPO = "REPO"
 PK_BRANCHSET = "BRANCHSET"
@@ -367,5 +368,236 @@ def build_router(store, token):
                 "open_prs": open_prs,
             },
         )
+
+    return router
+
+
+def build_gitea_router(backend):
+    """Build the real-mode (``GITHUB_MODE=real``) router backed by Gitea.
+
+    Registers the SAME route table (paths/verbs/int-param coercion) as
+    :func:`build_router` so DIRECT and Gateway invocations are indistinguishable
+    from the mock path, but delegates each route to the :class:`GiteaBackend`
+    instance instead of the DynamoDB ``Store``. A :class:`BackendError` raised by
+    the backend is mapped to the common ``error(status, detail)`` helper, exactly
+    as mahalo-dock's ``main.py::_call`` mapped it to an ``HTTPException``.
+
+    Auth is unchanged: the service still enforces the static ``X-API-Token``
+    against ``MOCK_GITHUB_TOKEN`` (the same token the Gateway adapter injects), so
+    flipping the mode never changes the edge contract. The Gitea API token (SSM)
+    authenticates the Lambda->Gitea hop and is held inside ``backend`` only.
+
+    Note: :func:`build_router` and its ``(store, token)`` signature/mock behavior
+    are left untouched; this is a strictly additive sibling.
+    """
+    router = Router()
+    github_mode = os.environ.get("GITHUB_MODE", "mock").strip().lower()
+    token = os.environ.get("MOCK_GITHUB_TOKEN", "mock-github-token-12345")
+
+    def _auth(request):
+        if not require_token(request, token):
+            return error(401, "Invalid API token")
+        return None
+
+    def _call(fn, *args, **kwargs):
+        """Invoke a backend method, mapping BackendError -> error() response."""
+        try:
+            return fn(*args, **kwargs)
+        except BackendError as e:
+            return error(e.status, e.detail)
+
+    @router.route("GET", "/health")
+    def health(request):
+        return json_response(
+            200,
+            {
+                "status": "healthy",
+                "service": "github-adapter",
+                "version": "2.0.0",
+                "mode": github_mode,
+            },
+        )
+
+    # --- Repos ---
+
+    @router.route("POST", "/repos")
+    def create_repo(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(backend.create_repo, request.json_body or {})
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(201, result)
+
+    @router.route("GET", "/repos")
+    def list_repos(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(backend.list_repos)
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    @router.route("GET", "/repos/{repo_id}")
+    def get_repo(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(backend.get_repo, request.path_params["repo_id"])
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    # --- Branches ---
+
+    @router.route("GET", "/repos/{repo_id}/branches")
+    def list_branches(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(backend.list_branches, request.path_params["repo_id"])
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    @router.route("POST", "/repos/{repo_id}/branches")
+    def create_branch(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        body = request.json_body or {}
+        name = body.get("name")
+        if name in (None, ""):
+            return error(422, "Field 'name' is required")
+        result = _call(
+            backend.create_branch,
+            request.path_params["repo_id"],
+            name,
+            body.get("from_branch") or "main",
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(201, result)
+
+    # --- Pull requests ---
+
+    @router.route("GET", "/pulls")
+    def list_all_pulls(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.list_all_pulls,
+            request.query.get("status"),
+            request.query.get("author_id"),
+            request.query.get("repo_id"),
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    @router.route("GET", "/repos/{repo_id}/pulls")
+    def list_pulls(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.list_pulls,
+            request.path_params["repo_id"],
+            request.query.get("status"),
+            request.query.get("author_id"),
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    @router.route("GET", "/repos/{repo_id}/pulls/{pr_number}", int_params={"pr_number"})
+    def get_pull(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.get_pull,
+            request.path_params["repo_id"],
+            request.path_params["pr_number"],
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    @router.route("POST", "/repos/{repo_id}/pulls")
+    def create_pull(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.create_pull,
+            request.path_params["repo_id"],
+            request.json_body or {},
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(201, result)
+
+    # --- Commits ---
+
+    @router.route("GET", "/repos/{repo_id}/commits")
+    def list_commits(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.list_commits,
+            request.path_params["repo_id"],
+            request.query.get("branch"),
+            request.query.get("author"),
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
+
+    @router.route("POST", "/repos/{repo_id}/commits")
+    def create_commit(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.create_commit,
+            request.path_params["repo_id"],
+            request.json_body or {},
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(201, result)
+
+    # --- Docs ---
+
+    @router.route("POST", "/repos/{repo_id}/readme")
+    def create_readme(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(
+            backend.create_readme,
+            request.path_params["repo_id"],
+            request.json_body or {},
+        )
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(201, result)
+
+    # --- Stats ---
+
+    @router.route("GET", "/repos/{repo_id}/stats")
+    def get_stats(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        result = _call(backend.get_stats, request.path_params["repo_id"])
+        if isinstance(result, dict) and "statusCode" in result:
+            return result
+        return json_response(200, result)
 
     return router

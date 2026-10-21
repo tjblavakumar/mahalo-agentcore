@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import os
 
-from aws_cdk import BundlingOptions, CfnOutput, Duration, Stack
+from aws_cdk import BundlingOptions, CfnOutput, CfnParameter, Duration, Stack
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -89,8 +89,46 @@ class MahaloApiStack(Stack):
             # Per-user invoke requires the additional IAM action (§B.5 / §D.4).
             runtime.grant_invoke_runtime_for_user(fn)
 
+        # Browser (CloudFront static app) calls this Function URL DIRECTLY and
+        # signs SigV4 for its own host (design §B.4); cross-origin is handled by
+        # a CORS block here. The auth type stays AWS_IAM (no downgrade). The
+        # allowed origin is the CloudFront frontend domain — a CfnParameter (NOT
+        # '*', because signed requests carry credentials); the operator sets it
+        # when re-deploying this stack after the frontend stack is up (§D.2 step 5).
+        frontend_origin = CfnParameter(
+            self,
+            "FrontendOrigin",
+            type="String",
+            default="https://example.cloudfront.net",
+            description=(
+                "CloudFront frontend origin allowed by the Function URL CORS "
+                "policy (e.g. https://<dist>.cloudfront.net). Set on re-deploy "
+                "once the frontend stack's domain is known (design §D.2 step 5)."
+            ),
+        ).value_as_string
+
         url = fn.add_function_url(
             auth_type=lambda_.FunctionUrlAuthType.AWS_IAM,
+            cors=lambda_.FunctionUrlCorsOptions(
+                allowed_origins=[frontend_origin],
+                # POST (/chat, /chat/approve) + GET (/healthz). The OPTIONS
+                # preflight is answered automatically by the Function URL CORS
+                # layer and is NOT a valid allowed-method value (CloudFormation
+                # rejects "OPTIONS"), so it is intentionally omitted here while
+                # still being served unsigned — the §B.4 intent holds.
+                allowed_methods=[
+                    lambda_.HttpMethod.POST,
+                    lambda_.HttpMethod.GET,
+                ],
+                allowed_headers=[
+                    "Authorization",
+                    "X-Amz-Date",
+                    "X-Amz-Security-Token",
+                    "X-Amz-Content-Sha256",
+                    "Content-Type",
+                ],
+                max_age=Duration.seconds(300),
+            ),
         )
 
         CfnOutput(self, "RuntimeApiUrl", value=url.url)

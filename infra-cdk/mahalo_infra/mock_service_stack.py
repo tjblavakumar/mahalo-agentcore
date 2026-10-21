@@ -25,6 +25,7 @@ from aws_cdk import (
 )
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_lambda as lambda_
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 # Asset root, relative to infra-cdk/ (the dir cdk runs ``python app.py`` from).
@@ -61,6 +62,9 @@ class MockServiceStack(Stack):
         *,
         service: str,
         default_token: str | None = None,
+        gitea_mode: bool = False,
+        gitea_env: dict[str, str] | None = None,
+        gitea_token_param_name: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -97,6 +101,18 @@ class MockServiceStack(Stack):
             "requirements-dev.txt",
             ".gitkeep",
         ]
+        environment = {
+            "TABLE_NAME": table_name,
+            token_env_key: token,
+        }
+        # github-only, opt-in: flip the adapter to the Gitea-backed path and
+        # merge its env. Guarded by ``service == "github" and gitea_mode`` so the
+        # other three instances (and the default github instance) are byte-
+        # identical to before (design §C.4b).
+        if service == "github" and gitea_mode:
+            environment["GITHUB_MODE"] = "real"
+            environment.update(gitea_env or {})
+
         fn = lambda_.Function(
             self,
             "Function",
@@ -105,14 +121,22 @@ class MockServiceStack(Stack):
             code=lambda_.Code.from_asset(_ASSET_PATH, exclude=exclude),
             memory_size=256,
             timeout=Duration.seconds(30),
-            environment={
-                "TABLE_NAME": table_name,
-                token_env_key: token,
-            },
+            environment=environment,
         )
 
         # (3) Least-privilege IAM: this table only.
         table.grant_read_write_data(fn)
+
+        # github real-mode only: grant the Lambda read (ssm:GetParameter +
+        # kms:Decrypt) on the SSM SecureString holding the Gitea adapter token.
+        # Same guard as the env branch, so default synth is unchanged.
+        if service == "github" and gitea_mode and gitea_token_param_name:
+            param = ssm.StringParameter.from_secure_string_parameter_attributes(
+                self,
+                "GiteaToken",
+                parameter_name=gitea_token_param_name,
+            )
+            param.grant_read(fn)
 
         # (4) Function URL, no IAM auth (the Lambda enforces X-API-Token itself).
         fn_url = fn.add_function_url(
