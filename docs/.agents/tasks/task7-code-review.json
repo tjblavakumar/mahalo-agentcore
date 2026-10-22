@@ -1,0 +1,41 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "info",
+      "confidence": "confirmed",
+      "area": "offline gates",
+      "note": "Spot-checked the load-bearing claims directly rather than trusting findings alone. `cdk synth --all` from infra-cdk/.venv exits 0 with no AWS creds and no Docker invocation and emits exactly 10 *.template.json files in cdk.out (8 prior + MahaloGiteaStack + MahaloFrontendStack). `pytest tools-lambdas/tests -q` = 103 passed (94 baseline + 9 new real-mode). The three Task-7 infra test files (test_api_stack.py, test_gitea_stack.py, test_frontend_stack.py) = 19 passed, including the new Function-URL CORS assertion and the gitea/frontend stack assertions; this matches FEAT-002's recorded 57/1 (42 baseline + 15 new). Frontend out/index.html exists and node_modules has aws4fetch + the pinned deps."
+    },
+    {
+      "severity": "info",
+      "confidence": "confirmed",
+      "area": "FEAT-001 frontend fidelity",
+      "note": "api.ts implements the §B.3 SigV4 path: fromCognitoIdentityPool temp creds cached in memory with near-expiry refresh, AwsClient(service='lambda'), serialized JSON body passed into aws.fetch with no post-sign mutation; the mahalo3_token Bearer block is gone. chat/page.tsx threads interrupt_id from msg.proposal?.interrupt_id with a fail-safe early-return, makes systems_queried optional, gates the Approve/Reject card on status==='pending_approval' && proposal, drops the useAuth/useProjects/useConnections/useRequiredConnections deps and /chat/suggestions, and uses the fixed buildSuggestions({role:'developer', project:null, connectedTypes:['github','jira']}). layout.tsx has no next/font/google import (system font stack). page.tsx is a client useEffect router.push('/chat'). types/index.ts is the trimmed UserRole + full Project. next.config.ts has output:'export' + images.unoptimized. Deps pinned exactly: aws4fetch@1.0.20, @aws-sdk/credential-providers@3.1154.0; @aws-sdk/signature-v4 and @aws-crypto/sha256-js absent."
+    },
+    {
+      "severity": "info",
+      "confidence": "confirmed",
+      "area": "FEAT-002 infra + lambda fidelity",
+      "note": "github handler._get_router short-circuits the DynamoDB Store/seed in real mode (store=None, ensure_seeded guarded), reads Gitea env at module scope, resolves the token from SSM (GITEA_TOKEN_PARAM) at cold start with GITEA_TOKEN/GITEA_TOKEN_FILE fallback, imports GiteaBackend lazily so the mock path never loads httpx, and never logs the token. routes.build_router(store, token) is byte-unchanged; build_gitea_router(backend) is a strictly additive sibling mapping BackendError->error(). mock_service_stack gains the three gitea_* kwargs with the env/SSM-grant branches guarded by `service=='github' and gitea_mode` so the default and the other three instances are unchanged. app.py reads -c giteaMode=real once and threads it to the github instance only. api_stack adds FunctionUrlCorsOptions with auth staying AWS_IAM, allowed_origins a CfnParameter (not '*'), and the SigV4 headers. gitea_stack creates (not looks up) a tiny VPC with an availability_zones override, SSH restricted to AdminCidr, 3000 defaulting to 0.0.0.0/0, a gp3 EBS volume, image by reference (no DockerImageAsset). frontend_stack is a private S3 bucket + single-origin CloudFront (OAC, SPA 403/404) + flag-gated BucketDeployment + Cognito unauthenticated pool/role granting only lambda:InvokeFunctionUrl, emitting IdentityPoolId + FrontendUrl."
+    },
+    {
+      "severity": "nit",
+      "confidence": "confirmed",
+      "area": "documented deviation — CORS OPTIONS",
+      "note": "The Function URL CORS allowed_methods is [POST, GET]; OPTIONS was dropped because CloudFormation rejects 'OPTIONS' as a Lambda Function URL allowed-method enum value. The preflight is still answered automatically/unsigned by the Function URL CORS layer, so the §B.4 intent (unsigned preflight, signed POST/GET) holds. Deviation is recorded in FEAT-002 findings and commented in api_stack.py. No action required."
+    },
+    {
+      "severity": "nit",
+      "confidence": "confirmed",
+      "area": "documented deviation — gitea AZ + bootstrap",
+      "note": "MahaloGiteaStack overrides availability_zones to [<region>a] so the dedicated ec2.Vpc needs no AZ context lookup (keeps synth offline), and the one-shot bootstrap.sh seed+token-push is left as a documented operator step (UserData brings the server up and drops a BOOTSTRAP_READY marker). Both are consistent with §E.2/§C.3/§E.4 and recorded in findings. httpx==0.28.1 added to tools-lambdas/requirements-dev.txt for the real-mode adapter (imported lazily). No action required."
+    },
+    {
+      "severity": "nit",
+      "confidence": "confirmed",
+      "area": "constraints",
+      "note": "Zero LangChain in all new/changed source (grep across frontend/src, tools-lambdas/github, infra-cdk/mahalo_infra = no matches). mahalo-dock has no modifications to any ported source (only two unrelated untracked .agents review docs). task7-deploy-runbook.md exists. No deploy/push was run; work is committed on local main (3 commits ahead of origin)."
+    }
+  ]
+}

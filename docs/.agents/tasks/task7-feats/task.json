@@ -1,0 +1,7 @@
+{
+  "task_id": "task7-feats",
+  "task_description": "Task 7 of mahalo-agentcore: (1) port the mahalo-dock Next.js chat frontend into frontend/, retargeted to the Task-6 thin API (two-call HITL /chat + /chat/approve, base URL via NEXT_PUBLIC_API_URL) with browser SigV4 auth via a Cognito unauthenticated identity pool; (2) author Gitea self-hosting + frontend hosting as CDK under infra-cdk/, port the GiteaBackend into the github Lambda behind GITHUB_MODE=real (mock stays default), add FunctionUrlCorsOptions to MahaloApiStack, and place Gitea bootstrap assets in gitea/. All verification is OFFLINE (no deploy): frontend npm ci/lint/test/build GREEN; cdk synth --all offline (10 templates); existing Python gates stay green (agent 99/1, api 15, tools-lambdas 94, infra-cdk 42/1); live operator steps are documented, not run.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

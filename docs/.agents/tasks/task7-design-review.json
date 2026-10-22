@@ -1,0 +1,34 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "location": "§A.3 / §A.2 line citations",
+      "problem": "Line-number drift: chatSuggestions.ts @/types import is at line 16 (design says :18/:14), ChatMessage.tsx chip guard is at line 31 (design says :30). api.ts:6 is correct.",
+      "fix": "Re-anchor the cited lines (chatSuggestions.ts:16, ChatMessage.tsx:31) or drop exact line numbers and keep symbol anchors."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "location": "§A.3 edit 3 removal list",
+      "problem": "chat/page.tsx:8 imports `{ buildSuggestions, type IntegrationType }`; after the trim IntegrationType is unused, which would fail the eslint no-unused-vars leg of the offline gate.",
+      "fix": "Add to the removal list: reduce the import to `import { buildSuggestions } from '@/lib/chatSuggestions'`, dropping the unused `type IntegrationType`."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "location": "§C.4b SSM SecureString import",
+      "problem": "from_secure_string_parameter_attributes requires a `version` arg, and grant_read does not auto-add kms:Decrypt for a customer-managed key, yet the design states the KMS grant as a fact.",
+      "fix": "Specify version=<n> (or from_string_parameter_attributes with SECURE_STRING), and note kms:Decrypt is only auto-granted for a non-default key; add key.grant_decrypt(fn) if a CMK is used. Or grant ssm:GetParameter directly on the role since the token is resolved via boto3 in handler.py."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "location": "§B.3 in-browser SigV4 credential wiring",
+      "problem": "fromCognitoIdentityPool returns a credential-provider function, not resolved creds; the design does not state the provider must be awaited to obtain {accessKeyId,secretAccessKey,sessionToken} before constructing/refreshing the aws4fetch AwsClient.",
+      "fix": "In §B.3 add: hold the provider, per request `const c = await provider();` then `new AwsClient({ accessKeyId: c.accessKeyId, secretAccessKey: c.secretAccessKey, sessionToken: c.sessionToken, service: 'lambda', region })`; the SDK provider caches/auto-refreshes."
+    }
+  ],
+  "reviewDoc": "docs/.agents/tasks/task7-design-review.md"
+}
