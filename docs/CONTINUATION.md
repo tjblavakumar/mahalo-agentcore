@@ -12,40 +12,55 @@ bottom before doing anything.
 > the full operational detail.
 
 > ⏸️ RESUME TOMORROW — Task 7 in-flight (workflow `wf_15b843019e9d877e`, PAUSED):
-> Task 7 (port the mahalo-dock Next.js frontend to the Task-6 thin API + stand up
-> self-hosted Gitea) is mid-DESIGN. The design went 5 iterations and is one PROSE
-> fix from APPROVED — the last confirming review hadn't run when we paused. Git is
-> clean at `172890c` (Task 6); Task 7 has produced ONLY doc artifacts so far
-> (`docs/.agents/tasks/task7-investigation.md`, `task7-design.md`,
-> `task7-design-review.{md,json}`) and NO code — nothing to commit yet.
+> ✅ TASK 7 DONE, committed + pushed (`main` @ `d4f386f`, in sync with origin).
+> The mahalo-dock Next.js chat frontend is ported into `frontend/` (retargeted to
+> the Task-6 thin API with the two-call `/chat` + `/chat/approve` HITL + browser
+> SigV4 via a Cognito unauthenticated Identity Pool), and self-hosted Gitea is
+> added (github Lambda behind `GITHUB_MODE=real`, mock still default). Two new CDK
+> stacks: `MahaloGiteaStack` + `MahaloFrontendStack` (now 10 templates). Code
+> reviewed APPROVED (`docs/.agents/tasks/task7-code-review.json`). Offline gates
+> GREEN and independently re-verified: frontend `npm ci`/lint/vitest(12)/`npm run
+> build` all pass (static export emitted to `frontend/out/`), tools-lambdas 103
+> passed (94 + 9 real-mode), infra-cdk 57 passed/1 skipped, `cdk synth --all` = 10
+> templates offline/Docker-free, zero LangChain, mahalo-dock untouched. agent 99/1
+> + api 15 baselines unaffected (Task 7 didn't touch them).
 >
-> The design is SOUND and verified against source; the hard problems are resolved:
-> (A) chat-surface-only frontend port with the two-call `/chat` + `/chat/approve`
-> HITL (interrupt_id already on the wire — no backend change); (B) browser auth via
-> a Cognito UNAUTHENTICATED Identity Pool -> temp IAM creds -> in-browser SigV4
-> (aws4fetch) direct to the Function URL at the AWS_IAM edge; (C) Gitea on EC2+EBS
-> (SQLite), additive behind `GITHUB_MODE=real` (mock path stays default, 94
-> lambda tests green); (D) frontend as S3+CloudFront static export (dropped
-> `next/font/google` so the offline `npm build` needs no network), `NEXT_PUBLIC_API_URL`
-> from the `RuntimeApiUrl` CfnOutput via a two-phase operator build; (E) two new
-> offline-synthing CDK stacks (`MahaloGiteaStack` + `MahaloFrontendStack`, 8->10
-> templates, asset builds flag-gated). The ONLY open item is review Finding 1
-> (MEDIUM, prose-only): §D.2/§E.1 mis-state WHY `frontend_stack` takes `api_stack`
-> — fix the sentence to say it reads `api_stack.function.function_arn` for the
-> unauthenticated Cognito role's `lambda:InvokeFunctionUrl` policy, and that
-> `NEXT_PUBLIC_API_URL`/CORS are operator steps, not done by the stack.
->
-> TO RESUME: inspect `wf_15b843019e9d877e`. If it settled paused mid-design, either
-> resume it (it should finish the fix -> confirming review -> APPROVED -> plan ->
-> build-loop -> verify), or if it's in a bad state, relaunch Task 7 from a
-> `run_workflow` prompt noting the design is already near-APPROVED (reuse the
-> existing `task7-design.md`, apply only Finding 1, then proceed to build). After
-> implementation: offline gate = frontend `npm ci && npm run build` + lint +
-> vitest `--run`, plus Python gates green (agent 99/1 clean-env with NO `MAHALO_*`
-> env vars, api 15, tools-lambdas 94, infra-cdk synth+tests), zero LangChain.
-> Then COMMIT+PUSH Task 7, and the PLAN is: do the full end-to-end LIVE deploy +
-> validation (frontend -> thin API -> Runtime -> Gateway -> Lambdas, incl. the
-> two-call HITL in the browser) WITH the user, since the frontend is now in place.
+> ⏭️ NEXT ACTION = THE FULL LIVE END-TO-END DEPLOY + VALIDATION, WITH THE USER.
+> This is Tasks 3-7 all deployed together for the first time, driven in the
+> browser. NOTHING of ours is currently deployed (only the free CDKToolkit).
+> Prereqs: (1) `aws sso login --profile lava` (token expires every few hours —
+> re-auth at start; verify `aws sts get-caller-identity --profile lava`);
+> (2) **Docker Desktop MUST be running** — the Runtime agent image AND the Gitea
+> image are container assets built+pushed to ECR via `-c buildImage=1`; without
+> Docker the Runtime/Gitea stacks can't deploy. The deploy runbook is
+> `docs/.agents/tasks/task6-deploy-runbook.md` (+ Task-7 frontend/Gitea steps in
+> `task7-*`). Recommended staged sequence (do NOT fire one blind `cdk deploy
+> --all`; go group-by-group from `infra-cdk/` with its `.venv` active and show the
+> user CfnOutputs at each gate):
+>   1. Backend data/tools: `cdk deploy` the 4 `MahaloMock*Stack` + `MahaloGatewayStack`
+>      + `MahaloMemoryIdentityStack` (+ bootstrap if a fresh account:
+>      `cdk bootstrap` — CDKToolkit already exists, so likely skip).
+>   2. Runtime + thin API: `cdk deploy MahaloRuntimeStack MahaloApiStack -c buildImage=1`
+>      (Docker build of the agent image). Capture the `RuntimeApiUrl` CfnOutput.
+>   3. Gitea: `cdk deploy MahaloGiteaStack -c buildImage=1` if exercising real GitHub;
+>      otherwise the mock path is default and Gitea can be skipped for a first demo.
+>   4. Frontend (TWO-PHASE): deploy `MahaloFrontendStack` once to create the Cognito
+>      Identity Pool + bucket/CloudFront, read its CfnOutputs (IdentityPoolId,
+>      CloudFront URL) + the `RuntimeApiUrl`, then rebuild the frontend with
+>      `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_AWS_REGION`/pool id set and deploy the
+>      `BucketDeployment` (`-c buildFrontend=1`). Exact ordering is in the Task-7
+>      design §D.2 and the runbook.
+>   5. USER VALIDATES in the browser at the CloudFront URL: a READ ("list my
+>      repositories" -> payment-service) and a WRITE with the propose->approve gate
+>      (create a branch/story -> approve card -> second /chat/approve call executes;
+>      reject writes nothing). Also confirm cross-message session memory.
+>   6. AFTER validation: tear everything down to stop spend —
+>      `cdk destroy --all --force --profile lava` (keep CDKToolkit). Record the live
+>      results in a verification doc and update STATUS.md.
+> Known live-gate watch-items (from the Task-4/6 verifications): SigV4 signing
+> service is `bedrock-agentcore`; the Identity WAT path is OFF under the AWS_IAM
+> MVP; the github-by-NAME-vs-repo-id mock quirk may 404 a name-based write (expected,
+> not a bug — the HITL gate still fires). Then NEXT=Task 8 (re-deployable CDK + teardown).
 
 > HARD RULE: Only create or modify files UNDER
 > `D:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to

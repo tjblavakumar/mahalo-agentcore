@@ -1,9 +1,14 @@
 # mahalo-agentcore — Project Status
 
-**Snapshot date:** 2026-10-18
-**Branch:** `main` — Tasks 0-5 committed + pushed; **Task 6 is offline-complete +
-code-review APPROVED** and lives as uncommitted changes in the working tree
-(commit/push is the operator's call — this verification step did not commit).
+**Snapshot date:** 2026-10-18 (updated)
+**Branch:** `main` @ `d4f386f` — **Tasks 0-7 all committed + pushed, in sync with
+origin.** Every task is offline-complete + code-review APPROVED. Nothing of ours
+is deployed to AWS (only the free CDKToolkit bootstrap stack remains).
+**NEXT ACTION:** the full live end-to-end deploy + browser validation of Tasks
+3-7 together, done WITH the user (see the "RESUME" block at the top of
+`docs/CONTINUATION.md` for the staged deploy sequence + prereqs: `aws sso login
+--profile lava` and Docker Desktop running). Then Task 8 (re-deployable CDK +
+teardown) and Task 9 (docs).
 **Repo:** https://github.com/tjblavakumar/mahalo-agentcore
 
 This is the one-page "where are we" view. For per-task depth see `docs/PLAN.md`
