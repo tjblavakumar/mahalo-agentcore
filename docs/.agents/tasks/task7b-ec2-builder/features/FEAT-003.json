@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-003",
+  "type": "docs",
+  "description": "Author the operator runbook docs/.agents/tasks/task7b-ec2-builder-runbook.md with exact copy-paste commands labelled [VDI] (PowerShell, --profile lava) or [builder] (bash, instance role), covering deploy-builder-from-VDI-without-Docker, SSM connect, run the deploy script, retrieve outputs, browser validation, and teardown of BOTH the app stacks (from the builder) and the builder (from the VDI, LAST). Then update docs/STATUS.md and docs/CONTINUATION.md to record the EC2-builder deploy path and the 11-stack count. Grounded in task7b-design.md §G/§D and the stack names/outputs from FEAT-001/002. Depends on FEAT-001 (stack name/outputs) and FEAT-002 (script phases/flags).",
+  "status": "pending",
+  "steps": [
+    "CREATE docs/.agents/tasks/task7b-ec2-builder-runbook.md. Label EVERY command block [VDI] (Windows PowerShell, uses --profile lava) or [builder] (Linux bash, instance role, NO --profile). Step 1 [VDI]: `aws sso login --profile lava` then `aws sts get-caller-identity --profile lava`. Step 2 [VDI]: `cd infra-cdk; cdk deploy MahaloBuilderStack --profile lava` -> note the BuilderInstanceId output. Step 3 [VDI]: `aws ssm start-session --target <BuilderInstanceId> --profile lava --region us-east-1`; include the optional non-interactive alternative `aws ssm send-command --instance-ids <id> --profile lava --region us-east-1 --document-name AWS-RunShellScript --parameters 'commands=[\"sudo -u ssm-user bash /home/ssm-user/mahalo-agentcore/scripts/builder-deploy.sh --phase all\"]' --timeout-seconds 3600` with a note to wait for /var/log/builder-ready (or `cloud-init status --wait`) first.",
+    "Runbook step 4 [builder] (no --profile): `bash ~/mahalo-agentcore/scripts/builder-deploy.sh --phase all` (toolchain re-clone/update + venvs -> backend -> runtime-api -> two-phase frontend with the --exclusively / API-CORS-last ordering; prints CfnOutputs). Step 5 [builder] optional real-github: `bash ~/mahalo-agentcore/scripts/builder-deploy.sh --phase gitea --admin-cidr <ip>/32` (stops after Gitea; point to task7-deploy-runbook.md §3-5 for the mock flip).",
+    "Runbook step 6 [VDI, browser]: validate at FrontendUrl — a READ (e.g. list repositories), a HITL propose->approve WRITE (create branch/story, approve card), reject-writes-nothing, and cross-message session memory.",
+    "Runbook step 7 [builder] teardown app stacks: the single `cd ~/mahalo-agentcore/infra-cdk && source .venv/bin/activate && cdk destroy MahaloFrontendStack MahaloApiStack MahaloRuntimeStack MahaloGiteaStack MahaloMemoryIdentityStack MahaloGatewayStack MahaloMockJiraStack MahaloMockConfluenceStack MahaloMockGithubStack MahaloMockServicenowStack --force` (CDK computes reverse-dependency delete order). Note --force suppresses the prompt but not dependency errors; on ANY failure RE-RUN the same command (idempotent); if it still fails, give the leaf-first fallback groups (Frontend; then Api; then Runtime; then Memory+Gateway; then the four mocks; Gitea any time). Include the §D.3 ECR bootstrap-repo lingering-image cost note.",
+    "Runbook step 8 [VDI] ONLY: `cd infra-cdk; cdk destroy MahaloBuilderStack --profile lava` — terminate the builder LAST, from the VDI. Add an explicit warning: NEVER run this from inside the builder's own SSM session (it would kill the instance running the destroy mid-flight). Mention the `aws ec2 terminate-instances` blunt alternative but prefer cdk destroy for clean state.",
+    "MODIFY docs/STATUS.md: record the EC2-builder deploy path (operator deploys MahaloBuilderStack from the VDI with Docker-free synth, connects via SSM, runs scripts/builder-deploy.sh on the arm64 EC2 builder for the full staged deploy, validates in browser, tears down BOTH app stacks from the builder and the builder from the VDI last). Note the app now has 11 stacks and point to docs/.agents/tasks/task7b-ec2-builder-runbook.md and task7b-design.md. Keep the rest of STATUS.md consistent (the local-Docker path is superseded for the VDI by the builder).",
+    "MODIFY docs/CONTINUATION.md: add the same EC2-builder deploy-path summary to the resume/next-action guidance so a fresh session knows the no-local-Docker route, the runbook path, and the 11-stack count."
+  ],
+  "acceptance_criteria": [
+    "docs/.agents/tasks/task7b-ec2-builder-runbook.md exists with all 8 steps, every block labelled [VDI] or [builder], and exact copy-paste commands.",
+    "The runbook tears down app stacks from the builder (step 7) and the builder from the VDI LAST (step 8), with the self-destruct warning present.",
+    "docs/STATUS.md and docs/CONTINUATION.md both reference the EC2-builder deploy path, the runbook path, and the 11-stack count.",
+    "No command in a [builder] block uses --profile; no command in a [VDI] block omits it where lava creds are required."
+  ],
+  "verification": [
+    "grep -n '\\[VDI\\]\\|\\[builder\\]' docs/.agents/tasks/task7b-ec2-builder-runbook.md   (both contexts present across the 8 steps)",
+    "grep -n 'task7b-ec2-builder-runbook' docs/STATUS.md docs/CONTINUATION.md   (both reference the runbook)",
+    "grep -n 'cdk destroy MahaloBuilderStack' docs/.agents/tasks/task7b-ec2-builder-runbook.md   (builder teardown present, VDI-only) and read step 8 to confirm the never-from-builder warning",
+    "Read the runbook end-to-end to confirm command/context correctness and that the two-phase frontend ordering matches scripts/builder-deploy.sh"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

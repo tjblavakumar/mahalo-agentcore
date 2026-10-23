@@ -1,0 +1,7 @@
+{
+  "task_id": "task7b-ec2-builder",
+  "task_description": "Implement the EC2 Docker builder deploy path from the APPROVED task7b design: a Docker-free-synthable MahaloBuilderStack (arm64 AL2023 EC2 + instance profile with deploy IAM + SSM + no inbound, 40GB gp3, UserData toolchain + initial clone), a builder-side idempotent bash deploy script under scripts/ that runs the full staged cdk deploy -c buildImage=1 plus the two-phase frontend build and captures CfnOutputs, an operator runbook with exact [VDI]/[builder] copy-paste commands incl. teardown of both app and builder, and STATUS.md/CONTINUATION.md updates recording the path. No Docker in new CDK; no git commit/push; never write mahalo-dock.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
