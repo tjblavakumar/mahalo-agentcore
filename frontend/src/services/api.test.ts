@@ -1,27 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Capture the args aws.fetch is called with so we can assert the signed
-// request carries the exact serialized body.
+// Capture the args fetch is called with so we can assert the request carries the
+// exact serialized body and the persona header.
 const fetchMock = vi.fn();
-
-// Mock the in-browser SigV4 signer: AwsClient.fetch just records its args and
-// returns a canned JSON response (no real signing, no network).
-vi.mock("aws4fetch", () => ({
-  AwsClient: class {
-    fetch = fetchMock;
-  },
-}));
-
-// Mock the Cognito credential provider so no live AWS call is made.
-vi.mock("@aws-sdk/credential-providers", () => ({
-  fromCognitoIdentityPool: () =>
-    vi.fn(async () => ({
-      accessKeyId: "AKIA_TEST",
-      secretAccessKey: "secret",
-      sessionToken: "token",
-      expiration: new Date(Date.now() + 3_600_000),
-    })),
-}));
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
@@ -31,12 +12,17 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
   } as unknown as Response;
 }
 
-describe("api client (SigV4)", () => {
+describe("api client (plain fetch)", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("sends interrupt_id in the signed body on approve", async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends interrupt_id in the body on approve", async () => {
     const { api } = await import("./api");
     fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, message: "done" }));
 
@@ -51,8 +37,6 @@ describe("api client (SigV4)", () => {
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toMatch(/\/chat\/approve$/);
-    // The serialized JSON body is passed into aws.fetch so the signature covers
-    // the exact bytes sent; interrupt_id must be present in it.
     const sentBody = JSON.parse(options.body as string);
     expect(sentBody.interrupt_id).toBe("int-42");
     expect(sentBody.approved).toBe(true);
@@ -79,5 +63,25 @@ describe("api client (SigV4)", () => {
     expect(result.error).toBeNull();
     expect(result.data?.status).toBe("complete");
     expect(result.data?.systems_queried).toBeUndefined();
+  });
+
+  it("sends the X-Mahalo-Persona header when a personaId is passed", async () => {
+    const { api } = await import("./api");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ response: "ok", status: "complete" }));
+
+    await api.post("/chat", { message: "hi" }, "exec");
+
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.headers["X-Mahalo-Persona"]).toBe("exec");
+  });
+
+  it("omits the X-Mahalo-Persona header when no personaId is passed", async () => {
+    const { api } = await import("./api");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ response: "ok", status: "complete" }));
+
+    await api.post("/chat", { message: "hi" });
+
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.headers["X-Mahalo-Persona"]).toBeUndefined();
   });
 });

@@ -1,9 +1,18 @@
-"""Thin-API Function-URL Lambda (Task 6, design §E.2).
+"""Thin-API Function-URL Lambda (Task 6, design §E.2 / Task 7c §B).
 
 ``MahaloApiStack`` provisions the stateless FastAPI forwarder in ``api/`` as a
-``python3.13`` Lambda behind a Function URL with ``AuthType=AWS_IAM``. The Lambda
-role is granted ``bedrock-agentcore:InvokeAgentRuntime`` on the Runtime ARN, and
+``python3.13`` Lambda behind a Function URL with ``AuthType=NONE`` (demo posture,
+Task 7c §B): the SCP-blocked Cognito identity pool is removed, so the browser
+calls this URL directly with no AWS credentials and asserts the active persona
+via the ``X-Mahalo-Persona`` header (mapped to ``{developer_id, role}`` in
+``api/app/auth.py``). The Lambda role is granted
+``bedrock-agentcore:InvokeAgentRuntime`` on the Runtime ARN, and
 ``MAHALO_RUNTIME_ARN`` is wired in from the Runtime stack.
+
+Security tradeoff (explicitly ACCEPTED): ``AuthType=NONE`` makes this Function
+URL callable by anyone who knows the URL. For a single-user demo over mock data
+with no live systems this is accepted; GovCloud/OKTA replaces it later. The URL
+is not published in source — it is supplied to the frontend at deploy time.
 
 Offline-safety (§E.4): dependency bundling runs Docker, which the offline gate
 forbids, so bundling is flag-gated exactly like the image build. On the default
@@ -17,7 +26,7 @@ from __future__ import annotations
 
 import os
 
-from aws_cdk import BundlingOptions, CfnOutput, CfnParameter, Duration, Stack
+from aws_cdk import BundlingOptions, CfnOutput, Duration, Stack
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -114,43 +123,31 @@ class MahaloApiStack(Stack):
             # Per-user invoke requires the additional IAM action (§B.5 / §D.4).
             runtime.grant_invoke_runtime_for_user(fn)
 
-        # Browser (CloudFront static app) calls this Function URL DIRECTLY and
-        # signs SigV4 for its own host (design §B.4); cross-origin is handled by
-        # a CORS block here. The auth type stays AWS_IAM (no downgrade). The
-        # allowed origin is the CloudFront frontend domain — a CfnParameter (NOT
-        # '*', because signed requests carry credentials); the operator sets it
-        # when re-deploying this stack after the frontend stack is up (§D.2 step 5).
-        frontend_origin = CfnParameter(
-            self,
-            "FrontendOrigin",
-            type="String",
-            default="https://example.cloudfront.net",
-            description=(
-                "CloudFront frontend origin allowed by the Function URL CORS "
-                "policy (e.g. https://<dist>.cloudfront.net). Set on re-deploy "
-                "once the frontend stack's domain is known (design §D.2 step 5)."
-            ),
-        ).value_as_string
-
+        # Browser (CloudFront static app) calls this Function URL DIRECTLY with
+        # no AWS credentials (AuthType=NONE, Task 7c §B); cross-origin is handled
+        # by the CORS block here. Because no request is signed, a wildcard origin
+        # is safe to CORS (there are no credentials to gate) and removes the
+        # chicken-and-egg re-deploy dance of pinning the CloudFront domain before
+        # the frontend stack exists; CORS is not an auth control here. The custom
+        # X-Mahalo-Persona header MUST be allowed or the browser preflight fails.
         url = fn.add_function_url(
-            auth_type=lambda_.FunctionUrlAuthType.AWS_IAM,
+            auth_type=lambda_.FunctionUrlAuthType.NONE,
             cors=lambda_.FunctionUrlCorsOptions(
-                allowed_origins=[frontend_origin],
+                allowed_origins=["*"],
                 # POST (/chat, /chat/approve) + GET (/healthz). The OPTIONS
                 # preflight is answered automatically by the Function URL CORS
                 # layer and is NOT a valid allowed-method value (CloudFormation
                 # rejects "OPTIONS"), so it is intentionally omitted here while
-                # still being served unsigned — the §B.4 intent holds.
+                # still being served.
                 allowed_methods=[
                     lambda_.HttpMethod.POST,
                     lambda_.HttpMethod.GET,
                 ],
+                # No SigV4 headers — nothing is signed anymore. Only the content
+                # type and the persona header the browser sends.
                 allowed_headers=[
-                    "Authorization",
-                    "X-Amz-Date",
-                    "X-Amz-Security-Token",
-                    "X-Amz-Content-Sha256",
                     "Content-Type",
+                    "X-Mahalo-Persona",
                 ],
                 max_age=Duration.seconds(300),
             ),

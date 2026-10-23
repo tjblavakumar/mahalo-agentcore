@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
   title: "MAHALO3 - AI-Powered SDLC Platform",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex">{children}</body>
+      <body className="min-h-full flex">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

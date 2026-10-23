@@ -42,7 +42,7 @@ def test_app_synthesizes_eleven_stacks():
         app, "MahaloApiStack", runtime_stack=runtime_stack, env=_ENV
     )
     MahaloGiteaStack(app, "MahaloGiteaStack", env=_ENV)
-    MahaloFrontendStack(app, "MahaloFrontendStack", api_stack=api_stack, env=_ENV)
+    MahaloFrontendStack(app, "MahaloFrontendStack", env=_ENV)
     MahaloBuilderStack(app, "MahaloBuilderStack", env=_ENV)
 
     assert len(app.synth().stacks) == 11

@@ -92,14 +92,13 @@ def main() -> None:
         env=_ENV,
     )
     # Task 7: always-on Gitea host for the real github backend, and the static
-    # frontend hosting + browser auth. Direct construct references (no
-    # Fn.import_value); the frontend stack reads only api_stack.function.function_arn
-    # for the unauthenticated role's lambda:InvokeFunctionUrl policy (§D.2/§E.1).
+    # frontend hosting. Task 7c removed the Cognito identity pool, so the frontend
+    # stack no longer references the API (the Function URL is AuthType=NONE); it
+    # takes no api_stack parameter.
     MahaloGiteaStack(app, "MahaloGiteaStack", env=_ENV)
     MahaloFrontendStack(
         app,
         "MahaloFrontendStack",
-        api_stack=api_stack,
         env=_ENV,
     )
     # Task 7b: transient arm64 AL2023 EC2 builder host for the Docker-dependent
