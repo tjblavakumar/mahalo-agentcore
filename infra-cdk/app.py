@@ -6,6 +6,8 @@ templates, or ``cdk deploy --all --profile lava`` to provision them. Each stack 
 a ``MockServiceStack`` for one of jira/confluence/github/servicenow.
 """
 
+import os
+
 import aws_cdk as cdk
 
 from mahalo_infra.api_stack import MahaloApiStack
@@ -17,13 +19,25 @@ from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
-# Account / region per the approved design (Decision 4).
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+# Account / region. The account is taken from the environment (CDK sets
+# CDK_DEFAULT_ACCOUNT from the caller's credentials at synth/deploy; AWS_ACCOUNT_ID
+# is an accepted override) so no real account id is committed to source. Region
+# defaults to us-east-1 and can be overridden via CDK_DEFAULT_REGION/AWS_REGION.
+_ACCOUNT = (
+    os.environ.get("CDK_DEFAULT_ACCOUNT")
+    or os.environ.get("AWS_ACCOUNT_ID")
+)
+_REGION = (
+    os.environ.get("CDK_DEFAULT_REGION")
+    or os.environ.get("AWS_REGION")
+    or "us-east-1"
+)
+_ENV = cdk.Environment(account=_ACCOUNT, region=_REGION)
 
 _SERVICES = ("jira", "confluence", "github", "servicenow")
 
 # Gitea env + SSM token param name injected into the github mock Lambda ONLY when
-# ``-c giteaMode=real`` (design §C.4b). The values are non-secret references; the
+# ``-c giteaMode=real`` (design Â§C.4b). The values are non-secret references; the
 # token itself is resolved at Lambda cold start from the SSM SecureString named
 # here. Kept as module-level constants so app.py reads them once.
 _GITEA_TOKEN_PARAM = "/mahalo/gitea/adapter-token"

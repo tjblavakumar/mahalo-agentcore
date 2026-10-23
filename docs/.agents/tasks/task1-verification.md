@@ -1,12 +1,12 @@
-# Task 1 — Verification record
+# Task 1 â€” Verification record
 
 This records the exact commands run and their output so the reviewer can confirm
 the result without re-running. All commands use the project venv python at
 `agent/.venv/Scripts/python.exe`. Unless noted, the working directory is the repo
-root `d:\<USER>\LavaCode\AI\mahalo-agentcore`.
+root `<WORKSPACE_ROOT>`.
 
 Environment: Windows, PowerShell, Python 3.13.9. The SSH tunnel to the mocks was
-NOT opened and AWS SSO was NOT logged in — so the offline bar is what is verified
+NOT opened and AWS SSO was NOT logged in â€” so the offline bar is what is verified
 here; the live REPL/Bedrock/tunnel checks remain for the user (see the end).
 
 ## 1. Create venv and install requirements
@@ -47,7 +47,7 @@ Findings used by the implementation:
 - A decorated tool is a `DecoratedFunctionTool`; calling it directly runs the
   underlying function (used by the unit tests).
 
-## 3. Unit suite (offline) — all pass
+## 3. Unit suite (offline) â€” all pass
 
 ```
 .\agent\.venv\Scripts\python.exe -m pytest agent/tests/test_tools_unit.py -v
@@ -59,7 +59,7 @@ with byte-for-byte output formatting, the Jira assignee name->dev-id resolution
 (dev- passthrough, full name, email, first-name single match, ambiguous/unknown
 -> None), and the ServiceNow default-all incidents behavior (no status param).
 
-## 4. Full suite (offline) — unit pass, integration SKIPS
+## 4. Full suite (offline) â€” unit pass, integration SKIPS
 
 ```
 .\agent\.venv\Scripts\python.exe -m pytest agent -v
@@ -67,7 +67,7 @@ with byte-for-byte output formatting, the Jira assignee name->dev-id resolution
 
 Result: `13 passed, 1 skipped in 6.43s` (exit code 0). The live integration test
 `test_live_agent_reads_repos_and_my_stories` SKIPPED because the mocks/tunnel are
-unreachable — it never fails the suite when the tunnel is down.
+unreachable â€” it never fails the suite when the tunnel is down.
 
 ## 5. Zero LangChain usage
 

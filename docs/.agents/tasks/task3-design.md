@@ -1,13 +1,13 @@
-# Task 3 — Technical Design: Mocks as AWS Lambdas
+# Task 3 â€” Technical Design: Mocks as AWS Lambdas
 
 ## Overview
 
 Task 3 reimplements the four mahalo-dock mock systems (Jira, Confluence, GitHub,
 ServiceNow) as AWS Lambda functions that are **behavior-equivalent** to the local
-mocks the agent already talks to over the SSH tunnel (ports 5001–5004). The
+mocks the agent already talks to over the SSH tunnel (ports 5001â€“5004). The
 agent's `agent/tools/*` modules call these services with a fixed HTTP contract
-— specific verbs, paths, bodies, status codes, and a static `X-API-Token` header
-— that must be preserved exactly so the existing agent package stays green with
+â€” specific verbs, paths, bodies, status codes, and a static `X-API-Token` header
+â€” that must be preserved exactly so the existing agent package stays green with
 nothing more than four environment-variable changes (`JIRA_URL`, `CONFLUENCE_URL`,
 `GITHUB_URL`, `SERVICENOW_URL`).
 
@@ -27,7 +27,7 @@ under the `mahalo-agentcore` workspace root.
   `docs/.agents/tasks/task3-setup.md` and the agent package; Lambda supports the
   `python3.13` managed runtime).
 - **Handler framework:** plain Python `dict`-in/`dict`-out Lambda handlers with a
-  small shared router — **no FastAPI, no Mangum** (justification in Decision 3).
+  small shared router â€” **no FastAPI, no Mangum** (justification in Decision 3).
 - **HTTP exposure:** one **Lambda Function URL per function**, `AuthType=NONE`,
   with the mock's own `X-API-Token` check enforced inside the handler
   (justification in Decision 1).
@@ -88,7 +88,7 @@ the per-service directory into each function's asset (see Decision 4 for bundlin
 ### Verbatim seed data
 
 The four `seed_data.py` files are copied **byte-for-byte** from
-`D:/<USER>/LavaCode/AI/mahalo-dock/mock-services/<svc>/seed_data.py`
+`<FALLBACK_ROOT>/mock-services/<svc>/seed_data.py`
 into `tools-lambdas/<svc>/seed_data.py` (read-only source; never edited in
 mahalo-dock). They define the module-level collections:
 
@@ -101,7 +101,7 @@ These are the canonical fixtures; the DynamoDB seeding path (Decision 2) deep-co
 them into the table on first use, exactly as mahalo-dock's `store.load()` seeds
 `data.json` from `seed_data.py` on first run.
 
-## Decision 1 — Lambda HTTP shape: **Lambda Function URL per function**
+## Decision 1 â€” Lambda HTTP shape: **Lambda Function URL per function**
 
 **Options considered.** (a) Lambda Function URL, (b) API Gateway (HTTP or REST
 API), (c) Application Load Balancer.
@@ -136,7 +136,7 @@ SERVICENOW_URL=https://<snow-url-id>.lambda-url.us-east-1.on.aws
 
 `agent/config.py` already reads each of these from the environment with a
 localhost default, and `agent/tools/http.py` builds requests as
-`f"{base_url}{endpoint}"` with `endpoint` like `/stories` — so the Lambda base
+`f"{base_url}{endpoint}"` with `endpoint` like `/stories` â€” so the Lambda base
 URL must carry **no trailing slash** (the Function URL base has none by default;
 document this in the deploy note). No agent code changes are required; this is
 purely an env swap, which keeps the "agent stays green against the original
@@ -150,7 +150,7 @@ agent's error contract (any non-200/201 becomes an `{"error": ...}` dict in
 `make_request`).
 
 **Create routes return 201, not 200.** `make_request` treats both 200 and 201 as
-success, so a create that returned 200 would still satisfy the agent — but it would
+success, so a create that returned 200 would still satisfy the agent â€” but it would
 break the handler unit tests, which assert the mock's exact status. Every create
 route in the inventory lists 201 (the mock sets `status_code=201` on each POST
 create), and the inventory's success column is authoritative: creates emit 201,
@@ -165,13 +165,13 @@ function ARN and have Gateway synthesize the invocation event. To keep option (i
 open, the handler must **not** assume Function-URL-only event fields (see the
 router's event-normalization note in Decision 3).
 
-## Decision 2 — State model: **DynamoDB, one table per service, lazily seeded**
+## Decision 2 â€” State model: **DynamoDB, one table per service, lazily seeded**
 
 **The demand.** The Task 2 HITL write flow must still visibly work: create a story
 in Jira, then read it back and see it; create a branch then commit then open a PR
 on GitHub; create an incident in ServiceNow and list it. Lambdas are ephemeral and
 concurrent, so in-process mutation of module globals (what mahalo-dock does) is not
-durable — a write served by one execution environment is invisible to the next
+durable â€” a write served by one execution environment is invisible to the next
 cold start or a concurrent environment. Re-seed-per-invocation would make every
 write silently vanish on the following request, breaking the demo's core
 read-after-write.
@@ -179,7 +179,7 @@ read-after-write.
 **Decision: Amazon DynamoDB, one on-demand table per service, seeded lazily on
 first use.** This preserves read-after-write across cold starts and concurrency
 with minimal operational weight, and it survives the monthly account reset because
-the table is defined in CDK (re-created empty, then re-seeded on first call) — the
+the table is defined in CDK (re-created empty, then re-seeded on first call) â€” the
 `docs/PLAN.md` durability requirement. Options rejected: **re-seed-per-invocation**
 (breaks the demo's read-after-write, as above); **a single shared table** (mixes
 heterogeneous schemas and complicates seeding/teardown per service); **S3-as-JSON**
@@ -200,24 +200,24 @@ simple partition key `pk` and sort key `sk`:
 
   **GitHub `sk` is the seed repo *id* (`repo-N`), never the `name`.** The seed
   `REPOS` carry `id="repo-1".."repo-5"` with a **separate** `name` field
-  (`payment-service`, `cart-service`, …); `BRANCHES`/`CONTRIBUTOR_STATS` are dicts
+  (`payment-service`, `cart-service`, â€¦); `BRANCHES`/`CONTRIBUTOR_STATS` are dicts
   keyed by `repo-N` and `PULL_REQUESTS`/`COMMITS` carry `repo_id="repo-N"`. The
-  mock does **strict identity matches** (`get_repo` → `r["id"]==repo_id`;
-  branch/commit/pull → `repo_id not in BRANCHES`; `get_stats` → `repo_id not in
-  CONTRIBUTOR_STATS`) with **no name→id resolution anywhere**. So every GitHub
+  mock does **strict identity matches** (`get_repo` â†’ `r["id"]==repo_id`;
+  branch/commit/pull â†’ `repo_id not in BRANCHES`; `get_stats` â†’ `repo_id not in
+  CONTRIBUTOR_STATS`) with **no nameâ†’id resolution anywhere**. So every GitHub
   `REPO`/`BRANCHSET`/`STATS` `sk` and every stored `repo_id` is the seed value
-  `repo-N`, and the port MUST NOT add name→id resolution — the mock's
+  `repo-N`, and the port MUST NOT add nameâ†’id resolution â€” the mock's
   identity-match behavior (including the 404 a name-based lookup produces, since
   the agent passes the repo *name* as `repo_id`) is replicated VERBATIM. This
   pre-existing agent-passes-name vs mock-keys-by-id mismatch is a mahalo-dock
   behavior that Task 3 reproduces as-is; it is never "fixed". (A freshly
-  `create_repo`'d repo is keyed by `str(name).lower().strip()` — see the
-  id-normalization block — so new and seed repos use different id conventions
+  `create_repo`'d repo is keyed by `str(name).lower().strip()` â€” see the
+  id-normalization block â€” so new and seed repos use different id conventions
   exactly as the mock does.)
 - A `data` attribute holds the full stored record dict (the same JSON the mock
   persists). For **plain reads** the handler reads the item and returns `data`
   directly. For the routes the mock **enriches or trims at request time** (listed
-  per service in the inventory — jira `/stories/{id}` adds `assignee_details`; jira
+  per service in the inventory â€” jira `/stories/{id}` adds `assignee_details`; jira
   `/sprints/{id}` adds `completed_points`/`total_points` for the active sprint; jira
   `/projects/{id}/board` buckets stories into columns; confluence `/pages` and
   `/spaces/{id}/pages` return summary objects without `content`; confluence
@@ -232,19 +232,19 @@ split).** In the mock, `BRANCHES` and `CONTRIBUTOR_STATS` are **dicts keyed by
 repo_id**, and three different 404 checks read three different collections:
 
 - branch/commit/pull routes 404 with `"Repository not found"` when
-  `repo_id not in BRANCHES` — i.e. keyed off the branch collection, **not** the
+  `repo_id not in BRANCHES` â€” i.e. keyed off the branch collection, **not** the
   `REPO` list.
 - `get_stats` 404s with `"Repository not found"` when
-  `repo_id not in CONTRIBUTOR_STATS` — keyed off the stats collection.
+  `repo_id not in CONTRIBUTOR_STATS` â€” keyed off the stats collection.
 - `get_repo` / `list_repos` read the `REPO` list directly.
 
 The port must keep these as **three separate collections** and preserve which one
 each existence check reads:
 
-- `pk="BRANCHSET", sk=repo_id`, `value` = the repo's branch list — presence of this
+- `pk="BRANCHSET", sk=repo_id`, `value` = the repo's branch list â€” presence of this
   item is the "repo exists for branch/commit/pull purposes" check (mirrors
   `repo_id not in BRANCHES`).
-- `pk="STATS", sk=repo_id`, `value` = the repo's contributor-stats list — presence
+- `pk="STATS", sk=repo_id`, `value` = the repo's contributor-stats list â€” presence
   is the `get_stats` existence check (mirrors `repo_id not in CONTRIBUTOR_STATS`).
 - `pk="REPO", sk=repo_id`, `data` = the repo record.
 
@@ -254,9 +254,9 @@ each existence check reads:
 `main` branch (`{"name":"main","protected":true,"last_commit":"2026-08-29"}`). It
 does **not** create a `STATS` item (the mock's `setdefault` only seeds branches), so
 a freshly created repo correctly 404s on `get_stats` (no seeded contributor stats)
-while succeeding on branch/commit/pull — exactly as the mock behaves. Do not collapse
+while succeeding on branch/commit/pull â€” exactly as the mock behaves. Do not collapse
 these three checks into a single "does the REPO item exist" lookup; that would 404
-the github create→commit→PR chain (the Task 2 demo) differently from the mock.
+the github createâ†’commitâ†’PR chain (the Task 2 demo) differently from the mock.
 
 Table naming: `mahalo-mock-jira`, `mahalo-mock-confluence`, `mahalo-mock-github`,
 `mahalo-mock-servicenow`. Table name is passed to the handler via a
@@ -269,7 +269,7 @@ in a batched write, then sets the sentinel using a **conditional put**
 (`attribute_not_exists(pk)`) so concurrent cold starts cannot double-seed. This
 mirrors mahalo-dock's "seed on first run" semantics. A `MOCK_RESET_ON_START`-style
 reset is **not** auto-run per invocation (that would be destructive under traffic);
-instead reset is an explicit operation — see "Reset" below.
+instead reset is an explicit operation â€” see "Reset" below.
 
 **Concurrency semantics the user should expect.** DynamoDB is the single source of
 truth, so a created story/branch/PR/incident is visible to the very next read
@@ -278,14 +278,14 @@ only" caveat (that caveat only applies if warm-state were chosen, which it is no
 ID generation that in mahalo-dock relied on scanning the in-memory collection (next
 story number, next incident number, next PR number, next commit/PR id) is reproduced
 by reading the relevant collection from DynamoDB and applying **the same per-field
-rule the mock uses** — max-based for jira story / servicenow incident / PR `number`,
+rule the mock uses** â€” max-based for jira story / servicenow incident / PR `number`,
 and count-based (`Query` `Count`) for github commit id / PR id / confluence page
 fallback id (see the ID-generation invariant for the exact per-field list). This is
 correct for demo-scale single-user traffic. Documented limitation: two **truly
 simultaneous** creates of the same collection could in theory compute the same next
 id; for the single-user demo this is acceptable and matches mahalo-dock's own
 non-atomic numbering. (If Task 4+ ever needs atomicity, a DynamoDB atomic counter
-item can replace the max-scan without changing the response shape — noted, not
+item can replace the max-scan without changing the response shape â€” noted, not
 built here.)
 
 **Reset.** A small maintenance path re-seeds a table to pristine state: delete the
@@ -300,7 +300,7 @@ what the handler reads/writes. Each function needs an IAM policy granting
 `dynamodb:GetItem/PutItem/Query/BatchWriteItem/DeleteItem` on its own table only
 (least privilege), which CDK grants via `table.grant_read_write_data(fn)`.
 
-## Decision 3 — Packaging: **one Lambda per service (4 functions), plain handler**
+## Decision 3 â€” Packaging: **one Lambda per service (4 functions), plain handler**
 
 **Options considered.** (a) four functions, one per service; (b) one multiplexed
 function routing on a `service` field or host.
@@ -311,16 +311,16 @@ group in Task 4; four functions give independent deploy/rollback, independent IA
 (each touches only its own DynamoDB table), independent Function URLs that map
 cleanly to the four `*_URL` env vars, and simpler per-service tests. A single
 multiplexed function would blur least-privilege (one role touching all four tables),
-complicate the env-to-URL mapping the agent expects, and couple unrelated deploys —
+complicate the env-to-URL mapping the agent expects, and couple unrelated deploys â€”
 with no upside at demo scale.
 
-**Framework: plain `(event, context)` handlers with a tiny shared router — not
+**Framework: plain `(event, context)` handlers with a tiny shared router â€” not
 FastAPI/Mangum.** The mock route logic is small and mechanical (match verb+path,
 check token, read/write a collection, return JSON). Porting it to a ~60-line router
 removes the FastAPI + Starlette + Mangum + pydantic dependency chain from every
 Lambda package, which shrinks cold starts and the deployment asset and eliminates
 ASGI-adapter edge cases. FastAPI's value (validation, OpenAPI, DI) is unused by this
-contract — the agent sends known bodies and only cares about status code and JSON
+contract â€” the agent sends known bodies and only cares about status code and JSON
 shape. The port is low-risk because the behavior to preserve is explicit and fully
 enumerated in the endpoint inventory below.
 
@@ -343,17 +343,17 @@ one branch keeps the handler usable if Task 4 registers the function by ARN and
 Gateway synthesizes a non-Function-URL event, so the packaging choice does not
 block Task 4.
 
-**Per-service `requirements.txt` — not needed.** `boto3`/`botocore` are provided by
+**Per-service `requirements.txt` â€” not needed.** `boto3`/`botocore` are provided by
 the Lambda Python runtime, so the functions need **no third-party runtime
 dependencies**. The CDK packaging uses plain `lambda.Function` + `Code.from_asset`,
 which zips the asset **as-is with no pip step** (it is not the
 `aws-lambda-python-alpha` `PythonFunction` bundler, which would pip-install from a
-`requirements.txt`). Therefore **no per-service `requirements.txt` is created** — its
+`requirements.txt`). Therefore **no per-service `requirements.txt` is created** â€” its
 presence or absence is irrelevant to the bundler. Test-only deps (`pytest`, `moto`)
 live in `tools-lambdas/requirements-dev.txt`, which is never packaged into any
 function asset. This is the lightest option that preserves behavior.
 
-## Decision 4 — IaC: **AWS CDK (Python), one app, per-service stacks, own venv**
+## Decision 4 â€” IaC: **AWS CDK (Python), one app, per-service stacks, own venv**
 
 **Decision.** A single CDK app under `infra-cdk/` (replacing the lone
 `infra-cdk/.gitkeep`) with its own Python virtualenv (`infra-cdk/.venv`, kept out of
@@ -380,15 +380,15 @@ infra-cdk/
 **Stack design.** One reusable `MockServiceStack` (or a construct instantiated four
 times) each creating, for a service:
 
-1. A DynamoDB table `mahalo-mock-<svc>` — `pk` (S) partition, `sk` (S) sort,
+1. A DynamoDB table `mahalo-mock-<svc>` â€” `pk` (S) partition, `sk` (S) sort,
    `BillingMode.PAY_PER_REQUEST`, `RemovalPolicy.DESTROY` (demo; clean teardown for
    the monthly reset).
-2. A `lambda.Function` — `runtime=PYTHON_3_13`, `handler="<svc>.handler.lambda_handler"`,
+2. A `lambda.Function` â€” `runtime=PYTHON_3_13`, `handler="<svc>.handler.lambda_handler"`,
    code bundled from `tools-lambdas/` including `common/` and the one service dir
    (exclude the other services and tests via the asset `exclude` list so each
    package stays minimal), `memory=256MB`, `timeout=30s`, env `TABLE_NAME` +
    `MOCK_<SVC>_TOKEN` (default token value matching the agent, overridable).
-3. `table.grant_read_write_data(fn)` — least-privilege IAM, this table only.
+3. `table.grant_read_write_data(fn)` â€” least-privilege IAM, this table only.
 4. A Function URL (`fn.add_function_url(auth_type=NONE)`), exported as a
    Cfn output so the four `*_URL` env values are discoverable post-deploy.
 
@@ -423,21 +423,21 @@ Legend: **Auth** = all non-health routes require `X-API-Token` (401 on mismatch)
 
 | Verb | Path | Body / query | Success | Errors | Agent tool(s) |
 |---|---|---|---|---|---|
-| GET | `/health` | — | 200 | — | (none) |
-| GET | `/projects` | — | 200 `{"projects":[...]}` | 401 | `jira_list_projects`, `jira_search_stories` |
+| GET | `/health` | â€” | 200 | â€” | (none) |
+| GET | `/projects` | â€” | 200 `{"projects":[...]}` | 401 | `jira_list_projects`, `jira_search_stories` |
 | POST | `/projects` | dict `{id/name/description/status/lead}` | 201 (new project) | 401, 409 already exists | (not used by agent; preserve) |
-| GET | `/projects/{project_id}` | — | 200 | 401, 404 | (preserve) |
-| GET | `/projects/{project_id}/board` | — | 200 `{"sprint":...,"columns":{...}}` | 401 | `jira_get_board` |
+| GET | `/projects/{project_id}` | â€” | 200 | 401, 404 | (preserve) |
+| GET | `/projects/{project_id}/board` | â€” | 200 `{"sprint":...,"columns":{...}}` | 401 | `jira_get_board` |
 | GET | `/stories` | query `status,assignee,project_id` | 200 `{"stories":[...],"total":n}` | 401 | (preserve) |
 | GET | `/projects/{project_id}/stories` | query `status,assignee,sprint_id` | 200 `{"stories":[...],"total":n}` | 401 | `jira_get_stories_by_assignee`, `jira_search_stories` |
-| GET | `/stories/{story_id}` | — | 200 (story + `assignee_details`) | 401, 404 | `jira_get_story`, `jira_update_story` (pre-GET) |
+| GET | `/stories/{story_id}` | â€” | 200 (story + `assignee_details`) | 401, 404 | `jira_get_story`, `jira_update_story` (pre-GET) |
 | POST | `/stories` | `{project_id*,title*,description,priority,story_points,assignee,sprint_id}` | 201 (new story, id `PROJ-N`, status `todo`) | 401, **422 missing `project_id`/`title`**, 404 project | `jira_create_story` |
 | PUT | `/stories/{story_id}` | `{status?,assignee?,priority?,sprint_id?,story_points?}` | 200 (updated story) | 401, 404 | `jira_update_story` |
-| GET | `/sprints/{project_id}` | — | 200 `{"sprints":[...]}` (active sprint gets `completed_points`/`total_points`); **`{project_id}` is a project key (e.g. `PAY`), not a sprint id — returns all sprints for that project** | 401 | `jira_get_sprint_info` |
-| GET | `/developers` | — | 200 `{"developers":[...]}` | 401 | `jira_list_developers`, assignee resolution |
+| GET | `/sprints/{project_id}` | â€” | 200 `{"sprints":[...]}` (active sprint gets `completed_points`/`total_points`); **`{project_id}` is a project key (e.g. `PAY`), not a sprint id â€” returns all sprints for that project** | 401 | `jira_get_sprint_info` |
+| GET | `/developers` | â€” | 200 `{"developers":[...]}` | 401 | `jira_list_developers`, assignee resolution |
 
 Behavioral details to preserve: new story id = `{project_id}-{max_existing_num+1}`
-(**max-based** across that project's stories, matching the mock — contrast with
+(**max-based** across that project's stories, matching the mock â€” contrast with
 github's count-based commit/PR ids);
 new story defaults `status="todo"`, empty `acceptance_criteria`/`comments`; PUT only
 applies provided (non-null) fields; `/stories/{id}` enriches with `assignee_details`
@@ -450,19 +450,19 @@ mock also exposes space/page creation, which we preserve for completeness.
 
 | Verb | Path | Body / query | Success | Errors | Agent tool(s) |
 |---|---|---|---|---|---|
-| GET | `/health` | — | 200 | — | (none) |
+| GET | `/health` | â€” | 200 | â€” | (none) |
 | POST | `/spaces` | dict `{id,name,description}` | 201 | 401, 409 already exists | (preserve) |
-| GET | `/spaces` | — | 200 `{"spaces":[...]}` | 401 | `confluence_list_spaces` |
-| GET | `/spaces/{space_id}` | — | 200 | 401, 404 | (preserve) |
+| GET | `/spaces` | â€” | 200 `{"spaces":[...]}` | 401 | `confluence_list_spaces` |
+| GET | `/spaces/{space_id}` | â€” | 200 | 401, 404 | (preserve) |
 | GET | `/pages` | query `space_id` | 200 `{"pages":[...],"total":n}` (summary fields only) | 401 | (preserve) |
-| GET | `/spaces/{space_id}/pages` | — | 200 `{"pages":[...],"total":n}` (summary) | 401 | (preserve) |
+| GET | `/spaces/{space_id}/pages` | â€” | 200 `{"pages":[...],"total":n}` (summary) | 401 | (preserve) |
 | POST | `/spaces/{space_id}/pages` | dict `{id?,title,author,last_updated,content}` | 201 (new page) | 401, 404 space | (preserve) |
-| GET | `/pages/{page_id}` | — | 200 (full page incl. `content`) | 401, 404 | `confluence_get_page` |
+| GET | `/pages/{page_id}` | â€” | 200 (full page incl. `content`) | 401, 404 | `confluence_get_page` |
 | GET | `/search` | query `q*` (min len 1), `space_id?` | 200 `{"results":[...],"total":n,"query":q}` | 401, 422 missing `q` | `confluence_search` |
 
 Behavioral details: `/pages` and `/spaces/{id}/pages` return **summary** objects
 (`id,title,author,last_updated,space_id`) without `content`; `/search` does a
-case-insensitive substring match over title+content, builds a ±100-char excerpt,
+case-insensitive substring match over title+content, builds a Â±100-char excerpt,
 assigns `relevance` 1.0 (title hit) or 0.7 (content hit), and sorts by relevance.
 The `q` min-length-1 requirement maps to a 422 when absent/empty (matches FastAPI's
 query validation; the agent always sends a non-empty `q`).
@@ -471,7 +471,7 @@ query validation; the agent always sends a non-empty `q`).
 normalizes created-entity ids, which the port must reproduce byte-for-byte:
 
 - confluence `create_page`: new page id =
-  `(supplied id or f"{space_id}-{count(PAGES)+1:03d}").upper()` — note both the
+  `(supplied id or f"{space_id}-{count(PAGES)+1:03d}").upper()` â€” note both the
   **count-based** fallback (`len(PAGES)` in the mock, a `Query` `Count` over
   `pk="PAGE"` items in the port) **and** the `.upper()` applied to the final id
   (supplied or generated). Defaults: `title="New page"`, `author="System"`,
@@ -482,9 +482,9 @@ normalizes created-entity ids, which the port must reproduce byte-for-byte:
   `(supplied id or supplied project_id or "PROJ").upper()`; `name` defaults to the
   id, `status="active"`, `lead="dev-1"`.
 - github `create_repo`: new repo id =
-  `str(body.get("name") or "repo").lower().strip()` — **lower-cased and stripped**,
+  `str(body.get("name") or "repo").lower().strip()` â€” **lower-cased and stripped**,
   the deliberate contrast with jira/confluence's `.upper()`. The 409 duplicate
-  check (`any(r["id"]==repo_id)` → `{"detail":"Repository already exists"}`)
+  check (`any(r["id"]==repo_id)` â†’ `{"detail":"Repository already exists"}`)
   compares this normalized id against existing `REPO` sks, and both the `REPO` sk
   and the `BRANCHSET` sk use this same normalized id. The `BRANCHSET` item is
   seeded with the default `main` branch
@@ -505,11 +505,11 @@ pluggability are **not** ported in Task 3 (see "GitHub real-mode" below).
 
 | Verb | Path | Body / query | Success | Errors | Agent tool(s) |
 |---|---|---|---|---|---|
-| GET | `/health` | — | 200 (`mode` = `GITHUB_MODE` env, default `"mock"`) | — | (none) |
+| GET | `/health` | â€” | 200 (`mode` = `GITHUB_MODE` env, default `"mock"`) | â€” | (none) |
 | POST | `/repos` | dict `{name,description,language,default_branch}` | 201 | 401, 409 already exists | (preserve) |
-| GET | `/repos` | — | 200 `{"repos":[...]}` | 401 | `github_list_repos` |
-| GET | `/repos/{repo_id}` | — | 200 | 401, 404 | (preserve) |
-| GET | `/repos/{repo_id}/branches` | — | 200 `{"branches":[...]}` | 401, 404 | (preserve) |
+| GET | `/repos` | â€” | 200 `{"repos":[...]}` | 401 | `github_list_repos` |
+| GET | `/repos/{repo_id}` | â€” | 200 | 401, 404 | (preserve) |
+| GET | `/repos/{repo_id}/branches` | â€” | 200 `{"branches":[...]}` | 401, 404 | (preserve) |
 | POST | `/repos/{repo_id}/branches` | `{name*,from_branch="main"}` | 201 (new branch) | 401, 404 repo, **409 already exists**, **422 missing name** | `github_create_branch` |
 | GET | `/pulls` | query `status,author_id,repo_id` | 200 `{"pull_requests":[...],"total":n}` | 401 | (preserve) |
 | GET | `/repos/{repo_id}/pulls` | query `status,author_id` | 200 `{"pull_requests":[...],"total":n}` | 401 | `github_get_pull_requests` |
@@ -518,14 +518,14 @@ pluggability are **not** ported in Task 3 (see "GitHub real-mode" below).
 | GET | `/repos/{repo_id}/commits` | query `branch,author` | 200 `{"commits":[...],"total":n}` (sorted desc by date) | 401 | `github_get_commits` |
 | POST | `/repos/{repo_id}/commits` | `{branch*,message*,author_id?,files?/additions/deletions}` | 201 (new commit) | 401, 404 repo/branch, **422 missing required field** | `github_commit_files` |
 | POST | `/repos/{repo_id}/readme` | dict `{title,content}` | 201 | 401, 404 repo | (preserve) |
-| GET | `/repos/{repo_id}/stats` | — | 200 (contributors + totals) | 401, 404 | `github_get_repo_stats` |
+| GET | `/repos/{repo_id}/stats` | â€” | 200 (contributors + totals) | 401, 404 | `github_get_repo_stats` |
 
-**Critical behavior — "already exists" = success at the agent layer.** The mock
+**Critical behavior â€” "already exists" = success at the agent layer.** The mock
 returns **409** for a duplicate branch and **422** for a missing head / missing
 commit field. The Lambda must return those exact codes. The agent's
 `github_create_branch` write tool inspects the resulting error string for
 `"status 409"`, `"status 422"`, or `"already exists"` and treats it as **success**
-(re-using the branch so the branch→commit→PR chain proceeds). So the handler keeps
+(re-using the branch so the branchâ†’commitâ†’PR chain proceeds). So the handler keeps
 the native 409/422 + `detail` message; the "success" interpretation lives in the
 agent and must not be changed. The `detail` strings must stay equal to the mock's
 ("Branch already exists", "head branch is required", "Field '{x}' is required",
@@ -541,23 +541,23 @@ optional (defaulting to `mahalo-bot`); when **false** (legacy metadata shape)
 list still counts as the file-contents shape (`isinstance([], list)` is `True`, so
 the agent's normalized empty-files commit does not suddenly require `author_id`), and
 the `or bool(body.get("path"))` fallback also selects the file-contents shape even
-with no `files` key — the agent never sends a bare `path`, but the port must honor it
-for behavior-equivalence and the handler tests. Then: validate required fields → 422;
-verify branch exists → 404;
+with no `files` key â€” the agent never sends a bare `path`, but the port must honor it
+for behavior-equivalence and the handler tests. Then: validate required fields â†’ 422;
+verify branch exists â†’ 404;
 resolve `author` name from `CONTRIBUTOR_STATS`; date fixed `2026-08-25`. Defaults for
 new PRs mirror `mock_backend.create_pull`. `create_repo` seeds a default `main`
 branch set for new repos (see Decision 2 for how this maps to the `BRANCHSET` item).
 
-**ID generation — count-based vs max-based (preserve each field's exact rule).**
+**ID generation â€” count-based vs max-based (preserve each field's exact rule).**
 The mock mixes two rules within a single create; follow them per field:
 
-- **New commit id** = `f"c{count(COMMITS)+1:03d}"` — derived from the **collection
+- **New commit id** = `f"c{count(COMMITS)+1:03d}"` â€” derived from the **collection
   count** (`len(COMMITS)` in the mock), not a max. In the DynamoDB port,
   `count(COMMITS)` is a `Query` `Count` over the `pk="COMMIT"` items (equal to the
   mock's `len(COMMITS)`).
-- **New PR id** = `f"pr-{count(PULL)+1}"` — also **count-based** (`len(PULL_REQUESTS)`
+- **New PR id** = `f"pr-{count(PULL)+1}"` â€” also **count-based** (`len(PULL_REQUESTS)`
   in the mock); use the `Query` `Count` over `pk="PULL"` items.
-- **New PR `number`** = `max(existing pr['number'], default 0) + 1` — this field is
+- **New PR `number`** = `max(existing pr['number'], default 0) + 1` â€” this field is
   **max-based**, unlike the PR id.
 
 This split matters: for a seed collection whose ids are not contiguous
@@ -570,19 +570,19 @@ corrected ID-generation invariant below.)
 
 | Verb | Path | Body / query | Success | Errors | Agent tool(s) |
 |---|---|---|---|---|---|
-| GET | `/health` | — | 200 | — | (none) |
-| GET | `/services` | — | 200 `{"services":[...]}` | 401 | `servicenow_deployment_status_by_project` |
+| GET | `/health` | â€” | 200 | â€” | (none) |
+| GET | `/services` | â€” | 200 `{"services":[...]}` | 401 | `servicenow_deployment_status_by_project` |
 | GET | `/deployments` | query `service,environment,status` | 200 `{"deployments":[...],"total":n}` (sorted desc by `deployed_at`) | 401 | `servicenow_list_deployments`, `..._status_by_project` |
-| GET | `/deployments/{deployment_id}` | — | 200 | 401, 404 | (preserve) |
+| GET | `/deployments/{deployment_id}` | â€” | 200 | 401, 404 | (preserve) |
 | GET | `/incidents` | query `severity,status,service,assignee` | 200 `{"incidents":[...],"total":n}` (sorted desc by `opened_at`) | 401 | `servicenow_list_incidents` |
-| GET | `/incidents/{incident_id}` | — | 200 | 401, 404 | `servicenow_get_incident` |
+| GET | `/incidents/{incident_id}` | â€” | 200 | 401, 404 | `servicenow_get_incident` |
 | POST | `/incidents` | `{title*,affected_service*,severity="P3",description,assignee,linked_deployment}` | 201 (new incident) | 401, **422 missing `title`/`affected_service`**, 404 unknown service | `servicenow_create_incident` |
 | PUT | `/incidents/{incident_id}` | `{status?,severity?,assignee?}` | 200 (updated) | 401, 404 | (preserve) |
-| GET | `/stats` | — | 200 (portfolio summary) | 401 | `servicenow_get_stats` |
+| GET | `/stats` | â€” | 200 (portfolio summary) | 401 | `servicenow_get_stats` |
 
 Behavioral details: create validates `affected_service` against `SERVICES`
-(unknown `affected_service` → 404 `{"detail":"Unknown affected_service"}`
-(verbatim) — note this is not a "... not found" form); new id
+(unknown `affected_service` â†’ 404 `{"detail":"Unknown affected_service"}`
+(verbatim) â€” note this is not a "... not found" form); new id
 `INC-{max(2000, existing max)+1}`; defaults `status="open"`,
 `opened_at=now UTC` (`%Y-%m-%dT%H:%M:%SZ`), `resolved_at=None`; PUT sets
 `resolved_at` when status transitions to `resolved`. `/stats` computes
@@ -592,7 +592,7 @@ deployments-by-status, open incidents, and open-by-severity on the fly.
 
 mahalo-dock's github service ships a pluggable backend (`GITHUB_MODE=mock|real`)
 where `real` targets self-hosted Gitea (`gitea_backend.py`). Task 3 ports **mock
-mode only** — it is the offline-friendly, behavior-equivalent default the agent has
+mode only** â€” it is the offline-friendly, behavior-equivalent default the agent has
 always used, and it needs no network egress or Gitea. The ported `routes.py` keeps
 the same request/response contract, so a later task can add a `real` backend
 (reading `GITHUB_MODE`/`GITEA_URL` env) without changing the handler's HTTP surface.
@@ -600,16 +600,16 @@ This is recorded so Task 4/7 (Gitea hosting) is not blocked. The `/health` body
 keeps a `"mode"` field computed as `os.environ.get("GITHUB_MODE", "mock")`, exactly
 as the mock does. CDK deliberately **does not set** `GITHUB_MODE` on the github
 function, so it defaults to `"mock"` and the health body reads `{"mode":"mock"}` in
-Task 3 — while the env var remains the live switch the Task 4/7 `real`-mode hook
+Task 3 â€” while the env var remains the live switch the Task 4/7 `real`-mode hook
 needs, so there is no contradiction between the hardcoded output and the hook.
 
 ## Auth enforcement (per handler)
 
 Every non-`/health` route enforces the static token, exactly as the mocks do.
 `common/auth.py` exposes `require_token(request, expected)` that reads the
-`X-API-Token` header (case-insensitive key lookup — Function URL event headers are
+`X-API-Token` header (case-insensitive key lookup â€” Function URL event headers are
 lower-cased) and, on mismatch or absence, returns a 401 with body
-`{"detail": "Invalid API token"}`. The value comparison is **exact** — the handler
+`{"detail": "Invalid API token"}`. The value comparison is **exact** â€” the handler
 401s when `header_value != expected`, matching the mock's `x_api_token !=
 API_TOKEN` (no trimming or case-folding of the value, and `None`/absence mismatches
 too); **only the header *key* lookup is case-insensitive** (Function URL event
@@ -624,27 +624,27 @@ agent's existing header contract unchanged.
 The handler's contract is deliberately simple because the agent only distinguishes
 200/201 from "everything else", and for a few cases substring-matches the `detail`.
 
-- **Invalid/missing token** → 401, body `{"detail":"Invalid API token"}`. Recoverable
+- **Invalid/missing token** â†’ 401, body `{"detail":"Invalid API token"}`. Recoverable
   (caller sends the right token). Logged at WARN (no token value logged).
 - **Not found** (unknown story/page/repo/branch/incident/deployment/project/space)
-  → 404, body `{"detail":"<mock's exact message>"}`. Recoverable. Logged at INFO.
-- **Already exists** (duplicate project/space/repo/branch) → 409, exact mock
+  â†’ 404, body `{"detail":"<mock's exact message>"}`. Recoverable. Logged at INFO.
+- **Already exists** (duplicate project/space/repo/branch) â†’ 409, exact mock
   `detail`. Recoverable; for github branches the agent treats it as success. Logged
   at INFO.
-- **Validation failure** → 422, with a **per-route `detail`** (pinned below in
-  "Input validation → 422 `detail` shape"; the github routes keep the mock's exact
+- **Validation failure** â†’ 422, with a **per-route `detail`** (pinned below in
+  "Input validation â†’ 422 `detail` shape"; the github routes keep the mock's exact
   wording, the pydantic-generated ones use the simplified shape). Recoverable.
-  Logged at INFO. Bad `pr_number` (not int) → 422.
-- **Route not matched** → 404 `{"detail":"Not found"}`. Recoverable. Logged at INFO.
-- **Malformed JSON body** on a POST/PUT → 400 `{"detail":"Invalid JSON body"}`.
+  Logged at INFO. Bad `pr_number` (not int) â†’ 422.
+- **Route not matched** â†’ 404 `{"detail":"Not found"}`. Recoverable. Logged at INFO.
+- **Malformed JSON body** on a POST/PUT â†’ 400 `{"detail":"Invalid JSON body"}`.
   Recoverable. Logged at WARN. (The agent always sends valid JSON, so this is
   defensive; it must not 500.)
-- **DynamoDB failure** (throttle, transient AWS error, `ClientError`) → the handler
+- **DynamoDB failure** (throttle, transient AWS error, `ClientError`) â†’ the handler
   catches it, logs at ERROR with the exception type (not secrets), and returns 503
   `{"detail":"Backend store unavailable"}`. Fatal for that request but recoverable on
   retry; the agent surfaces it as a generic error string. This is the only
   server-side (5xx) condition.
-- **Unexpected handler exception** → top-level `try/except` in `lambda_handler`
+- **Unexpected handler exception** â†’ top-level `try/except` in `lambda_handler`
   returns 500 `{"detail":"Internal error"}` and logs the traceback at ERROR. Must
   never leak a stack trace in the response body.
 
@@ -656,25 +656,25 @@ containing a token is logged verbatim; the token header is redacted to a boolean
 
 External input is the HTTP request (path, query, body). Rules:
 
-- **`X-API-Token` header** — required on all non-health routes; type string; must
+- **`X-API-Token` header** â€” required on all non-health routes; type string; must
   equal the service token; else 401. (Decision: auth above.)
-- **Path params** — `{project_id}`, `{story_id}`, `{repo_id}`, `{space_id}`,
+- **Path params** â€” `{project_id}`, `{story_id}`, `{repo_id}`, `{space_id}`,
   `{page_id}`, `{incident_id}`, `{deployment_id}`: required by route matching, type
   string, used as lookup keys; a miss yields 404 (not 500). `{pr_number}`: required,
-  coerced to int; non-int → 422.
-- **Query params** — all optional filters (`status`, `assignee`, `project_id`,
+  coerced to int; non-int â†’ 422.
+- **Query params** â€” all optional filters (`status`, `assignee`, `project_id`,
   `sprint_id`, `service`, `environment`, `severity`, `author_id`, `branch`,
   `author`, `space_id`); type string; unknown values simply match nothing (empty
   list), matching the mocks. Confluence `/search` `q`: required, min length 1, else
   422.
-- **JSON bodies** — POST/PUT bodies validated field-by-field in `routes.py`
+- **JSON bodies** â€” POST/PUT bodies validated field-by-field in `routes.py`
   reproducing the mock/pydantic behavior:
-  - jira `POST /stories`: `project_id`, `title` required (missing/empty → **422**);
+  - jira `POST /stories`: `project_id`, `title` required (missing/empty â†’ **422**);
     `description/priority/story_points/assignee/sprint_id` optional with the mock's
-    defaults; unknown project → **404**.
+    defaults; unknown project â†’ **404**.
   - jira `PUT /stories/{id}`: all fields optional; only non-null fields applied.
   - github `POST /repos/{id}/branches`: `name` required; `from_branch` default
-    `main`. Missing/empty `name` → **422**. This route binds the pydantic model
+    `main`. Missing/empty `name` â†’ **422**. This route binds the pydantic model
     `CreateBranchRequest(name, from_branch="main")` in the mock, so the 422 is
     **pydantic-sourced** (raised before the backend runs, like the jira/servicenow
     pydantic 422s); the port therefore uses the same simplified body
@@ -683,42 +683,42 @@ External input is the HTTP request (path, query, body). Rules:
     `has_files = isinstance(body.get("files"), list) or bool(body.get("path"))`.
     `branch`,`message` required always; `author_id` required **only** when
     `has_files` is false (legacy shape) and defaults to `mahalo-bot` when true;
-    missing/empty required field → 422 `{"detail":"Field '<field>' is required"}`.
+    missing/empty required field â†’ 422 `{"detail":"Field '<field>' is required"}`.
     An empty `files: []` is still the file-contents shape.
-  - github `POST /repos/{id}/pulls`: `head` (or `branch`) required → 422 if absent.
+  - github `POST /repos/{id}/pulls`: `head` (or `branch`) required â†’ 422 if absent.
   - servicenow `POST /incidents`: `title`,`affected_service` required
-    (missing/empty → **422**); `severity` default `P3`; unknown service → **404**.
+    (missing/empty â†’ **422**); `severity` default `P3`; unknown service â†’ **404**.
   - servicenow `PUT /incidents/{id}`: all optional.
 
   **Validation order (the mock's pydantic layer runs before the handler body).**
   In the mock, pydantic rejects a missing required field with **422 before** the
   route body executes, so the 422 always precedes the handler's existence checks.
   The port must preserve that order: for `POST /stories` and `POST /incidents`,
-  **validate required body fields first** (missing/empty → 422), **then** run the
-  existence check (jira unknown project → 404; servicenow unknown
-  `affected_service` → 404). Getting the order wrong would surface a 404 where the
+  **validate required body fields first** (missing/empty â†’ 422), **then** run the
+  existence check (jira unknown project â†’ 404; servicenow unknown
+  `affected_service` â†’ 404). Getting the order wrong would surface a 404 where the
   mock surfaces a 422.
 
-  **422 `detail` shape — pinned per route (the handler unit tests assert each
+  **422 `detail` shape â€” pinned per route (the handler unit tests assert each
   exactly).** The 422 `detail` is **not** uniform across routes: the github routes
   preserve the mock's verbatim wording (because the review's own cross-check shows
   those are the literal strings `mock_backend.py` raises), while the routes whose
   422 was generated by FastAPI/pydantic in the mock (jira/servicenow/confluence) get
-  a port-owned simplified string (safe because the agent never parses a 422 body —
+  a port-owned simplified string (safe because the agent never parses a 422 body â€”
   it only sees `"status 422"` in the error text, which for github branch creation it
   treats as success). We deliberately do **not** reproduce FastAPI's nested
   `{"detail":[{"loc":...,"msg":...}]}` list. Per route:
 
-  - github `POST /repos/{repo_id}/pulls` missing head → **`{"detail":"head branch
+  - github `POST /repos/{repo_id}/pulls` missing head â†’ **`{"detail":"head branch
     is required"}`** (verbatim from `mock_backend.create_pull`).
-  - github `POST /repos/{repo_id}/commits` missing required field → **`{"detail":
+  - github `POST /repos/{repo_id}/commits` missing required field â†’ **`{"detail":
     "Field '<field>' is required"}`** naming the offending field (verbatim from
     `mock_backend.create_commit`, which raises `f"Field '{field}' is required"`).
   - jira `POST /stories` missing `project_id`/`title`, servicenow `POST /incidents`
     missing `title`/`affected_service`, confluence `/search` missing `q`, github
-    `POST /repos/{id}/branches` missing `name` →
+    `POST /repos/{id}/branches` missing `name` â†’
     port-owned simplified **`{"detail":"Field '<name>' is required"}`** naming the
-    first missing field (no mock-exact string to preserve — these were
+    first missing field (no mock-exact string to preserve â€” these were
     pydantic-generated 422s the port deliberately replaces). Note github branch
     create is pydantic-sourced (model `CreateBranchRequest`), unlike github
     commit/pull create, whose 422s are raised inside `mock_backend` and keep the
@@ -726,7 +726,7 @@ External input is the HTTP request (path, query, body). Rules:
 
   These are the authoritative per-route 422 bodies; the handler unit tests assert
   the exact `detail` string for each. Note the github missing-head case is
-  `"head branch is required"`, **not** `"Field 'head' is required"` — do not
+  `"head branch is required"`, **not** `"Field 'head' is required"` â€” do not
   normalize it into the generic shape.
 
   Field ownership: because there is no pydantic layer, `routes.py` **owns** body
@@ -743,12 +743,12 @@ External input is the HTTP request (path, query, body). Rules:
   the per-service inventory (e.g. jira `assignee_details`/sprint velocity/board
   columns, confluence page-summary trimming and search excerpt/relevance, github and
   servicenow `/stats` aggregates) `routes.py` applies the mock's own compute/trim
-  transform on top of the stored record — so response-shape equivalence covers both
+  transform on top of the stored record â€” so response-shape equivalence covers both
   the raw-record reads and the computed-field routes. Enforced by the handler unit
   tests that assert full response bodies against expectations derived from
   `seed_data.py`. Chosen here because the agent's
   human-readable output formatting reads specific keys (e.g. `story['story_points']`,
-  `pr['number']`, `data['assignee_details']`) — a missing/renamed key breaks the
+  `pr['number']`, `data['assignee_details']`) â€” a missing/renamed key breaks the
   agent silently.
 - **Auth invariant** (no protected route serves data without a valid token).
   **Owned by** `common/auth.require_token`, called at the top of every protected
@@ -765,7 +765,7 @@ External input is the HTTP request (path, query, body). Rules:
     `c{count(COMMITS)+1:03d}`; github PR id `pr-{count(PULL)+1}`; confluence page
     fallback id `{space_id}-{count(PAGES)+1:03d}` (before `.upper()`). In the
     DynamoDB port, `count(...)` is a `Query` `Count` over the collection's `pk`
-    (equal to the mock's `len(...)`), read as the full count — **not** a max of
+    (equal to the mock's `len(...)`), read as the full count â€” **not** a max of
     numeric suffixes.
 
   Kept at the route layer because the numbering rules are service-specific. The
@@ -784,17 +784,17 @@ External input is the HTTP request (path, query, body). Rules:
   `conftest.py` helper (method, path, query, headers, JSON body) and assert the
   returned `statusCode` and the decoded `body` against expectations computed from the
   copied `seed_data.py`. DynamoDB is faked with **moto** (`@mock_aws`), so tests run
-  offline with no AWS creds — matching how the agent suite mocks its HTTP seam and
+  offline with no AWS creds â€” matching how the agent suite mocks its HTTP seam and
   keeping CI hermetic. Coverage per service: health (200, no token), auth (401 on
   missing/wrong token), every read route (seed-derived expectations), every write
-  route (create → read-back shows the new record; the Task 2 flows: jira create
-  story→get story; github create branch→commit→open PR with the 409/422 "already
+  route (create â†’ read-back shows the new record; the Task 2 flows: jira create
+  storyâ†’get story; github create branchâ†’commitâ†’open PR with the 409/422 "already
   exists" path asserted to return those exact codes+`detail`; servicenow create
-  incident→list). Router unit tests cover path-param extraction, int coercion,
+  incidentâ†’list). Router unit tests cover path-param extraction, int coercion,
   unmatched-route 404, malformed-body 400, and the event-source fallback branch.
 - **Integration tests (secondary, opt-in).** After `cdk deploy`, a script hits each
   live Function URL with the real token and asserts the same read-after-write
-  behavior end-to-end (gated like the agent's live test — skips if the URLs/env are
+  behavior end-to-end (gated like the agent's live test â€” skips if the URLs/env are
   unset). This validates the Function URL event shape and DynamoDB wiring that moto
   can only approximate.
 - **CDK synth tests.** `infra-cdk/tests/test_synth.py` uses CDK assertions to verify
@@ -809,27 +809,27 @@ FastAPI/Mangum and a shared table.
 
 ## Constraints honored
 
-- **Zero LangChain** — none introduced anywhere (handlers, router, CDK).
-- **Agent stays green against the ORIGINAL localhost mocks** — no file under
+- **Zero LangChain** â€” none introduced anywhere (handlers, router, CDK).
+- **Agent stays green against the ORIGINAL localhost mocks** â€” no file under
   `agent/` is modified; the Lambdas are reached purely by overriding the `*_URL` env
   vars, whose defaults remain the localhost tunnel ports. The HTTP contract
   (verbs/paths/bodies/status/`detail`) is preserved so `agent/tools/http.py`'s
   200/201 success rule and the github 409/422-as-success logic keep working.
-- **mahalo-dock is read-only** — seed data and route logic are copied **into**
+- **mahalo-dock is read-only** â€” seed data and route logic are copied **into**
   `tools-lambdas/`; nothing in mahalo-dock is edited.
-- **Monthly account reset survivable** — everything is CDK-defined; tables re-create
+- **Monthly account reset survivable** â€” everything is CDK-defined; tables re-create
   empty and self-seed.
-- **Does not block Task 4** — four discrete functions with stable ARNs + Function
+- **Does not block Task 4** â€” four discrete functions with stable ARNs + Function
   URLs, event-source-tolerant handlers, DynamoDB invisible to the Gateway layer, and
   ARN/URL Cfn outputs for the Gateway stack to import.
 
 ## Open items deferred (not blocking Task 3)
 
-- GitHub `real`/Gitea backend mode (Task 4/7 concern) — contract-compatible hook left
+- GitHub `real`/Gitea backend mode (Task 4/7 concern) â€” contract-compatible hook left
   in place; not implemented.
-- Atomic ID counters (only if future concurrent multi-user load appears) — current
+- Atomic ID counters (only if future concurrent multi-user load appears) â€” current
   max-scan matches mahalo-dock and suffices for the single-user demo.
-- Gateway/MCP registration of the functions — **Task 4**.
+- Gateway/MCP registration of the functions â€” **Task 4**.
 
 ## Responses to iteration-4 review
 
@@ -842,10 +842,10 @@ mock sources (`github/seed_data.py`, `github/mock_backend.py`, `github/main.py`,
 1. **[HIGH] GitHub collections keyed by repo *id* (`repo-N`), not the repo *name*.**
    Addressed. The one literal `payment-service` GitHub `sk` example in Decision 2's
    "Table shape" bullet is replaced with `repo-1` (the real seed id), and a new
-   paragraph states that GitHub `sk` is the seed repo id (`repo-N`) — not the
-   `name` — that the mock's `REPOS`/`BRANCHES`/`CONTRIBUTOR_STATS`/`repo_id` all key
-   off, that lookups are strict identity matches with no name→id resolution, and
-   that the port MUST NOT add name→id resolution so the mock's behavior (including
+   paragraph states that GitHub `sk` is the seed repo id (`repo-N`) â€” not the
+   `name` â€” that the mock's `REPOS`/`BRANCHES`/`CONTRIBUTOR_STATS`/`repo_id` all key
+   off, that lookups are strict identity matches with no nameâ†’id resolution, and
+   that the port MUST NOT add nameâ†’id resolution so the mock's behavior (including
    the 404 produced by the agent's name-based lookups) is replicated VERBATIM. The
    pre-existing agent-passes-name vs mock-keys-by-id mismatch is called out as
    replicated as-is, never "fixed". Verified: seed `REPOS` carry
@@ -863,7 +863,7 @@ mock sources (`github/seed_data.py`, `github/mock_backend.py`, `github/main.py`,
 
 3. **[MEDIUM] GitHub `POST /repos/{id}/branches` missing-name 422 uncovered.**
    Addressed. The branch-create inventory row now lists `422 missing name`; the
-   input-validation bullet states missing/empty `name` → 422 (pydantic-sourced via
+   input-validation bullet states missing/empty `name` â†’ 422 (pydantic-sourced via
    `CreateBranchRequest`) using the same simplified body
    `{"detail":"Field 'name' is required"}` as the other pydantic 422s; and the
    pinned per-route 422 `detail` list now includes this route among the
@@ -871,12 +871,12 @@ mock sources (`github/seed_data.py`, `github/mock_backend.py`, `github/main.py`,
    `CreateBranchRequest(name, from_branch="main")`.
 
 4. **[NIT] ServiceNow unknown-service 404 detail not pinned.** Addressed. The
-   ServiceNow behavioral-details line now pins unknown `affected_service` → 404
+   ServiceNow behavioral-details line now pins unknown `affected_service` â†’ 404
    `{"detail":"Unknown affected_service"}` (verbatim), noting it is not a
    "... not found" form. Verified against `servicenow/main.py` `create_incident`.
 
 5. **[NIT] Auth value-comparison exactness.** Addressed. The Auth section now
-   states the value comparison is exact (`header_value != expected` → 401, matching
+   states the value comparison is exact (`header_value != expected` â†’ 401, matching
    `x_api_token != API_TOKEN`, including `None`/absence) and that only the header
    *key* lookup is case-insensitive. Verified: all four mocks use
    `x_api_token != API_TOKEN`.
@@ -884,7 +884,7 @@ mock sources (`github/seed_data.py`, `github/mock_backend.py`, `github/main.py`,
 6. **[NIT] Jira `/sprints/{project_id}` param is a project key.** Addressed. The
    Jira inventory row now annotates that `{project_id}` is a project key (e.g.
    `PAY`), not a sprint id, and returns all sprints for that project. Verified:
-   `@app.get("/sprints/{project_id}")` → `list_sprints` filters
+   `@app.get("/sprints/{project_id}")` â†’ `list_sprints` filters
    `s["project_id"]==project_id` and returns `{"sprints":[...]}`.
 
 ## Responses to design review (iteration 3)
@@ -895,11 +895,11 @@ MEDIUM + two NITs). Each finding was re-verified against `mock_backend.py` befor
 editing. All three are **addressed**.
 
 1. **[MEDIUM] GitHub PR missing-`head` 422 `detail` specified two conflicting ways.**
-   Addressed. The "Input validation → 422 `detail` shape" subsection is rewritten to
+   Addressed. The "Input validation â†’ 422 `detail` shape" subsection is rewritten to
    pin the `detail` **per route** instead of declaring one uniform shape: github
-   `POST .../pulls` missing head → `{"detail":"head branch is required"}` (verbatim);
-   github `POST .../commits` missing field → `{"detail":"Field '<field>' is
-   required"}` (verbatim); jira/servicenow/confluence missing field → the port-owned
+   `POST .../pulls` missing head â†’ `{"detail":"head branch is required"}` (verbatim);
+   github `POST .../commits` missing field â†’ `{"detail":"Field '<field>' is
+   required"}` (verbatim); jira/servicenow/confluence missing field â†’ the port-owned
    simplified `{"detail":"Field '<name>' is required"}`. The Error-handling bullet now
    points at this per-route list rather than restating a single shape, so the two
    sections no longer disagree. Verified: `create_pull` raises
@@ -915,7 +915,7 @@ editing. All three are **addressed**.
    `mock_backend.create_commit`.
 
 3. **[NIT] "returns `data` unchanged" undersells computed-field routes.** Addressed.
-   Decision 2's "Table shape" bullet and the "Invariants → Response-shape
+   Decision 2's "Table shape" bullet and the "Invariants â†’ Response-shape
    equivalence" line are reworded: the handler returns the stored record directly for
    plain reads, and for the routes the mock enriches/trims (jira
    `assignee_details`/sprint velocity/board columns; confluence page-summary trimming
@@ -932,9 +932,9 @@ finding was re-verified against the mahalo-dock sources
 `servicenow/main.py`, `jira/main.py`) before editing. All seven are **addressed**.
 
 1. **[HIGH] Commit/PR id generation (count vs max).** Addressed. The GitHub
-   behavioral details now spell out per-field rules — commit id
+   behavioral details now spell out per-field rules â€” commit id
    `c{count(COMMITS)+1:03d}` (count-based), PR id `pr-{count(PULL)+1}` (count-based),
-   PR `number` `max+1` (max-based) — and the "Invariants → ID generation" section is
+   PR `number` `max+1` (max-based) â€” and the "Invariants â†’ ID generation" section is
    rewritten from a single "compute the max" into an explicit max-based vs
    count-based split covering jira/servicenow/github/confluence, with the DynamoDB
    `Query` `Count` mapping stated. Decision 2's prose was corrected to match.
@@ -945,14 +945,14 @@ finding was re-verified against the mahalo-dock sources
    `mode = os.environ.get("GITHUB_MODE", "mock")` (matching the mock), and the
    real-mode note states CDK does not set `GITHUB_MODE`, so the body is
    `{"mode":"mock"}` in Task 3 while the env switch stays live for the Task 4/7
-   hook — removing the constant-vs-hook contradiction. The inventory `/health` row
+   hook â€” removing the constant-vs-hook contradiction. The inventory `/health` row
    was updated to match.
 
 3. **[MEDIUM] Confluence `create_page` id + uppercasing.** Addressed. A new
    "ID derivation and uppercasing on creates" block documents page id =
    `(supplied id or f"{space_id}-{count(PAGES)+1:03d}").upper()` and collects the
-   other id-normalization rules in one place: `create_space` →
-   `(id or "SPACE").upper()`, jira `create_project` →
+   other id-normalization rules in one place: `create_space` â†’
+   `(id or "SPACE").upper()`, jira `create_project` â†’
    `(id or project_id or "PROJ").upper()`. Verified against the three mocks.
 
 4. **[MEDIUM] jira/servicenow 422 source and validation order.** Addressed. The
@@ -968,7 +968,7 @@ finding was re-verified against the mahalo-dock sources
    `STATS`, `REPO`), states that `create_repo` writes **both** a `REPO` item and a
    `BRANCHSET` item seeded with default `main` (and intentionally no `STATS` item),
    and that branch/commit/pull 404s key off `BRANCHSET` while `get_stats` 404s off
-   `STATS` — mirroring `repo_id not in BRANCHES` vs `repo_id not in
+   `STATS` â€” mirroring `repo_id not in BRANCHES` vs `repo_id not in
    CONTRIBUTOR_STATS`, with an explicit "do not collapse into one lookup" warning.
    Verified against `create_repo`/`list_branches`/`create_commit`/`create_pull`/
    `get_stats` in `mock_backend.py`.

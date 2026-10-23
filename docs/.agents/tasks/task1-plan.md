@@ -1,4 +1,4 @@
-# Task 1 Implementation Plan — Local Strands Agent (read-only) vs live mocks
+# Task 1 Implementation Plan â€” Local Strands Agent (read-only) vs live mocks
 
 This plan builds "Task 1" of mahalo-agentcore: a Strands Agents SDK agent that runs LOCALLY and
 answers READ questions by calling the live mock enterprise systems (Jira/Confluence/GitHub/ServiceNow)
@@ -7,23 +7,23 @@ leaves the package in a buildable/importable state.
 
 ## Context the coder must honor (read first)
 
-- Work ONLY under `d:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to or edit
-  `d:\<USER>\LavaCode\AI\mahalo-dock` (READ allowed only, to copy exact output-formatting
-  strings for byte-for-byte parity — never modify it).
+- Work ONLY under `<WORKSPACE_ROOT>`. NEVER write to or edit
+  `<FALLBACK_ROOT>` (READ allowed only, to copy exact output-formatting
+  strings for byte-for-byte parity â€” never modify it).
 - Do NOT redeploy any backend. Do NOT run `aws sso login` or open SSH tunnels. The live integration
   test MUST skip gracefully when the tunnel/mocks are unreachable so the whole suite passes offline.
 - Zero LangChain imports anywhere in the new `agent/` package. The mahalo-dock originals import
   `from langchain_core.tools import tool`; the port MUST replace that with the Strands `@tool`.
 - All new code lives under `agent/` as a Python package (see the file map below).
 - Review gate file for the implement-and-review loop:
-  `d:\<USER>\LavaCode\AI\mahalo-agentcore\docs\.agents\tasks\task1-review.json`
+  `<WORKSPACE_ROOT>\docs\.agents\tasks\task1-review.json`
   with shape `{"verdict":"APPROVED"|"CHANGES_REQUESTED","findings":[...],"reviewDoc":"..."}`.
   The coder and reviewer must honor this file; the coder does not write it (the reviewer does), but
   the coder should fix every finding it lists on later iterations.
 
 ## Design decisions (made here; do not re-decide)
 
-1. **Tool structure — module-level `@tool` functions reading config from a module singleton, not
+1. **Tool structure â€” module-level `@tool` functions reading config from a module singleton, not
    per-instance factories.** mahalo-dock used `create_jira_tools(url, token)` closures because each
    logged-in user had its own integration URLs/tokens from a DB. Task 1 is a single local process with
    env-driven config, so a closure factory adds no value and complicates registering tools with the
@@ -41,7 +41,7 @@ leaves the package in a buildable/importable state.
    mahalo-dock's `botocore Config(read_timeout, connect_timeout, retries)` pattern. The AWS profile is
    supplied by constructing a `boto3.Session(profile_name=...)` (from `AWS_PROFILE`/config) and passing it
    as `boto_session`, so no AWS keys are baked into code. VERIFY the exact parameter name against the
-   installed 1.61.1 package (step 2) before relying on it — the docs track the latest release.
+   installed 1.61.1 package (step 2) before relying on it â€” the docs track the latest release.
 4. **REPL identity is hard-coded to dev-6 / "Lava Dev" / developer role.** mahalo-dock resolves this via
    `developer_id_for_email` (lava@dev.com -> dev-6). Task 1 has no login, so bake dev-6 directly into the
    REPL's system-prompt identity block so "show my stories" resolves to dev-6 deterministically. Rationale:
@@ -56,7 +56,7 @@ leaves the package in a buildable/importable state.
 ## Verified facts (so the coder doesn't re-derive)
 
 - No venv exists yet under `agent/` (dir contains only `.gitkeep`). `.venv/` is already in `.gitignore`.
-- strands-agents is NOT installed anywhere locally yet — the coder MUST create the venv and install, then
+- strands-agents is NOT installed anywhere locally yet â€” the coder MUST create the venv and install, then
   verify the API against the installed source.
 - mahalo-dock tool contracts, formatting strings, and the LangChain `@tool` usage to be replaced are in
   `mahalo-dock/backend/app/agent/tools/{jira,github,confluence,servicenow}_tools.py`.
@@ -85,19 +85,19 @@ leaves the package in a buildable/importable state.
       absent), then install `.\.venv\Scripts\python.exe -m pip install -r requirements.txt`. Then confirm,
       against the INSTALLED package source under `agent/.venv/Lib/site-packages/strands/`, the two
       API facts this plan depends on and record them in `agent/README.md` (step 11):
-      (a) the exact import for the tool decorator — expected `from strands import tool` (and `Agent`);
-      (b) the exact way to pass a botocore `Config` into the Bedrock model — expected
+      (a) the exact import for the tool decorator â€” expected `from strands import tool` (and `Agent`);
+      (b) the exact way to pass a botocore `Config` into the Bedrock model â€” expected
       `from strands.models import BedrockModel` with `BedrockModel(boto_client_config=Config(...),
       boto_session=..., region_name=..., model_id=...)`. If the installed package differs from these
       expectations, use what the installed package actually exposes (read
       `agent/.venv/Lib/site-packages/strands/models/bedrock.py` and the top-level `strands/__init__.py`),
-      and adjust steps 3–8 accordingly. Do NOT guess.
+      and adjust steps 3â€“8 accordingly. Do NOT guess.
       Files: `agent/.venv/` (generated, git-ignored).
       Verify: `.\.venv\Scripts\python.exe -c "import strands, strands.models.bedrock as b; from strands
       import Agent, tool; from strands.models import BedrockModel; import importlib.metadata as m;
       print(m.version('strands-agents'))"` prints `1.61.1` and raises no ImportError. Run from `agent/`.
 
-- [ ] 3. Write `agent/config.py` — env-driven configuration.
+- [ ] 3. Write `agent/config.py` â€” env-driven configuration.
       Provide a single config object/dataclass (e.g. `Settings` with a module-level `settings` instance)
       exposing, with the task's defaults:
       Bedrock: `BEDROCK_MODEL_ID` default `us.anthropic.claude-sonnet-4-5-20250929-v1:0`,
@@ -115,7 +115,7 @@ leaves the package in a buildable/importable state.
       print(settings.jira_url, settings.bedrock_read_timeout, settings.bedrock_model_id)"` run from the
       repo root with `PYTHONPATH` set to repo root (or `py -m`), printing the defaults.
 
-- [ ] 4. Write `agent/tools/http.py` — shared httpx request helper with `X-API-Token`.
+- [ ] 4. Write `agent/tools/http.py` â€” shared httpx request helper with `X-API-Token`.
       One function (e.g. `make_request(base_url, token, endpoint="", params=None, method="GET",
       body=None, timeout=None) -> dict`) that sets header `{"X-API-Token": token}`, builds
       `f"{base_url}{endpoint}"`, uses `httpx.Client(timeout=settings.http_timeout)`, returns
@@ -127,7 +127,7 @@ leaves the package in a buildable/importable state.
       Verify: covered by step 9's unit tests (asserts endpoint, params, header, and error string); for a
       quick smoke, `.\.venv\Scripts\python.exe -c "from agent.tools.http import make_request; print(callable(make_request))"`.
 
-- [ ] 5. Write `agent/tools/jira_tools.py` — 7 read tools as module-level Strands `@tool` functions.
+- [ ] 5. Write `agent/tools/jira_tools.py` â€” 7 read tools as module-level Strands `@tool` functions.
       Port VERBATIM contracts, docstrings, and output formatting from
       `mahalo-dock/backend/app/agent/tools/jira_tools.py`, replacing the LangChain `@tool` with the
       Strands `@tool` (import confirmed in step 2) and the closure factory with module-level functions that
@@ -143,14 +143,14 @@ leaves the package in a buildable/importable state.
       `jira_get_story(story_id)` (GET /stories/{story_id}),
       `jira_get_sprint_info(project_id)` (GET /sprints/{project_id}),
       `jira_get_board(project_id)` (GET /projects/{project_id}/board).
-      Do NOT port the write tools (`jira_create_story`, `jira_update_story`) — Task 2. Export a list
+      Do NOT port the write tools (`jira_create_story`, `jira_update_story`) â€” Task 2. Export a list
       `JIRA_TOOLS = [...]` of the 7 read tools.
       Files: `agent/tools/jira_tools.py`.
       Verify: `.\.venv\Scripts\python.exe -c "from agent.tools.jira_tools import JIRA_TOOLS; print(len(JIRA_TOOLS))"`
       prints `7`; full behavior checked by step 9 unit tests.
 
 - [ ] 6. Write `agent/tools/github_tools.py`, `agent/tools/confluence_tools.py`,
-      `agent/tools/servicenow_tools.py` — remaining read tools (same port pattern as step 5).
+      `agent/tools/servicenow_tools.py` â€” remaining read tools (same port pattern as step 5).
       This is one item: identical change pattern across three files. Port VERBATIM contracts/docstrings/
       formatting from the matching mahalo-dock modules; drop all write tools.
       GitHub read tools: `github_list_repos` (GET /repos), `github_get_pull_requests(repo_id, status?,
@@ -176,7 +176,7 @@ leaves the package in a buildable/importable state.
       SERVICENOW_TOOLS; print(len(GITHUB_TOOLS), len(CONFLUENCE_TOOLS), len(SERVICENOW_TOOLS))"`
       prints `4 3 5`.
 
-- [ ] 7. Write `agent/prompts.py` — ported system prompts.
+- [ ] 7. Write `agent/prompts.py` â€” ported system prompts.
       Copy VERBATIM from `mahalo-dock/backend/app/agent/prompts.py`: `BASE_PROMPT`,
       `PRODUCT_MANAGER_PROMPT`, `DEVELOPER_PROMPT`, `EXECUTIVE_PROMPT`, and the `ROLE_PROMPTS` dict.
       Keep the write-tool references inside the prompt text intact (per task). Placeholders
@@ -186,7 +186,7 @@ leaves the package in a buildable/importable state.
       Verify: `.\.venv\Scripts\python.exe -c "from agent.prompts import ROLE_PROMPTS;
       print(sorted(ROLE_PROMPTS))"` prints `['developer', 'executive', 'product_manager']`.
 
-- [ ] 8. Write `agent/strands_agent.py` — build and return the configured Strands Agent.
+- [ ] 8. Write `agent/strands_agent.py` â€” build and return the configured Strands Agent.
       Expose `build_agent(role="developer", user_name="Lava Dev", user_role="Developer",
       developer_id="dev-6") -> Agent`. Steps:
       (a) build botocore `Config(read_timeout=settings.bedrock_read_timeout,
@@ -195,7 +195,7 @@ leaves the package in a buildable/importable state.
       creds come from the `lava` profile (do NOT bake keys); if the profile is absent fall back to the
       default credential chain;
       (c) construct `BedrockModel(model_id=settings.bedrock_model_id, region_name=settings.aws_region,
-      boto_session=session, boto_client_config=config)` — use the EXACT parameter names verified in step 2;
+      boto_session=session, boto_client_config=config)` â€” use the EXACT parameter names verified in step 2;
       (d) assemble the system prompt: `ROLE_PROMPTS[role].format(integrations_context=<short string listing
       Jira/Confluence/GitHub/ServiceNow with their base URLs>, user_name=user_name, user_role=user_role)`,
       then append a CURRENT USER IDENTITY block stating the logged-in user is developer id `developer_id`
@@ -212,7 +212,7 @@ leaves the package in a buildable/importable state.
       a = build_agent(); print(type(a).__name__)"` prints `Agent` with no network call. If this requires
       creds, that is a bug to fix in this step.
 
-- [ ] 9. Write `agent/tests/test_tools_unit.py` — offline unit tests for the HTTP wrappers.
+- [ ] 9. Write `agent/tests/test_tools_unit.py` â€” offline unit tests for the HTTP wrappers.
       Use the venv pytest. Monkeypatch `agent.tools.http.make_request` (the shared seam) OR use
       `httpx.MockTransport`/`respx`; the plan's design (step 2 decision) makes monkeypatching the shared
       helper the simplest. Cover, at minimum:
@@ -226,9 +226,9 @@ leaves the package in a buildable/importable state.
       {text}` string. These tests MUST pass with no network.
       Files: `agent/tests/test_tools_unit.py`.
       Verify: `.\.venv\Scripts\python.exe -m pytest agent/tests/test_tools_unit.py -q` run from repo root
-      — all tests pass with no network access.
+      â€” all tests pass with no network access.
 
-- [ ] 10. Write `agent/tests/test_integration_live.py` — one live test that skips gracefully.
+- [ ] 10. Write `agent/tests/test_integration_live.py` â€” one live test that skips gracefully.
       Single test that first probes reachability (short-timeout GET `{JIRA_URL}/projects` with the token
       header); on any connection error / non-200, call `pytest.skip("mocks/tunnel unreachable")` so the
       suite passes offline. When reachable AND AWS creds are available, build the dev-6 developer agent and
@@ -238,9 +238,9 @@ leaves the package in a buildable/importable state.
       when the tunnel is down.
       Files: `agent/tests/test_integration_live.py`.
       Verify: `.\.venv\Scripts\python.exe -m pytest agent/tests -q` run from repo root with the tunnel
-      DOWN — the integration test reports skipped and the overall run passes (exit code 0).
+      DOWN â€” the integration test reports skipped and the overall run passes (exit code 0).
 
-- [ ] 11. Write `agent/chat.py` — CLI/REPL entrypoint, and `agent/README.md`.
+- [ ] 11. Write `agent/chat.py` â€” CLI/REPL entrypoint, and `agent/README.md`.
       `agent/chat.py`: runnable as `python -m agent.chat "show my stories"` (single-shot: build the
       developer/dev-6 agent, send the one message, print the agent's text, exit) and with no args as an
       interactive REPL (loop reading stdin, printing responses, exit on `quit`/`exit`/EOF). Keep it small.
@@ -255,15 +255,15 @@ leaves the package in a buildable/importable state.
       Verify: `.\.venv\Scripts\python.exe -c "import agent.chat"` succeeds with no creds/network;
       and `.\.venv\Scripts\python.exe -m pytest agent/tests -q` still passes (regression check).
 
-- [ ] 12. Final guardrail check — assert zero LangChain anywhere in the new package.
+- [ ] 12. Final guardrail check â€” assert zero LangChain anywhere in the new package.
       Confirm no `langchain` import/string exists under `agent/` (excluding `.venv/`). This is a
-      correctness gate the task mandates, not a substitute for the functional verification in steps 9–11.
+      correctness gate the task mandates, not a substitute for the functional verification in steps 9â€“11.
       Files: none (verification only).
       Verify: from repo root run
       `.\agent\.venv\Scripts\python.exe -c "import pathlib,sys; bad=[str(p) for p in
       pathlib.Path('agent').rglob('*.py') if '.venv' not in p.parts and 'langchain' in
       p.read_text(encoding='utf-8').lower()]; print('LANGCHAIN FOUND:',bad) or sys.exit(1 if bad else 0)"`
-      — prints an empty list and exits 0. Also re-run the full suite
+      â€” prints an empty list and exits 0. Also re-run the full suite
       `.\agent\.venv\Scripts\python.exe -m pytest agent/tests -q` and confirm it passes offline.
 
 ## Notes / open assumptions (reasonable defaults chosen; coder may adjust if the installed API differs)
@@ -273,6 +273,6 @@ leaves the package in a buildable/importable state.
   wiring `chat.py` and the integration assertions (e.g. `str(result)` vs `result.message`).
 - If strands-agents 1.61.1 names the botocore-config parameter differently from `boto_client_config`
   (the current docs' name), step 2 is where that is caught; steps 8 and 11 then use the real name.
-- `integrations_context` content is a short, static listing of the four systems and their base URLs —
+- `integrations_context` content is a short, static listing of the four systems and their base URLs â€”
   there is no DB of per-user integrations in Task 1.
-- Do not add the propose/approve write flow, synthesis pass, or session persistence — those are Task 2+.
+- Do not add the propose/approve write flow, synthesis pass, or session persistence â€” those are Task 2+.

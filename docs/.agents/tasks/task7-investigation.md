@@ -1,4 +1,4 @@
-# Task 7 — Investigation (STEP 0): Gitea + Frontend hosting
+# Task 7 â€” Investigation (STEP 0): Gitea + Frontend hosting
 
 **Scope.** Task 7 = "Stand up self-hosted Gitea on an always-on host and deploy the
 Next.js frontend" (`docs/PLAN.md` Task 7). This document is read-only investigation:
@@ -6,7 +6,7 @@ no design decisions are finalized here, but each open question is made answerabl
 the design phase with concrete file:line citations and AWS doc URLs.
 
 **Hard constraints (from the step prompt + `docs/CONTINUATION.md:18-24`).** Only ever
-WRITE under `d:/<USER>/LavaCode/AI/mahalo-agentcore`. `mahalo-dock` is
+WRITE under `<WORKSPACE_ROOT>`. `mahalo-dock` is
 READ ONLY (we read its frontend/Gitea to port, never edit). No commits/pushes, no
 `npm run dev` / watch processes, no deploys. Task 7 is verified OFFLINE
 (build/lint/unit tests + documented live-wiring steps); Gitea infra is authored as
@@ -20,18 +20,18 @@ steps (`docs/STATUS.md:62-70`), NOT a Task-7 blocker.
 
 ## 0. Repository landing zones (where Task 7 output goes)
 
-- `frontend/` exists but is an empty placeholder — only `frontend/.gitkeep`
+- `frontend/` exists but is an empty placeholder â€” only `frontend/.gitkeep`
   (verified: `Get-ChildItem` shows one file). The ported Next.js app lands here.
-- `gitea/` likewise is a placeholder — only `gitea/.gitkeep`. Gitea
+- `gitea/` likewise is a placeholder â€” only `gitea/.gitkeep`. Gitea
   config/bootstrap assets land here.
 - Both paths are already declared in `README.md:36` (`frontend/`) and
   `README.md:37` (`gitea/`) in the repo layout table, so the structure is
   pre-agreed.
 - No `.kiro/steering/*`, no `AGENTS.md`, no `CONTRIBUTING.md` in
-  mahalo-agentcore (searched — none found). The governing docs are
+  mahalo-agentcore (searched â€” none found). The governing docs are
   `docs/CONTINUATION.md`, `docs/STATUS.md`, `docs/PLAN.md`, `docs/ARCHITECTURE.md`,
   plus per-task artifacts under `docs/.agents/tasks/`. The mahalo-dock frontend
-  DOES carry a `frontend/AGENTS.md` (read below) — it matters for the port.
+  DOES carry a `frontend/AGENTS.md` (read below) â€” it matters for the port.
 
 ---
 
@@ -46,7 +46,7 @@ Source: `mahalo-dock/frontend/package.json`.
   (`:11`, dashboard) and `react-markdown ^9.0.1` (`:15`, chat rendering).
 - Dev deps: `eslint ^9` + `eslint-config-next 16.3.3`, `tailwindcss ^4` +
   `@tailwindcss/postcss`, `typescript ^5`, `vitest ^2.1.8` (`package.json:17-27`).
-- Package manager: **npm** — `package-lock.json` is present
+- Package manager: **npm** â€” `package-lock.json` is present
   (`yarn.lock`/`pnpm-lock.yaml` are absent; verified via `Test-Path`). So
   `npm ci` is the install command.
 - Scripts (`package.json:5-11`): `build` = `next build`, `lint` = `eslint`,
@@ -55,11 +55,11 @@ Source: `mahalo-dock/frontend/package.json`.
 - Vitest config: `environment: "node"`, includes `src/**/*.{test,spec}.{ts,tsx}`,
   and aliases `@` -> `./src` (`vitest.config.ts:5-14`). Only ONE test file exists
   today: `src/lib/chatSuggestions.test.ts` (plus `chatSuggestions.ts`).
-- **Toolchain available (from `docs/CONTINUATION.md:~213`): Node 24, npm 11** —
+- **Toolchain available (from `docs/CONTINUATION.md:~213`): Node 24, npm 11** â€”
   satisfies Next 16/React 19.
 
 **Offline gate for Task 7 frontend = `npm ci; npm run lint; npm run test; npm run
-build`** — all four run locally with no AWS and no long-running server. `next
+build`** â€” all four run locally with no AWS and no long-running server. `next
 build` is the compile step; `vitest run` is one-shot (not the watcher); `eslint`
 is the linter. This matches the verification guideline (use the project's real
 build/test commands, not grep).
@@ -69,7 +69,7 @@ is an auto-generated block warning that this Next.js has breaking changes vs
 training data and that the real guides live under `node_modules/next/dist/docs/`.
 Two consequences for the port: (a) when we touch routing/config we should read
 those local docs, not assume older Next behavior; (b) the block is re-written by
-`next dev` — but since we never run `next dev`, that is a non-issue for us; we
+`next dev` â€” but since we never run `next dev`, that is a non-issue for us; we
 simply copy the file as-is.
 
 ### 1.2 The frontend's current backend contract (what it calls today)
@@ -126,7 +126,7 @@ Source: `api/app/`.
   (`runtime_client.py:44`, `chat.py:46`).
 - Inbound auth: the thin API itself returns a FIXED dev identity
   (`dev-6`/`developer`, `auth.py:21-30`); the step prompt's "inbound auth
-  AWS_IAM/SigV4" is enforced at the **Function-URL edge** —
+  AWS_IAM/SigV4" is enforced at the **Function-URL edge** â€”
   `MahaloApiStack` sets `FunctionUrlAuthType.AWS_IAM`
   (`infra-cdk/mahalo_infra/api_stack.py:103-105`). Identity/`runtimeUserId` is
   OFF for the MVP (`config.py:30-33`, `chat.py:38-40`).
@@ -143,10 +143,10 @@ Chat page: `mahalo-dock/frontend/src/app/(protected)/chat/page.tsx`.
 - `handleSend` POSTs `/chat` with `{message, session_id, project_id}` and reads
   `response`, `proposal`, `systems_queried`, `session_id` off the reply
   (`chat/page.tsx:155-174`). It expects a `ChatApiResponse` with a
-  **`systems_queried: string[]`** field (`chat/page.tsx:35-41`) — the thin API
-  does NOT return this (see §1.5).
+  **`systems_queried: string[]`** field (`chat/page.tsx:35-41`) â€” the thin API
+  does NOT return this (see Â§1.5).
 - `handleApprove`/`handleReject` POST `/chat/approve` with only
-  **`{session_id, approved}`** (`chat/page.tsx:188-223`) — they do NOT send
+  **`{session_id, approved}`** (`chat/page.tsx:188-223`) â€” they do NOT send
   `interrupt_id`, which the thin API's `ApprovalRequest` REQUIRES
   (`models.py:36-42`). This is the single most important port change.
 - `ProposalCard.tsx` renders `description`, `system`+`action`, iterates
@@ -168,7 +168,7 @@ Supporting chat components (port largely verbatim): `ChatInput.tsx`,
    206-209`). The `/chat` reply's `proposal` must therefore also carry the
    interrupt id (or the id must be surfaced alongside it) and be threaded into
    the approve call. This needs a small Runtime/thin-API contract confirmation
-   in design (where the interrupt id appears in the `/chat` reply — today
+   in design (where the interrupt id appears in the `/chat` reply â€” today
    `ChatResponse` exposes `proposal?: dict` + `status`, not an explicit
    `interrupt_id`; see Open Question A).
 2. **Drop `systems_queried`.** The UI reads it (`chat/page.tsx:37,170`) but the
@@ -193,19 +193,19 @@ Supporting chat components (port largely verbatim): `ChatInput.tsx`,
    (Open Question B/D).
 
 **Ports largely verbatim (framework-agnostic / contract-compatible):**
-- `ProposalCard.tsx` (proposal/result rendering) — matches `proposal` and
+- `ProposalCard.tsx` (proposal/result rendering) â€” matches `proposal` and
   `ActionResult` shapes.
 - `ChatInput.tsx`, `ChatMessage.tsx`, `ContextPanel.tsx`,
   `lib/chatSuggestions.ts` (+ its vitest test).
 - Tailwind setup, `globals.css`, `postcss.config`, `eslint.config`,
   `tsconfig.json`, `next.config.ts`, `frontend/AGENTS.md`, the Dockerfile
-  (subject to the hosting decision, §3).
+  (subject to the hosting decision, Â§3).
 - The `/chat` + `/chat/approve` happy path already matches field-for-field
   (`message`/`session_id` out; `response`/`proposal`/`session_id`/`status` in).
 
 ### 1.6 Verification approach for the port (offline)
 
-`cd frontend; npm ci; npm run lint; npm run test; npm run build` — all green with
+`cd frontend; npm ci; npm run lint; npm run test; npm run build` â€” all green with
 no server and no AWS. New behavior (sending `interrupt_id`, treating
 `systems_queried` optional, the SigV4/auth posture) gets unit tests under
 `src/**/*.test.ts(x)` run by `vitest run`. Live wiring (pointing at a deployed
@@ -222,27 +222,27 @@ thin API) is a documented deferred step, consistent with Tasks 4-6.
   Function-URL or Gateway-adapter (`handler.py:46-56`).
 - `tools-lambdas/github/routes.py:3` states "Mock mode ONLY
   (`GITHUB_MODE=mock`); the Gitea backend is not ported." `GITHUB_MODE` is read
-  (`routes.py:48`) but only surfaces in the `/health` body (`routes.py:67`) — it
+  (`routes.py:48`) but only surfaces in the `/health` body (`routes.py:67`) â€” it
   does NOT branch to a Gitea backend. So the current Lambda is **mock-only**;
   Gitea is a genuinely additive new path.
 - The Lambda is provisioned by `MockServiceStack`
   (`infra-cdk/mahalo_infra/mock_service_stack.py`): DynamoDB table + `python3.13`
   Lambda (`:95-111`) + **Function URL `AuthType=NONE`** (`:131-133`, the Lambda
-  enforces `X-API-Token` itself). **No VPC** — the function is a public
+  enforces `X-API-Token` itself). **No VPC** â€” the function is a public
   Function-URL Lambda. Env today is just `TABLE_NAME` + `MOCK_GITHUB_TOKEN`
   (`:112-115`).
 
 **Design implication.** Adding Gitea means: (a) port the real adapter (below)
 into the github Lambda behind `GITHUB_MODE=real`, preserving the mock path
 exactly; (b) inject Gitea env (`GITEA_URL`, token, owner, public URL); (c) make
-the Lambda able to reach Gitea over the network (§2.3).
+the Lambda able to reach Gitea over the network (Â§2.3).
 
 ### 2.2 The real Gitea integration contract (read from mahalo-dock, to port)
 
 `mahalo-dock/mock-services/github/` is the source:
 - `main.py:36-52` selects the backend by `GITHUB_MODE` (`real` ->
   `GiteaBackend`, else `MockBackend`); the HTTP contract, auth, and response
-  shapes are identical in both modes (`main.py:9-20`) — this is exactly the
+  shapes are identical in both modes (`main.py:9-20`) â€” this is exactly the
   "additive, preserve the mock path" property Task 7 needs.
 - `gitea_backend.py` is the full translator (MAHALO GitHub contract <-> Gitea
   REST `/api/v1`). Key facts for design:
@@ -253,7 +253,7 @@ the Lambda able to reach Gitea over the network (§2.3).
     (`:72-74`).
   - Repo identity: MAHALO `repo_id` == Gitea repo *name* under one owner
     (`:20-25`, `_repo_path` `:150-151`). This is the SAME name/id quirk called
-    out in `docs/STATUS.md` known-issues — porting it faithfully is correct.
+    out in `docs/STATUS.md` known-issues â€” porting it faithfully is correct.
   - URL rewrite: Gitea returns in-stack URLs; `_publicize` rewrites `base_url`
     -> `public_url` (`:76-80`) so browser links resolve. In AWS this means the
     public URL env must be the real browser-facing Gitea URL.
@@ -263,7 +263,7 @@ the Lambda able to reach Gitea over the network (§2.3).
   is the in-memory store (already reimplemented as the DynamoDB routes in
   `tools-lambdas/github/`).
 
-### 2.3 Hosting shape — options grounded in the existing infra + AWS docs
+### 2.3 Hosting shape â€” options grounded in the existing infra + AWS docs
 
 **What mahalo-dock did (reference, do not reuse directly):** one EC2 t3.medium
 Ubuntu box running `docker compose` with a `gitea/gitea:1.27.3` service
@@ -271,9 +271,9 @@ Ubuntu box running `docker compose` with a `gitea/gitea:1.27.3` service
 volume (`:187-190`), plus a one-shot `gitea-bootstrap` container
 (`:191-214`, Dockerfile `mock-services/gitea-bootstrap/Dockerfile`, script
 `bootstrap.sh`) that creates the admin user via the Gitea CLI (the REST API
-cannot create the first admin — `bootstrap.sh:9-10`), mints an adapter API
+cannot create the first admin â€” `bootstrap.sh:9-10`), mints an adapter API
 token, and seeds a `payment-service` repo with real files. The deploy runbook
-(`mahalo-dock/aws-deploy-plan.md` §1,§3,§9) is EC2 + SSH tunnel, single-user
+(`mahalo-dock/aws-deploy-plan.md` Â§1,Â§3,Â§9) is EC2 + SSH tunnel, single-user
 demo, ~\$30/mo if left on, ~\$2-3/mo EBS when stopped.
 
 **Candidate "always-on host" shapes for mahalo-agentcore (CDK, aws-cdk-lib
@@ -287,28 +287,28 @@ demo, ~\$30/mo if left on, ~\$2-3/mo EBS when stopped.
    or a dedicated EBS volume. Simplest/cheapest always-on single box; matches the
    mahalo-dock operational knowledge and the `bootstrap.sh` CLI-first-admin
    requirement (the CLI needs the data dir, trivial on a single host). Cost note
-   from the prior run: t3.medium ~\$30/mo on 24/7 (`aws-deploy-plan.md:§1`).
+   from the prior run: t3.medium ~\$30/mo on 24/7 (`aws-deploy-plan.md:Â§1`).
 2. **ECS on Fargate + EFS for repo data.** Serverless hosts; AWS documents ECS
    on Fargate as natively integrated with EFS for persistent, shared volumes
    ([ECS storage best practices](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/storage.html);
    [ECS task storage options](https://docs.aws.amazon.com/AmazonECS/latest/userguide/using_data_volumes.html)).
-   A community guide deploys Gitea exactly this way — Fargate + EFS for repo
+   A community guide deploys Gitea exactly this way â€” Fargate + EFS for repo
    storage (optionally RDS Postgres + ALB for HTTPS)
    ([Deploy Gitea with OpenTofu](https://oneuptime.com/blog/post/2026-03-20-deploy-gitea-opentofu/view)).
    CDK: `aws_ecs.FargateService` + `aws_efs.FileSystem` + `aws_ecs.Volume`
    (EFS) + an ALB (`aws_elasticloadbalancingv2`) for a stable HTTPS URL. More
    moving parts; the first-admin CLI bootstrap is awkward on Fargate (no shell
-   into the data dir) — would need a one-shot task or an API-only bootstrap. Note
+   into the data dir) â€” would need a one-shot task or an API-only bootstrap. Note
    Fargate also supports EBS for standalone tasks
    ([ECS storage best practices](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/storage.html)),
    but EFS fits a long-lived Gitea volume better.
 3. **App Runner.** Good for stateless HTTP containers; Gitea needs durable
    writable storage (repos + SQLite/DB), which App Runner does not provide
-   natively — so it is a poor fit unless paired with an external DB and object
+   natively â€” so it is a poor fit unless paired with an external DB and object
    storage. Not recommended for the demo; note and set aside.
 
 Persistence sub-options for the data: EBS (per-host, simplest; option 1), EFS
-(shared/elastic, option 2), RDS (DB only — Gitea can use SQLite by default as in
+(shared/elastic, option 2), RDS (DB only â€” Gitea can use SQLite by default as in
 `docker-compose.yml:181` `DB_TYPE=sqlite3`, so RDS is optional and heavier).
 
 **Reachability (github Lambda -> Gitea).** The github Lambda has NO VPC today
@@ -326,7 +326,7 @@ design:
 
 **URL/token mechanics to carry over:** `GITEA_PUBLIC_URL` must be the
 browser-facing URL for `_publicize` (`gitea_backend.py:72-80`); the adapter token
-comes from `GITEA_TOKEN`/`GITEA_TOKEN_FILE` (`:59,88-101`) — in AWS, prefer
+comes from `GITEA_TOKEN`/`GITEA_TOKEN_FILE` (`:59,88-101`) â€” in AWS, prefer
 Secrets Manager / SSM Parameter Store injected as the Lambda env, replacing the
 shared-volume token file used in Compose. The first-admin-via-CLI requirement
 (`bootstrap.sh:2-10`) shapes the bootstrap design on whichever host is chosen.
@@ -351,8 +351,8 @@ The ported app is a Next.js 16 **App Router** app (`src/app/**`,
 `ProjectProvider`). It is overwhelmingly **client-rendered**: every page/context
 is `"use client"` (e.g. `chat/page.tsx:1`, `AuthContext.tsx:1`,
 `ProtectedRoute.tsx:1`), reads/writes `sessionStorage`, and fetches data at
-runtime from the API — there is no server-side data fetching or server actions in
-the pages read. BUT `next.config.ts` is empty (`next.config.ts:3-6`) — there is
+runtime from the API â€” there is no server-side data fetching or server actions in
+the pages read. BUT `next.config.ts` is empty (`next.config.ts:3-6`) â€” there is
 **no `output: "export"`**, and the mahalo-dock Dockerfile runs a full Next server
 (`npm run build` then `npm start`, `frontend/Dockerfile:13-21`), i.e. it ships as
 a server today, not a static export. There is also a dynamic route
@@ -365,11 +365,11 @@ only with `generateStaticParams`.
   static export (`output: "export"`), which disables SSR/dynamic server features;
   S3 can only serve static files
   ([Can a Next.js SSR app be hosted on S3?](https://www.quora.com/Can-a-Next-js-SSR-app-be-hosted-on-AWS-S3-Why)
-  — rephrased: S3 serves only static assets, not SSR;
+  â€” rephrased: S3 serves only static assets, not SSR;
   [Hosting a Next.js App Router app on S3](https://dev.to/lanzone31/hosting-a-nextjs-app-router-app-on-amazon-s3-5al6)
   configures a static export + CloudFront). Because this app is client-only in
   practice (data at runtime, no SSR), a static export is *plausible* and is the
-  cheapest, simplest, most "survives-a-reset" option — but requires the
+  cheapest, simplest, most "survives-a-reset" option â€” but requires the
   `output: "export"` conversion and handling the `[id]` dynamic route. Guidance:
   pick S3+CloudFront when the app is truly static
   ([CloudFront+S3 vs Amplify vs ECS](https://dev.to/muhammad_ahmad_khan/from-static-to-runtime-choosing-between-cloudfront-s3-amplify-and-ecs-for-frontends-on-aws-15i5)).
@@ -396,20 +396,20 @@ only with `generateStaticParams`.
 - **CORS**: the thin API (`api/app/main.py`) sets NO CORS middleware today; a
   browser calling the Function URL cross-origin needs `Access-Control-Allow-*`.
   Lambda Function URLs can emit CORS headers via the url's `cors` config (CDK
-  `FunctionUrlCorsOptions`) — but note **CORS and AWS_IAM together are a known
+  `FunctionUrlCorsOptions`) â€” but note **CORS and AWS_IAM together are a known
   friction** for browser calls
   ([CORS error with Cognito identity signing a Function URL](https://repost.aws/ja/questions/QUjmugNmXTQ3SWcuzKdSSseg/cors-error-using-cognito-identity-in-signed-request-to-lambda-function-url)).
   A common mitigation is to put CloudFront in front so the browser calls a
   same-origin path.
 
-### 3.4 THE OPEN AUTH QUESTION — how a browser authenticates to a SigV4 endpoint
+### 3.4 THE OPEN AUTH QUESTION â€” how a browser authenticates to a SigV4 endpoint
 
 The thin API Function URL is `AuthType=AWS_IAM` (`api_stack.py:103-105`). A
-browser cannot "just call it" — AWS_IAM requires every request be **SigV4-signed**
+browser cannot "just call it" â€” AWS_IAM requires every request be **SigV4-signed**
 with AWS credentials; Lambda recomputes the signature and only runs the request
 if they match
 ([Invoking Lambda function URLs](https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html)).
-Investigated postures (do NOT assume a browser can SigV4-sign on its own — it has
+Investigated postures (do NOT assume a browser can SigV4-sign on its own â€” it has
 no AWS credentials by default):
 
 1. **Cognito Identity Pool -> temporary IAM creds -> in-browser SigV4.** The
@@ -427,12 +427,12 @@ no AWS credentials by default):
    ([Standalone SigV4 signer](https://aws.amazon.com/blogs/developer/introducing-a-standalone-sigv4-signer-for-the-aws-sdk-for-net/)).
    This is the "real" secure option; cost is a Cognito identity pool + an
    authenticated IAM role granting `lambda:InvokeFunctionUrl`, plus client
-   plumbing to replace the JWT-bearer header (§1.5).
+   plumbing to replace the JWT-bearer header (Â§1.5).
 2. **A public auth layer in front (CloudFront + Cognito user pool / WAF).** AWS
    documents securing Function URLs with Cognito + CloudFront + WAF
    ([Securing Lambda Function URLs with Cognito/CloudFront/WAF](https://aws.amazon.com/blogs/compute/securing-lambda-function-urls-using-amazon-cognito-amazon-cloudfront-and-aws-waf/)).
    Here the Function URL could even be `AuthType=NONE` behind an edge that
-   enforces auth — but that diverges from the Task-6 `AWS_IAM` default and from
+   enforces auth â€” but that diverges from the Task-6 `AWS_IAM` default and from
    the Runtime deploy posture.
 3. **Documented dev/demo posture (switch the edge auth for the demo).** The
    Task-4/6 work already proved `AWS_IAM` SigV4 works from a *server-side* signer
@@ -443,7 +443,7 @@ no AWS credentials by default):
    only), or (b) keep a tiny server-side signer between the browser and the
    AWS_IAM endpoint (a proxy that holds creds). This mirrors how mahalo-dock
    already ran as a single-user demo over an SSH tunnel
-   (`aws-deploy-plan.md:§1`). This is explicitly a demo-grade tradeoff, to be
+   (`aws-deploy-plan.md:Â§1`). This is explicitly a demo-grade tradeoff, to be
    chosen deliberately in design.
 
 **This is a real open question (A/B).** The current frontend auth is JWT-bearer
@@ -469,21 +469,21 @@ creds, or nothing-at-the-browser + a signer/proxy).
 - `RemovalPolicy.DESTROY` is the house style for clean monthly-reset teardown
   (`mock_service_stack.py:84`); Gitea persistence (EBS/EFS) and the frontend
   bucket should follow suit (with a conscious note that DESTROY on the Gitea
-  volume wipes repos on teardown — acceptable for a re-seedable demo via
+  volume wipes repos on teardown â€” acceptable for a re-seedable demo via
   `bootstrap.sh`).
 
 ---
 
-## 5. Open design questions (A-E) — answerable in design
+## 5. Open design questions (A-E) â€” answerable in design
 
 - **A. Frontend port scope.** Port only the chat surface (chat page + chat
   components + `services/api.ts` retargeted), dropping/stubbing auth, projects,
   connections, dashboard, and `/chat/suggestions` (routes the thin API lacks,
-  §1.2/§1.5)? Or stub those backends? And where does the **interrupt id** surface
+  Â§1.2/Â§1.5)? Or stub those backends? And where does the **interrupt id** surface
   in the `/chat` reply so the UI can send it on `/chat/approve` (`models.py:36-42`
   requires it; `ChatResponse` today exposes `proposal?`+`status`, not an explicit
   `interrupt_id`)? Decide the minimal demo surface and the interrupt-id threading.
-- **B. Frontend <-> thin-API auth.** Which of the three §3.4 postures: (1) Cognito
+- **B. Frontend <-> thin-API auth.** Which of the three Â§3.4 postures: (1) Cognito
   Identity Pool temp creds + in-browser SigV4; (2) CloudFront+Cognito/WAF edge;
   (3) demo-grade (Function URL `AuthType=NONE` or a server-side signer/proxy)?
   Specify the exact replacement for `api.ts`'s JWT-bearer header.
@@ -525,7 +525,7 @@ creds, or nothing-at-the-browser + a signer/proxy).
 - Real Gitea adapter (to port): `mahalo-dock/mock-services/github/main.py:36-52`,
   `mock-services/github/gitea_backend.py:56-80,150-151,393-406`,
   `mock-services/gitea-bootstrap/bootstrap.sh:1-10,93-109`,
-  `mahalo-dock/docker-compose.yml:146-214`, `mahalo-dock/aws-deploy-plan.md` §1/§3/§9.
+  `mahalo-dock/docker-compose.yml:146-214`, `mahalo-dock/aws-deploy-plan.md` Â§1/Â§3/Â§9.
 - IaC offline-safety pattern: `infra-cdk/mahalo_infra/runtime_stack.py:51-80`,
   `infra-cdk/mahalo_infra/api_stack.py:47-73`,
   `infra-cdk/mahalo_infra/mock_service_stack.py:84`, `infra-cdk/app.py`,
@@ -536,8 +536,8 @@ creds, or nothing-at-the-browser + a signer/proxy).
 ## Sources (web, rephrased for compliance)
 
 - [Invoking Lambda function URLs (SigV4 required for AWS_IAM)](https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html)
-- [Innovation Sandbox on AWS — authentication mechanism (web UI signs each request with SigV4 using temp creds)](https://docs.aws.amazon.com/solutions/latest/innovation-sandbox-on-aws/authentication-mechanism.html)
-- [Serverless Applications Lens — IAM (AWS_IAM authz with temp IAM creds)](https://docs.aws.amazon.com/wellarchitected/latest/serverless-applications-lens/identity-and-access-management.html)
+- [Innovation Sandbox on AWS â€” authentication mechanism (web UI signs each request with SigV4 using temp creds)](https://docs.aws.amazon.com/solutions/latest/innovation-sandbox-on-aws/authentication-mechanism.html)
+- [Serverless Applications Lens â€” IAM (AWS_IAM authz with temp IAM creds)](https://docs.aws.amazon.com/wellarchitected/latest/serverless-applications-lens/identity-and-access-management.html)
 - [Protected Lambda function URLs with Cognito identity pools](https://arpadt.com/_posts/2026-02-19-function-url-streaming-iam-protected)
 - [Securing Lambda Function URLs with Cognito, CloudFront, WAF](https://aws.amazon.com/blogs/compute/securing-lambda-function-urls-using-amazon-cognito-amazon-cloudfront-and-aws-waf/)
 - [Standalone SigV4 signer (AWS SDK)](https://aws.amazon.com/blogs/developer/introducing-a-standalone-sigv4-signer-for-the-aws-sdk-for-net/)
@@ -549,4 +549,4 @@ creds, or nothing-at-the-browser + a signer/proxy).
 - [Deploy Next.js on AWS (Amplify Gen 2 SSR via Lambda)](https://my-blog3.hashnode.dev/deploy-nextjs-on-aws)
 - [AWS Amplify Hosting](https://aws.amazon.com/amplify/hosting/)
 - [Hosting a Next.js App Router app on Amazon S3 (static export)](https://dev.to/lanzone31/hosting-a-nextjs-app-router-app-on-amazon-s3-5al6)
-- [Can a Next.js SSR app be hosted on S3? (no — static only)](https://www.quora.com/Can-a-Next-js-SSR-app-be-hosted-on-AWS-S3-Why)
+- [Can a Next.js SSR app be hosted on S3? (no â€” static only)](https://www.quora.com/Can-a-Next-js-SSR-app-be-hosted-on-AWS-S3-Why)

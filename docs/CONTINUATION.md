@@ -1,4 +1,4 @@
-# CONTINUATION — read this first (fresh-session handoff)
+# CONTINUATION â€” read this first (fresh-session handoff)
 
 This file lets a new chat session (opened with `mahalo-agentcore` as the workspace
 root) continue the AgentCore rewrite with zero prior context. Read it top to
@@ -7,38 +7,38 @@ bottom before doing anything.
 > For a one-page "where are we / what's left" snapshot, read `docs/STATUS.md`
 > first. As of 2026-10-18: Tasks 0-7 DONE; live deploy is a deferred operator step;
 > nothing of ours is deployed. **Task 7b (EC2 Docker-builder deploy path) is DONE
-> on disk** — `MahaloBuilderStack` (FEAT-001), `scripts/builder-deploy.sh`
+> on disk** â€” `MahaloBuilderStack` (FEAT-001), `scripts/builder-deploy.sh`
 > (FEAT-002), and the operator runbook + doc updates (FEAT-003) are all complete;
 > the app is now **11 CDK stacks**. Because the VDI has no local Docker, the live
 > deploy runs via that builder (see the RESUME block below). This CONTINUATION
 > file has the full operational detail.
 
-> ⏸️ RESUME TOMORROW — LIVE DEPLOY attempted via the EC2 builder; BLOCKED on one
-> fixable CDK bug. Git `main` @ `bf04b7b` (pushed). NOTHING is deployed — the live
+> â¸ï¸ RESUME TOMORROW â€” LIVE DEPLOY attempted via the EC2 builder; BLOCKED on one
+> fixable CDK bug. Git `main` @ `bf04b7b` (pushed). NOTHING is deployed â€” the live
 > deploy FAILED during asset-staging (before any app stack was created), and the
 > `MahaloBuilderStack` EC2 was TORN DOWN after, so there is ZERO overnight spend
 > (only the free CDKToolkit remains). Confirmed: no `Mahalo*` CloudFormation stacks
-> exist; builder instance `i-00e61041a8c172dac` is terminated.
+> exist; builder instance `<EC2_INSTANCE_ID>` is terminated.
 >
 > THE BUG TO FIX FIRST (root cause, verified from the builder deploy log): the
 > `MahaloRuntimeStack` agent-image `from_asset` (and/or the thin-API asset) uses an
 > asset source directory that INCLUDES `infra-cdk/cdk.out/` (and likely `.venv`),
-> so CDK recursively copies `cdk.out` into the staged asset → infinite nesting →
+> so CDK recursively copies `cdk.out` into the staged asset â†’ infinite nesting â†’
 > `ENAMETOOLONG: name too long ... cdk.out/asset.../infra-cdk/cdk.out/asset.../...`.
 > It does NOT surface in offline `cdk synth` (which doesn't stage the real asset),
 > which is why Task 6/7 offline gates stayed green. FIX: give the DockerImageAsset /
 > `from_asset` a proper source dir + `exclude`/`.dockerignore` (exclude `cdk.out`,
-> `**/.venv`, `**/__pycache__`, `node_modules`, `.git`) — or point the asset at the
+> `**/.venv`, `**/__pycache__`, `node_modules`, `.git`) â€” or point the asset at the
 > minimal build context (the `agent/` dir with its own Dockerfile) rather than a
 > parent that contains `cdk.out`. Check `agent/Dockerfile` build context + the
 > `from_asset(..., exclude=...)` calls in `infra-cdk/mahalo_infra/runtime_stack.py`
 > and `api_stack.py`. Add an exclude-assertion so a future offline test catches it.
-> This is a small, well-understood fix — delegate it to a coder, re-verify, commit.
+> This is a small, well-understood fix â€” delegate it to a coder, re-verify, commit.
 >
 > THE EC2-BUILDER DEPLOY PATH ITSELF WORKED up to that point: `MahaloBuilderStack`
 > deployed from the VDI (pure CFN, no Docker), SSM Session Manager connected,
 > UserData installed the toolchain + cloned the repo, and `scripts/builder-deploy.sh`
-> ran — Docker on the builder successfully bundled the thin-API deps before hitting
+> ran â€” Docker on the builder successfully bundled the thin-API deps before hitting
 > the asset-nesting error. So the approach is sound; only the asset source/exclude
 > is wrong.
 >
@@ -46,23 +46,23 @@ bottom before doing anything.
 >   1. CDK/Node SDK can't read the AWS CLI v2 SSO token cache on this VDI. Before any
 >      `cdk deploy`/`destroy` from the VDI, export creds into the env:
 >      `aws configure export-credentials --profile lava --format env-no-export` and
->      set each AWS_* var (they EXPIRE after ~1hr — re-export as needed). Then run cdk
+>      set each AWS_* var (they EXPIRE after ~1hr â€” re-export as needed). Then run cdk
 >      WITHOUT `--profile`. `cdk destroy` from the VDI also needs the infra-cdk `.venv`
 >      active OR just `aws cloudformation delete-stack` directly (what we used).
 >   2. `.gitattributes` now forces LF on `*.sh`/Dockerfile; TWO files (`agent/Dockerfile`,
 >      `scripts/builder-deploy.sh`) were previously dropped by a `git add --renormalize`
->      and had to be re-added — both are tracked now at `bf04b7b`. Double-check with
+>      and had to be re-added â€” both are tracked now at `bf04b7b`. Double-check with
 >      `git ls-files` if anything else seems missing on the builder clone.
 >
 > RETRY SEQUENCE TOMORROW (after the asset-exclude fix is committed+pushed): re-deploy
-> `MahaloBuilderStack` from the VDI → SSM in → `git pull` on the builder →
-> `scripts/builder-deploy.sh --phase all` → capture outputs → USER validates in the
-> browser (READ + two-call HITL write) → teardown app stacks from builder, then
+> `MahaloBuilderStack` from the VDI â†’ SSM in â†’ `git pull` on the builder â†’
+> `scripts/builder-deploy.sh --phase all` â†’ capture outputs â†’ USER validates in the
+> browser (READ + two-call HITL write) â†’ teardown app stacks from builder, then
 > `MahaloBuilderStack` from the VDI last. SSO `lava` valid today (re-login if expired).
 >
 > ---
 >
-> ✅ TASK 7 DONE, committed + pushed (`main` @ `d4f386f`, in sync with origin).
+> âœ… TASK 7 DONE, committed + pushed (`main` @ `d4f386f`, in sync with origin).
 > The mahalo-dock Next.js chat frontend is ported into `frontend/` (retargeted to
 > the Task-6 thin API with the two-call `/chat` + `/chat/approve` HITL + browser
 > SigV4 via a Cognito unauthenticated Identity Pool), and self-hosted Gitea is
@@ -76,7 +76,7 @@ bottom before doing anything.
 > templates offline/Docker-free, zero LangChain, mahalo-dock untouched. agent 99/1
 > + api 15 baselines unaffected (Task 7 didn't touch them).
 >
-> ⏭️ NEXT ACTION = THE FULL LIVE END-TO-END DEPLOY + VALIDATION, WITH THE USER,
+> â­ï¸ NEXT ACTION = THE FULL LIVE END-TO-END DEPLOY + VALIDATION, WITH THE USER,
 > VIA THE EC2 DOCKER-BUILDER (Task 7b). This is Tasks 3-7 all deployed together
 > for the first time, driven in the browser. NOTHING of ours is currently deployed
 > (only the free CDKToolkit).
@@ -86,11 +86,11 @@ bottom before doing anything.
 > stacks (`MahaloRuntimeStack` ARM64 agent image + `MahaloApiStack` Lambda
 > dependency bundle) CANNOT run locally. The deploy path is therefore:
 > **(1) provision `MahaloBuilderStack` from the VDI** (pure-CFN, Docker-free synth)
-> → **(2) SSM into the arm64 EC2 builder** (no SSH, no inbound ports) →
+> â†’ **(2) SSM into the arm64 EC2 builder** (no SSH, no inbound ports) â†’
 > **(3) run `scripts/builder-deploy.sh --phase all` on the builder** (it has Docker
-> and the full toolchain; builds the ARM64 image natively on Graviton) →
+> and the full toolchain; builds the ARM64 image natively on Graviton) â†’
 > **(4) retrieve CfnOutputs (`RuntimeApiUrl`, `IdentityPoolId`, CloudFront
-> `FrontendUrl`)** → **(5) validate in the browser** → **(6) tear down the app
+> `FrontendUrl`)** â†’ **(5) validate in the browser** â†’ **(6) tear down the app
 > stacks from the builder, then the builder from the VDI LAST** (never
 > self-destruct the builder from inside its own SSM session). FEAT-002
 > (`scripts/builder-deploy.sh`) and FEAT-003 (the runbook) are COMPLETE. The full
@@ -99,14 +99,14 @@ bottom before doing anything.
 > stacks** (the 10 app stacks + `MahaloBuilderStack`).
 >
 > Prereq: `aws sso login --profile lava` on the VDI (token expires every few hours
-> — re-auth at start; verify `aws sts get-caller-identity --profile lava`). Docker
-> Desktop is NOT required on the VDI — the builder provides Docker. The old
+> â€” re-auth at start; verify `aws sts get-caller-identity --profile lava`). Docker
+> Desktop is NOT required on the VDI â€” the builder provides Docker. The old
 > local-Docker staged sequence below is retained for reference / for any
 > workstation that DOES have local Docker, but on the VDI follow the runbook above
 > instead of firing these `cdk deploy` commands locally:
 >   1. Backend data/tools: `cdk deploy` the 4 `MahaloMock*Stack` + `MahaloGatewayStack`
 >      + `MahaloMemoryIdentityStack` (+ bootstrap if a fresh account:
->      `cdk bootstrap` — CDKToolkit already exists, so likely skip).
+>      `cdk bootstrap` â€” CDKToolkit already exists, so likely skip).
 >   2. Runtime + thin API: `cdk deploy MahaloRuntimeStack MahaloApiStack -c buildImage=1`
 >      (Docker build of the agent image). Capture the `RuntimeApiUrl` CfnOutput.
 >   3. Gitea: `cdk deploy MahaloGiteaStack -c buildImage=1` if exercising real GitHub;
@@ -116,26 +116,26 @@ bottom before doing anything.
 >      CloudFront URL) + the `RuntimeApiUrl`, then rebuild the frontend with
 >      `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_AWS_REGION`/pool id set and deploy the
 >      `BucketDeployment` (`-c buildFrontend=1`). Exact ordering is in the Task-7
->      design §D.2 and the runbook.
+>      design Â§D.2 and the runbook.
 >   5. USER VALIDATES in the browser at the CloudFront URL: a READ ("list my
 >      repositories" -> payment-service) and a WRITE with the propose->approve gate
 >      (create a branch/story -> approve card -> second /chat/approve call executes;
 >      reject writes nothing). Also confirm cross-message session memory.
->   6. AFTER validation: tear everything down to stop spend —
+>   6. AFTER validation: tear everything down to stop spend â€”
 >      `cdk destroy --all --force --profile lava` (keep CDKToolkit). Record the live
 >      results in a verification doc and update STATUS.md.
 > Known live-gate watch-items (from the Task-4/6 verifications): SigV4 signing
 > service is `bedrock-agentcore`; the Identity WAT path is OFF under the AWS_IAM
 > MVP; the github-by-NAME-vs-repo-id mock quirk may 404 a name-based write (expected,
-> not a bug — the HITL gate still fires). Task 7b (EC2 Docker-builder) FEAT-002
+> not a bug â€” the HITL gate still fires). Task 7b (EC2 Docker-builder) FEAT-002
 > (`scripts/builder-deploy.sh`) and FEAT-003 (the runbook + these doc updates) are
 > COMPLETE; the immediate next action is to EXECUTE the runbook
 > (`docs/.agents/tasks/task7b-ec2-builder-runbook.md`) for the live gate and run
 > the Task 7b code review. Then NEXT=Task 8 (re-deployable CDK + teardown).
 
 > HARD RULE: Only create or modify files UNDER
-> `D:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to
-> `D:\<USER>\LavaCode\AI\mahalo-dock` — that is the original, working
+> `<WORKSPACE_ROOT>`. NEVER write to
+> `<FALLBACK_ROOT>` â€” that is the original, working
 > project kept as a fallback demo. You MAY read from mahalo-dock to copy reusable
 > assets, but never edit it. (If your workspace root is mahalo-agentcore, that
 > protection is mostly automatic.)
@@ -193,7 +193,7 @@ doesn't.
   `agent/prompts.py` and the Task 1 read modules are untouched; zero LangChain.
   Offline-verified (`docs/.agents/tasks/task2-verification.md`): full suite
   `pytest agent -q` = 42 passed, 1 skipped (the ONE live integration test SKIPS
-  because the tunnel/mocks on ports 5001-5004 are down — not fabricated),
+  because the tunnel/mocks on ports 5001-5004 are down â€” not fabricated),
   `build_agent()` constructs 25 tools with no network/creds, no LangChain.
   Code reviewed and APPROVED (`docs/.agents/tasks/task2-code-review.json`,
   verdict APPROVED). Committed AND PUSHED to origin/main (commit cce2158).
@@ -224,7 +224,7 @@ doesn't.
   (`jira_search_stories`, `jira_get_stories_by_assignee`,
   `servicenow_deployment_status_by_project`) reproduce the agent-only
   orchestration. The agent gains a dual-mode toggle (`MAHALO_TOOL_MODE`, default
-  `direct`); gateway mode builds an `MCPClient` (constructed, NOT started — stays
+  `direct`); gateway mode builds an `MCPClient` (constructed, NOT started â€” stays
   offline-safe) and `build_agent` returns `(agent, mcp_client)`. HITL is
   preserved under Gateway's `target___tool` rename via `_bare_name` in
   `WriteApprovalHook`/`build_proposal`, so the six writes stay gated. Zero
@@ -234,7 +234,7 @@ doesn't.
   `cdk synth --all` exit 0 (5 templates; gateway = 1 Gateway + 4 Targets);
   infra-cdk assertion suite **26 passed**; tools-lambdas suite **94 passed**;
   agent suite **52 passed, 1 skipped** (DIRECT Task-1/2 baseline 42/1 preserved);
-  `build_agent(tool_mode='gateway')` constructs offline → `Agent MCPClient False`;
+  `build_agent(tool_mode='gateway')` constructs offline â†’ `Agent MCPClient False`;
   zero LangChain. The `lava` SSO session was up but NO live probe was run (a
   meaningful probe needs a deployed Gateway endpoint = the deferred deploy); no
   live/deploy results fabricated. DEFERRED LIVE operator steps (deploy the four
@@ -243,49 +243,49 @@ doesn't.
   `MAHALO_TOOL_MODE=gateway`; run an end-to-end READ and a HITL WRITE through the
   Gateway) are documented in `docs/.agents/tasks/task4-verification.md`.
   - LIVE DEPLOY DONE (2026-10-16, `lava` SSO up): `cdk bootstrap` +
-    `cdk deploy --all --require-approval never --profile lava` → all five stacks
+    `cdk deploy --all --require-approval never --profile lava` â†’ all five stacks
     CREATE_COMPLETE in account <AWS_ACCOUNT_ID> / us-east-1. **These resources are
     STILL DEPLOYED and incurring (small) cost.** Deployed outputs:
-    - Gateway MCP URL: `https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp`
+    - Gateway MCP URL: `https://<GATEWAY_HOST>/mcp`
       (GatewayId `mahalo-gateway-bex2gwexvv`).
-    - Lambda Function URLs: jira `https://6jysjgpotsbtmps4reiphgm4y40qxfph.lambda-url.us-east-1.on.aws/`,
-      confluence `https://xs4ceoejtdhjn255utn4uxhysy0mkgou.lambda-url.us-east-1.on.aws/`,
-      github `https://hgfughfqvq5omyacdydghzrzom0zcmft.lambda-url.us-east-1.on.aws/`,
-      servicenow `https://joz5k452zdqp6zpehiapftyc5m0mkwqu.lambda-url.us-east-1.on.aws/`.
+    - Lambda Function URLs: jira `https://<LAMBDA_URL_HOST>/`,
+      confluence `https://<LAMBDA_URL_HOST>/`,
+      github `https://<LAMBDA_URL_HOST>/`,
+      servicenow `https://<LAMBDA_URL_HOST>/`.
     - Lambda smoke (direct, bypassing Gateway): `GET <jira>/projects` with the
-      `X-API-Token` → HTTP 200 seeded data; no token → HTTP 401. Lambdas healthy.
+      `X-API-Token` â†’ HTTP 200 seeded data; no token â†’ HTTP 401. Lambdas healthy.
     - INBOUND-AUTH RESOLVED: the default AWS_IAM authorizer ACCEPTS a SigV4-signed
       MCP request when the signing SERVICE NAME is **`bedrock-agentcore`** (HTTP
       200, returns the tool catalog with Gateway-prefixed names like
       `mock-confluence___confluence_get_page`); `bedrock` is rejected (401);
-      unsigned is rejected (401). So AWS_IAM is viable for the demo — NO Cognito
+      unsigned is rejected (401). So AWS_IAM is viable for the demo â€” NO Cognito
       needed now (CUSTOM_JWT/Cognito still the documented dev-mode path).
     Recorded in `docs/.agents/tasks/task4-verification.md` ("LIVE DEPLOY + AUTH
     VALIDATION").
 
   - LIVE E2E FULLY PASSED (2026-10-17): the Task-4 live-finish is complete.
     Two live bugs were found by deploying and fixed in-session:
-    1. MCP client DOUBLE-START — `with mcp_client:` + `attach_gateway_tools`
-       (which calls `load_tools()` → starts again) raised
+    1. MCP client DOUBLE-START â€” `with mcp_client:` + `attach_gateway_tools`
+       (which calls `load_tools()` â†’ starts again) raised
        `ToolProviderException: the client session is currently running`. Fixed:
        `attach_gateway_tools` is the SINGLE start; `chat.py` uses
        `try: attach...; finally: mcp_client.stop(None,None,None)` (no outer
        `with`). The offline test only asserted construct-not-started, so it
-       missed this — deploying first surfaced it.
-    2. HITL RESUME history corruption — `chat.py::_ask` emitted the `[SYSTEM]`
+       missed this â€” deploying first surfaced it.
+    2. HITL RESUME history corruption â€” `chat.py::_ask` emitted the `[SYSTEM]`
        breadcrumb via `agent.messages.append` after EVERY resume, including a
        resume that re-interrupted, wedging a zero-toolUse assistant message
-       between an open toolUse and its pending toolResult → Bedrock
+       between an open toolUse and its pending toolResult â†’ Bedrock
        `ValidationException: toolResult blocks ... exceeds toolUse blocks of
        previous turn`. Fixed: defer approved breadcrumbs, flush only when a
        resume returns a NON-interrupt result (tool cycle fully closed).
-       Mode-agnostic; DIRECT unchanged & still default; branch→commit→PR
+       Mode-agnostic; DIRECT unchanged & still default; branchâ†’commitâ†’PR
        chaining preserved both modes.
     Also implemented the SigV4 `httpx.Auth` provider (`agent/gateway_client.py`
     `SigV4Auth`, signing service `bedrock-agentcore`) as the default auth factory.
-    Verified LIVE against the deployed Gateway: READ (`list my repositories` →
-    payment-service et al.) routed Strands→Bedrock→SigV4→Gateway MCP→github
-    Lambda→DynamoDB; HITL APPROVE (gate fires on `mock-github___github_create_branch`,
+    Verified LIVE against the deployed Gateway: READ (`list my repositories` â†’
+    payment-service et al.) routed Strandsâ†’Bedrockâ†’SigV4â†’Gateway MCPâ†’github
+    Lambdaâ†’DynamoDB; HITL APPROVE (gate fires on `mock-github___github_create_branch`,
     write runs once, no ValidationException) and REJECT (nothing written, clean)
     both pass. The write's "repository not found" is the EXPECTED pre-existing
     mock repo-id-vs-name keying, NOT a bug. Offline gate: `pytest agent -q` =
@@ -304,7 +304,7 @@ doesn't.
     store. New module `agent/memory_client.py` assembles the config offline;
     `build_agent` only builds a plain-data `MemorySessionSpec` (the installed
     `bedrock-agentcore 1.24.1` manager `__init__` does a live `ListEvents`, so the
-    live manager is constructed inside `attach_memory` — the single AWS touch,
+    live manager is constructed inside `attach_memory` â€” the single AWS touch,
     recorded as **Option 1**). `agent/chat.py` gains argparse `--session-id`
     (precedence `--session-id` > `MAHALO_SESSION_ID` > uuid4 when memory on).
   - **Identity** wires ONE representative outbound path (`jira_create_story`,
@@ -316,7 +316,7 @@ doesn't.
     migrated to read attributes. Six new off-by-default settings in
     `agent/config.py`. New CDK `MahaloMemoryIdentityStack`
     (`infra-cdk/mahalo_infra/memory_identity_stack.py`, wired in `app.py`):
-    `CfnMemory` (STM, name `mahalo_memory` — underscore, the construct rejects
+    `CfnMemory` (STM, name `mahalo_memory` â€” underscore, the construct rejects
     hyphens), `CfnWorkloadIdentity` (`mahalo-agent`), `CfnApiKeyCredentialProvider`
     (`mahalo-jira-apikey`, no-echo `CfnParameter`), with `MemoryId` /
     `WorkloadIdentityArn` / `JiraApiKeyProviderName` outputs.
@@ -326,7 +326,7 @@ doesn't.
     1 skipped** (55 baseline + 14 new; DIRECT path 49/1 preserving the Task-2 42/1,
     Task-4 GATEWAY/HITL 6/6); `build_agent(memory=True, identity=True)` and
     `build_agent(tool_mode='gateway', memory=True)` both CONSTRUCT OFFLINE with no
-    AWS creds (session manager constructed-but-not-attached ⇒ no rehydrate at
+    AWS creds (session manager constructed-but-not-attached â‡’ no rehydrate at
     build); `cdk synth --all` exit 0 (SIX templates incl.
     `MahaloMemoryIdentityStack`); infra-cdk assertions **31 passed**;
     tools-lambdas **94 passed**; zero LangChain. NO deploy was run and NO
@@ -341,7 +341,7 @@ doesn't.
   UNCHANGED on **Amazon Bedrock AgentCore Runtime** via a thin harness
   (`agent/runtime_app.py`: `BedrockAgentCoreApp` + a single `@app.entrypoint
   invoke`) that reuses the `build_agent -> attach_gateway_tools -> attach_memory`
-  seam through `agent/runtime_session.build_and_attach` — no second agent. A thin,
+  seam through `agent/runtime_session.build_and_attach` â€” no second agent. A thin,
   stateless **FastAPI forwarder** (`api/`, Mangum on a Function-URL Lambda) speaks
   a small `{action, prompt/decision, interrupt_id, ...}` request /
   `{response, proposal?, session_id, status, error?}` response contract and imports
@@ -356,7 +356,7 @@ doesn't.
   the Workload-Access-Token plumbing (`MAHALO_IDENTITY_ENABLED` env, per-user
   `grant_invoke_runtime_for_user`, `runtimeUserId` forwarding) is in place and
   flip-enabled, off by default under SigV4 inbound. IaC adds two stacks
-  (`infra-cdk/mahalo_infra/runtime_stack.py` `MahaloRuntimeStack` — the **CDK L2
+  (`infra-cdk/mahalo_infra/runtime_stack.py` `MahaloRuntimeStack` â€” the **CDK L2
   `aws_bedrockagentcore.Runtime`** suite, auto-created exec role + app-level
   Bedrock/Memory/Gateway grants; `api_stack.py` `MahaloApiStack`), both wired in
   `app.py`; the Docker branches (image build + Lambda dep bundling) are flag-gated
@@ -382,8 +382,8 @@ doesn't.
   persistence check; measure the synchronous invoke budget; teardown) are
   documented in `docs/.agents/tasks/task6-verification.md` and
   `docs/.agents/tasks/task6-deploy-runbook.md`.
-- NEXT: Task 7 — Gitea + frontend hosting (stand up self-hosted Gitea on an
-  always-on host — the GitHub-mock Lambda targets it — and deploy the reused
+- NEXT: Task 7 â€” Gitea + frontend hosting (stand up self-hosted Gitea on an
+  always-on host â€” the GitHub-mock Lambda targets it â€” and deploy the reused
   Next.js frontend from mahalo-dock). See docs/PLAN.md. Task 6's live Runtime
   deploy/E2E remains a deferred operator step (not a Task-7 blocker).
   - AWS COST / DEPLOYED STATE: the five app stacks (Gateway + 4 Lambdas + 4
@@ -391,9 +391,9 @@ doesn't.
     `cdk destroy --all --force --profile lava` (confirmed: no `Mahalo*` stacks
     remain). Only `CDKToolkit` (the free bootstrap stack) is left, so NO ongoing
     Task-4 spend. Redeploy cleanly any time via `cdk deploy --all --profile lava`
-    (~7 min; Gateway gets a NEW id/MCP URL each deploy — re-read the CfnOutputs).
+    (~7 min; Gateway gets a NEW id/MCP URL each deploy â€” re-read the CfnOutputs).
 
-## Task 2 — concrete definition (do this next)
+## Task 2 â€” concrete definition (do this next)
 
 Goal: add the WRITE tools to the Strands agent with a human-in-the-loop
 propose/approve gate, so no write executes until the user approves it. Build on
@@ -402,7 +402,7 @@ were live at end of Task 1, so Task 2 can be verified end-to-end (real
 propose -> approve -> write against the mocks) in-session, not just offline.
 
 The 7 write actions to add (contracts match the mahalo-dock tool modules under
-`mahalo-dock/backend/app/agent/tools/*_tools.py` — read them for exact params):
+`mahalo-dock/backend/app/agent/tools/*_tools.py` â€” read them for exact params):
 - jira_create_story, jira_update_story
 - github_create_branch, github_commit_files, github_open_pull_request
 - servicenow_create_incident
@@ -452,8 +452,8 @@ integration test green.
 The mahalo-dock stack is already deployed on an EC2 instance and is the backend
 Task 1 talks to. Do NOT redeploy it; just reach it over an SSH tunnel.
 
-- EC2 instance: `i-0234d7d98744d60b9`, public IP **13.223.68.203** (the IP can
-  change if the instance is stopped/started — re-check with:
+- EC2 instance: `<EC2_INSTANCE_ID>`, public IP **13.223.68.203** (the IP can
+  change if the instance is stopped/started â€” re-check with:
   `aws ec2 describe-instances --filters "Name=tag:project,Values=mahalo-dock" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --profile lava --region us-east-1`).
 - SSH key: `%USERPROFILE%\.ssh\mahalo-dock-key.pem`.
 - Mock services are published on the EC2 host on these ports (verified):
@@ -488,11 +488,11 @@ curl.exe -s -H "X-API-Token: mock-jira-token-12345" http://localhost:5001/projec
 ## Reuse map (copy FROM mahalo-dock, never edit it there)
 
 Framework-agnostic assets to copy into mahalo-agentcore as Task 1+ needs them:
-- Seed data: `mahalo-dock/mock-services/*/seed_data.py` (verbatim) — only needed
+- Seed data: `mahalo-dock/mock-services/*/seed_data.py` (verbatim) â€” only needed
   when mocks become Lambdas (Task 3); Task 1 just calls the live mocks.
 - Prompts: `mahalo-dock/backend/app/agent/prompts.py` (base + 3 role prompts,
   behavioral rules) -> port into the Strands system prompt.
-- Tool CONTRACTS/semantics (names, params, read vs write) — see the tool list in
+- Tool CONTRACTS/semantics (names, params, read vs write) â€” see the tool list in
   docs/PLAN.md and the mahalo-dock tool modules under
   `backend/app/agent/tools/{jira,github,confluence,servicenow}_tools.py`.
 - DB models + JWT auth + persona/project seeding (for the Task 6 thin API):
@@ -513,18 +513,18 @@ in a second step. Reproduce this human-in-the-loop in Strands (Task 2). Also kee
 the "branch already exists = success" resilience and the branch->commit->PR
 chaining.
 
-## Task 1 — concrete definition (do this next)
+## Task 1 â€” concrete definition (do this next)
 
 Goal: a Strands agent, run LOCALLY, that answers read questions by calling the
 live EC2 mocks over the tunnel. No LangChain anywhere.
 
 1. In `agent/`, create a Python package with a venv and
    `requirements.txt` pinning `strands-agents`, `bedrock-agentcore`, `boto3`,
-   `httpx`. (Keep .venv out of git — already in .gitignore.)
+   `httpx`. (Keep .venv out of git â€” already in .gitignore.)
 2. Configure the Strands agent to use Bedrock model
    `us.anthropic.claude-sonnet-4-5-20250929-v1:0` in us-east-1, with a botocore
    read timeout of 300s (large code-gen responses exceed the 60s default).
-   Creds come from the `lava` profile locally (AWS_PROFILE=lava) — do NOT bake
+   Creds come from the `lava` profile locally (AWS_PROFILE=lava) â€” do NOT bake
    keys.
 3. Port the base + developer role system prompt from
    mahalo-dock/backend/app/agent/prompts.py.
@@ -558,7 +558,7 @@ Defer the write/propose/approve flow to Task 2.
 - Update this file's "Status" section and docs/PLAN.md as tasks complete.
 - Each task should produce something runnable (phased build).
 
-## Task 5 — Memory & Identity operator runbook (live, NOT run in the offline gate)
+## Task 5 â€” Memory & Identity operator runbook (live, NOT run in the offline gate)
 
 Memory and Identity are opt-in and additive; with the toggles off, DIRECT and
 GATEWAY behave exactly as before. The automated gate is offline (synth / unit
@@ -590,7 +590,7 @@ tests / import). The steps below are for exercising the live capabilities.
    charges (and optionally delete `.agentcore.json`).
 
 **Construction-boundary note:** the installed `bedrock-agentcore 1.24.1`
-`AgentCoreMemorySessionManager.__init__` is NOT offline-safe — it performs a live
+`AgentCoreMemorySessionManager.__init__` is NOT offline-safe â€” it performs a live
 `ListEvents` read at construction. So `build_agent(memory=True)` only assembles an
 offline `MemorySessionSpec`; the live manager is built inside `attach_memory`
 (the single AWS touch). See `docs/.agents/tasks/task5-verification.md`.

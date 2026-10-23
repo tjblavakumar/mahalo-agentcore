@@ -1,4 +1,4 @@
-# Task 7c — Implementation Plan: Hardcoded Persona Login (demo), remove SCP-blocked Cognito
+# Task 7c â€” Implementation Plan: Hardcoded Persona Login (demo), remove SCP-blocked Cognito
 
 Derived from the APPROVED design `docs/.agents/tasks/task7c-design.md` and investigation
 `docs/.agents/tasks/task7c-investigation.md`. The plan stays strictly within the design's
@@ -6,8 +6,8 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
 
 ## Ground rules for the implementer (read first)
 
-- **Absolute path rule:** modify ONLY files under `D:/<USER>/LavaCode/AI/mahalo-agentcore`.
-  NEVER modify anything under `D:/<USER>/LavaCode/AI/mahalo-dock` — it is read-only and is
+- **Absolute path rule:** modify ONLY files under `<WORKSPACE_ROOT>`.
+  NEVER modify anything under `<FALLBACK_ROOT>` â€” it is read-only and is
   used only as a *shape* reference for the login/AuthContext/ProtectedRoute UI.
 - **No git commit. No worktree.**
 - **Shell is Windows PowerShell:** chain with `;`, never `&&`. Never run `npm run dev` or any
@@ -19,9 +19,9 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
   header name `X-Mahalo-Persona`; values `pm` / `dev` / `exec`; mapping
   `pm -> {dev-1, product_manager}`, `dev -> {dev-6, developer}`, `exec -> {dev-5, executive}`;
   absent/unknown -> default `{dev-6, developer}`. The frontend table (`personas.ts`) and the
-  server table (`auth.py`) are the same table in two languages — keep them in sync.
-- Each item leaves the tree buildable. Items 1–2 define/confirm the contract backend-side,
-  3–5 fix infra, 6–13 do the frontend, 14–15 are env/deps, 16–20 are tests. Where an item depends
+  server table (`auth.py`) are the same table in two languages â€” keep them in sync.
+- Each item leaves the tree buildable. Items 1â€“2 define/confirm the contract backend-side,
+  3â€“5 fix infra, 6â€“13 do the frontend, 14â€“15 are env/deps, 16â€“20 are tests. Where an item depends
   on an earlier item's output, it says so.
 
 ---
@@ -36,9 +36,9 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       silently (no 4xx, no required logging). Keep the `Identity` dataclass and its defaults unchanged so
       the return type is identical; FastAPI injects `Request` automatically. Rewrite the module docstring
       to describe the AuthType=NONE + persona-header model (not the old AWS_IAM/SigV4 story). Do NOT touch
-      `routers/chat.py`, `models.py`, or `runtime_client.py` — the `Depends(current_identity)` surface is unchanged.
+      `routers/chat.py`, `models.py`, or `runtime_client.py` â€” the `Depends(current_identity)` surface is unchanged.
       Files: `api/app/auth.py`
-      Verify: `cd api; python -m pytest tests/test_api.py -q` — existing suite still passes (new header
+      Verify: `cd api; python -m pytest tests/test_api.py -q` â€” existing suite still passes (new header
       tests are added in item 16; this item must not break current tests, including
       `test_no_langchain_or_agent_in_api_source` and `test_chat_proposal_passthrough` which sends no header and still sees `dev-6`).
 
@@ -49,7 +49,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       36 chars) still satisfy the Runtime `runtimeSessionId >= 33` rule. This is a read-only confirmation item;
       make NO edits. Record the confirmation in the item's done note.
       Files: none (read-only confirmation of `api/app/routers/chat.py`, `api/app/models.py`, `api/app/runtime_client.py`)
-      Verify: `cd api; python -m pytest tests/test_api.py -q` — unchanged, still green.
+      Verify: `cd api; python -m pytest tests/test_api.py -q` â€” unchanged, still green.
 
 - [ ] 3. Switch the thin-API Function URL to `AuthType=NONE` and update its CORS block.
       In `infra-cdk/mahalo_infra/api_stack.py`, change the `fn.add_function_url(...)` `auth_type` from
@@ -62,7 +62,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       browser signs SigV4" to describe the NONE + persona-header model.
       Files: `infra-cdk/mahalo_infra/api_stack.py`
       Verify: `cd infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloApiStack` exits 0 offline
-      (Docker-free); then `python -m pytest tests/test_api_stack.py -q` (tests updated in item 17 — after
+      (Docker-free); then `python -m pytest tests/test_api_stack.py -q` (tests updated in item 17 â€” after
       this item alone the old AWS_IAM assertions will fail, which is expected until item 17).
 
 - [ ] 4. Remove the SCP-blocked Cognito identity pool from the frontend stack and drop its `api_stack` dependency.
@@ -76,7 +76,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       Keep S3 (private, OAC) + CloudFront (single S3 origin, SPA error routing) + flag-gated
       `BucketDeployment` + the `FrontendUrl` output. Fix the module docstring to drop the Cognito story.
       Files: `infra-cdk/mahalo_infra/frontend_stack.py`
-      Verify: `cd infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloFrontendStack` exits 0 offline —
+      Verify: `cd infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloFrontendStack` exits 0 offline â€”
       BUT this will fail to synth until item 5 updates the call sites that still pass `api_stack=`. Treat item 4
       and item 5 as a paired change; run the synth verification after item 5.
 
@@ -84,7 +84,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       Depends on item 4 (the dropped constructor parameter). Edit `infra-cdk/app.py` and
       `infra-cdk/tests/test_app.py` to stop passing `api_stack=` to `MahaloFrontendStack(...)`. (The
       `_frontend_template` helper in `infra-cdk/tests/test_frontend_stack.py` is handled in item 18.) Keep the
-      `== 11` stacks assertion in `test_app.py` unchanged — no stack is added or removed.
+      `== 11` stacks assertion in `test_app.py` unchanged â€” no stack is added or removed.
       Files: `infra-cdk/app.py`, `infra-cdk/tests/test_app.py`
       Verify: `cd infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloFrontendStack` exits 0 offline;
       `cdk synth --all` still emits 11 templates; `python -m pytest tests/test_app.py -q` passes.
@@ -98,12 +98,12 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       `exec`/`exec123`/David Kim/`dev-5`/`executive`/"Executive"); and a pure
       `authenticate(userid, password): Persona | null`. Import `UserRole` from `@/types`.
       Files: `frontend/src/lib/personas.ts`
-      Verify: `cd frontend; npx tsc --noEmit` (or `npm run lint`) — file type-checks. (Unit test added in item 20.)
+      Verify: `cd frontend; npx tsc --noEmit` (or `npm run lint`) â€” file type-checks. (Unit test added in item 20.)
 
 - [ ] 7. Rewrite the API transport to plain `fetch` with the persona header, dropping SigV4/Cognito.
       Depends on item 6 (`PersonaId`). Rewrite `frontend/src/services/api.ts`: remove the `aws4fetch` and
       `@aws-sdk/credential-providers` imports and all SigV4 machinery (provider/credential cache/signer).
-      Keep the EXACT public surface — `ApiResponse<T>`, `API_BASE_URL` (still
+      Keep the EXACT public surface â€” `ApiResponse<T>`, `API_BASE_URL` (still
       `process.env.NEXT_PUBLIC_API_URL || "https://<function-id>.lambda-url.us-east-1.on.aws"`),
       `normalizeErrorMessage`, and `api.{get,post,put,delete}`. `request<T>(endpoint, options, personaId?)`
       now calls `fetch(`${API_BASE_URL}${endpoint}`, {method, headers, body})` where `headers` always sets
@@ -162,7 +162,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       `role: persona?.role ?? "developer"` and add `persona?.role` to the `useMemo` deps;
       (3) pass `persona?.personaId` as the third arg to the `/chat` `api.post` call and to BOTH
       `/chat/approve` `api.post` calls (the two-call HITL approve/reject UX is otherwise unchanged);
-      (4) add a header element showing `personaLabel · displayName` (e.g. "Developer · Lava Dev") and a
+      (4) add a header element showing `personaLabel Â· displayName` (e.g. "Developer Â· Lava Dev") and a
       Logout button that calls `logout()` then `router.push("/login")`.
       Files: `frontend/src/app/(protected)/chat/page.tsx`
       Verify: `cd frontend; npm run lint` passes; `npm run build` produces the static export to `frontend/out/`.
@@ -192,7 +192,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       and empty/unknown -> `Identity("dev-6","developer")`. Leave the existing approve test
       (role NOT forwarded) and `test_chat_proposal_passthrough` as-is.
       Files: `api/tests/test_api.py`
-      Verify: `cd api; python -m pytest tests/test_api.py -q` — all tests, including the new ones, pass.
+      Verify: `cd api; python -m pytest tests/test_api.py -q` â€” all tests, including the new ones, pass.
 
 - [ ] 17. Update the API-stack infra assertions for AuthType=NONE.
       Depends on item 3. In `infra-cdk/tests/test_api_stack.py`: retarget `test_function_url_auth_iam` to
@@ -225,17 +225,17 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
       valid. Add: when a `personaId` is passed, the request carries `headers["X-Mahalo-Persona"]`; when
       omitted, the header is absent.
       Files: `frontend/src/services/api.test.ts`
-      Verify: `cd frontend; npm test -- --run` — this test passes.
+      Verify: `cd frontend; npm test -- --run` â€” this test passes.
 
 - [ ] 20. Add the persona credential-table unit test.
       Depends on item 6. New `frontend/src/lib/personas.test.ts`: assert `authenticate("pm","pm123")` returns
       the PM persona (`developerId === "dev-1"`, `role === "product_manager"`); same positive checks for
       `dev`/`dev123` and `exec`/`exec123`; a wrong password or unknown userid returns `null`.
       Files: `frontend/src/lib/personas.test.ts`
-      Verify: `cd frontend; npm test -- --run` — this test passes.
+      Verify: `cd frontend; npm test -- --run` â€” this test passes.
 
 - [ ] 21. Run the full offline gate end-to-end and confirm everything is green.
-      No new code. Run every gate from design §G in a clean shell (no `MAHALO_*` env):
+      No new code. Run every gate from design Â§G in a clean shell (no `MAHALO_*` env):
       frontend `cd frontend; npm ci; npm run lint; npm test -- --run; npm run build`;
       infra `cd ..\infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloApiStack; cdk synth MahaloFrontendStack; cdk synth --all; python -m pytest tests -q`;
       and the API suite `cd ..\api; python -m pytest tests -q`. Confirm `cdk synth --all` emits 11 templates,
@@ -251,7 +251,7 @@ decisions; it re-sequences them by dependency and does not re-decide architectur
 - The design is APPROVED and exhaustive (20-file change table with exact code shapes, test names, and gate
   commands). This plan follows it without re-deciding any architecture. The persona display name staying
   "Lava Dev" in the agent identity block (only `role` switches behavior) is an accepted out-of-scope item per
-  design §E — no agent/prompt/runtime/`models.py`/`common/` change is planned.
+  design Â§E â€” no agent/prompt/runtime/`models.py`/`common/` change is planned.
 - Items 4+5 and 3+17 and 7+19 are dependency pairs: the first member can leave a sibling test temporarily
   red, which the paired item resolves. Run the paired verification at the point noted in each item; item 21 is
   the final whole-gate confirmation.

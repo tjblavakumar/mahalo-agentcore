@@ -1,18 +1,18 @@
-# Task 4 — Implementation Plan (AgentCore Gateway + MCP exposure layer)
+# Task 4 â€” Implementation Plan (AgentCore Gateway + MCP exposure layer)
 
 Derived from the APPROVED design `docs/.agents/tasks/task4-design.md` (revision 3)
 and the investigation `docs/.agents/tasks/task4-investigation.md`. This plan
 sequences that design faithfully; it does not re-decide the architecture. Every
-decision below is the design's resolution of questions A–D (and the mandatory E).
+decision below is the design's resolution of questions Aâ€“D (and the mandatory E).
 
 **Hard rules (carried from the task brief + `docs/CONTINUATION.md`):**
-- Only create/modify files UNDER `D:/<USER>/LavaCode/AI/mahalo-agentcore`.
-  Never touch `mahalo-dock` (read-only). No git commit/push. No worktree — work
+- Only create/modify files UNDER `<WORKSPACE_ROOT>`.
+  Never touch `mahalo-dock` (read-only). No git commit/push. No worktree â€” work
   directly in the workspace.
 - Invariants: zero LangChain; `import agent.*` and `build_agent()` stay
   offline-safe (no AWS call / no network at import or construct time); DIRECT-HTTP
   mode stays the default and the test baseline; the existing agent suite stays
-  green (**42 passed, 1 skipped** — the one live integration test skips when the
+  green (**42 passed, 1 skipped** â€” the one live integration test skips when the
   tunnel is down).
 
 **Project build/test commands (discovered during exploration):**
@@ -42,12 +42,12 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       `tools-lambdas/common/assignee.py` with a pure
       `resolve_assignee(assignee: str, developers: list[dict]) -> str | None`
       that reproduces ALL SIX branches of `agent/tools/jira_tools.py::_resolve_assignee`
-      exactly: empty→None; `dev-` prefix passthrough (returns the lowercased value
+      exactly: emptyâ†’None; `dev-` prefix passthrough (returns the lowercased value
       WITHOUT consulting `developers`); exact full-name or email match; first-name /
       partial / email-local-part match returning the single match; ambiguous
-      (len(matches) != 1)→None. Stdlib only, no HTTP (takes `developers` as an arg).
+      (len(matches) != 1)â†’None. Stdlib only, no HTTP (takes `developers` as an arg).
       Files: `tools-lambdas/common/assignee.py`
-      Verify: `cd tools-lambdas && python -m pytest tests -q` — existing suite still
+      Verify: `cd tools-lambdas && python -m pytest tests -q` â€” existing suite still
       passes (no behavior added yet; the parity test arrives in step 9).
 
 - [ ] 2. Refactor `agent/tools/jira_tools.py::_resolve_assignee` to a thin wrapper
@@ -62,21 +62,21 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       body and enforce equivalence via the step-9 parity test instead. No other edit
       to `agent/tools/*`.
       Files: `agent/tools/jira_tools.py`
-      Verify: `python -m pytest agent -q` — still 42 passed, 1 skipped (DIRECT-mode
+      Verify: `python -m pytest agent -q` â€” still 42 passed, 1 skipped (DIRECT-mode
       behavior unchanged).
 
-- [ ] 3. Create `tools-lambdas/common/tool_schemas.py` — the authoritative registry
+- [ ] 3. Create `tools-lambdas/common/tool_schemas.py` â€” the authoritative registry
       of all 25 tools. For each tool a descriptor dict `{name, description,
       inputSchema, method, path_template, arg_mapping, composite}` where `inputSchema`
       is a JSON-Schema-subset object (top-level `type: "object"`, `properties`,
       `required`) whose property names/types/required-ness EXACTLY match the current
       `@tool` signatures, and `method`/`path_template`/`arg_mapping`/`composite` feed
-      the adapter (step 4). Encode the known arg quirks verbatim from design §5.3:
-      `github_get_commits` → query `author` (not `author_id`); `github_get_pull_requests`
-      → query `status, author_id`; `github_create_branch` body `{name: <branch_name>,
+      the adapter (step 4). Encode the known arg quirks verbatim from design Â§5.3:
+      `github_get_commits` â†’ query `author` (not `author_id`); `github_get_pull_requests`
+      â†’ query `status, author_id`; `github_create_branch` body `{name: <branch_name>,
       from_branch}` (route reads `body["name"]`); `jira_update_story` PUT with
-      changed-fields-only + assignee name→dev-id; `servicenow_list_deployments` →
-      query `service, environment, status`; `servicenow_list_incidents` → query
+      changed-fields-only + assignee nameâ†’dev-id; `servicenow_list_deployments` â†’
+      query `service, environment, status`; `servicenow_list_incidents` â†’ query
       `severity, status, service` (do NOT expose `assignee`); the three composites
       flagged `composite=True` with their handler ref. Stdlib + pure data; importable
       by both `infra-cdk` and the Lambdas.
@@ -88,19 +88,19 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
 - [ ] 4. Create the composite handlers that reproduce the agent-only orchestration
       server-side:
       `tools-lambdas/jira/composites.py` with `search_stories(store, router, args)`
-      and `stories_by_assignee(store, router, args)` — each resolves the assignee via
+      and `stories_by_assignee(store, router, args)` â€” each resolves the assignee via
       `common.assignee.resolve_assignee` (using `/developers`), fans out over
-      `/projects` → `/projects/{id}/stories` through the in-Lambda router, applies the
+      `/projects` â†’ `/projects/{id}/stories` through the in-Lambda router, applies the
       keyword filter (search only), and returns the same JSON records DIRECT mode
       aggregates; and `tools-lambdas/servicenow/composites.py` with
       `deployment_status(store, router, args)` that joins `/services` and
       `/deployments` and produces the grouped-by-service aggregation matching
       `agent/tools/servicenow_tools.py::servicenow_deployment_status_by_project`.
-      Return plain JSON dicts (not formatted strings), per design §1/§3.4.
+      Return plain JSON dicts (not formatted strings), per design Â§1/Â§3.4.
       Files: `tools-lambdas/jira/composites.py`,
       `tools-lambdas/servicenow/composites.py`
       Verify: `cd tools-lambdas && python -m pytest tests -q` (covered end-to-end by
-      the adapter + parity tests in steps 8–9; suite must stay green here).
+      the adapter + parity tests in steps 8â€“9; suite must stay green here).
 
 - [ ] 5. Create `tools-lambdas/common/gateway_adapter.py` with
       `handle(tool_name, store, router, event) -> dict`: strip the Gateway `___`
@@ -109,21 +109,21 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       and return its JSON; else build a synthetic Function-URL-v2 event (fill
       `path_template` with path args, map remaining args to query for GET or JSON
       body for POST/PUT per `arg_mapping`, and INJECT the expected `X-API-Token`
-      header value — read from the Lambda's own `MOCK_<SVC>_TOKEN` env var — so the
+      header value â€” read from the Lambda's own `MOCK_<SVC>_TOKEN` env var â€” so the
       frozen `require_token` check passes), call `router.dispatch`, and unwrap:
       on `statusCode in (200, 201)` return `json.loads(result["body"])`, otherwise
       return `{"error": f"Request failed with status {status}: {result['body']}"}`
       (byte-identical to `agent/tools/http.py::make_request`). Error table per design
-      §5.4 (unknown tool, missing required arg, 4xx/5xx, composite raise). Never raise
+      Â§5.4 (unknown tool, missing required arg, 4xx/5xx, composite raise). Never raise
       for an expected failure.
       Files: `tools-lambdas/common/gateway_adapter.py`
       Verify: `cd tools-lambdas && python -m pytest tests -q` (full coverage in step 8;
       suite stays green).
 
 - [ ] 6. Add the Gateway-source dispatch branch to each of the four service handlers,
-      INSIDE the existing `try/except ClientError→503 / Exception→500` and AFTER
+      INSIDE the existing `try/except ClientErrorâ†’503 / Exceptionâ†’500` and AFTER
       `store.ensure_seeded()`: read the tool name via
-      `getattr(getattr(context, "client_context", None), "custom", None)` →
+      `getattr(getattr(context, "client_context", None), "custom", None)` â†’
       `custom.get("bedrockAgentCoreToolName")`; if present, return
       `gateway_adapter.handle(tool_name, store, router, event)`; else fall through to
       the unchanged `router.dispatch(event)`. Pass the freshly constructed
@@ -131,10 +131,10 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       files.
       Files: `tools-lambdas/jira/handler.py`, `tools-lambdas/confluence/handler.py`,
       `tools-lambdas/github/handler.py`, `tools-lambdas/servicenow/handler.py`
-      Verify: `cd tools-lambdas && python -m pytest tests -q` — existing handler tests
+      Verify: `cd tools-lambdas && python -m pytest tests -q` â€” existing handler tests
       (HTTP path) stay green AND the new adapter tests (step 8) pass.
 
-- [ ] 7. Create `infra-cdk/mahalo_infra/gateway_stack.py` — `MahaloGatewayStack`
+- [ ] 7. Create `infra-cdk/mahalo_infra/gateway_stack.py` â€” `MahaloGatewayStack`
       taking the four `MockServiceStack` instances as constructor args (direct
       construct reference; no `Fn.import_value`; `mock_service_stack.py` stays frozen).
       Using `aws_cdk.aws_bedrockagentcore` L1 constructs: a Gateway IAM service role
@@ -156,31 +156,31 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       stacks synthesize with no AWS/net).
 
 - [ ] 8. Add the Lambda-side unit tests: `tools-lambdas/tests/test_gateway_adapter.py`
-      (synthetic Gateway events — flat args map + a fake
-      `context.client_context.custom['bedrockAgentCoreToolName']` — for a
+      (synthetic Gateway events â€” flat args map + a fake
+      `context.client_context.custom['bedrockAgentCoreToolName']` â€” for a
       representative read, write, error 404/409, and composite per service; assert the
       dispatched route, the unwrapped JSON payload equals the route body data, and the
       error string equals `make_request`'s for the same raw body) and
       `tools-lambdas/tests/test_tool_schemas.py` (all 25 names present; the six write
       names equal `WRITE_TOOL_NAMES`; every schema top-level `type == "object"`;
-      EXACT bidirectional arg-set equality between each DIRECT `@tool` signature —
-      read via `inspect.signature` — and its schema `properties` keys; NO name in
+      EXACT bidirectional arg-set equality between each DIRECT `@tool` signature â€”
+      read via `inspect.signature` â€” and its schema `properties` keys; NO name in
       `tool_schemas.py` or `WRITE_TOOL_NAMES` contains the substring `___`). Follow
       the moto/`make_event` fixtures in `tools-lambdas/tests/conftest.py`.
       Files: `tools-lambdas/tests/test_gateway_adapter.py`,
       `tools-lambdas/tests/test_tool_schemas.py`
-      Verify: `cd tools-lambdas && python -m pytest tests -q` — all tests pass.
+      Verify: `cd tools-lambdas && python -m pytest tests -q` â€” all tests pass.
 
 - [ ] 9. Add the composite parity test
       `tools-lambdas/tests/test_composites_parity.py`: feed one shared developer
       fixture to `common.assignee.resolve_assignee` and assert identical dev-id
       resolution across all six branches (exact-name, first-name, email-local-part,
-      no-match, `dev-3` passthrough against an empty fixture, ambiguous→None); and
+      no-match, `dev-3` passthrough against an empty fixture, ambiguousâ†’None); and
       assert the ServiceNow composite's grouped JSON matches the data the agent
       aggregation (`servicenow_tools.py`) produces for the same services/deployments
       fixture.
       Files: `tools-lambdas/tests/test_composites_parity.py`
-      Verify: `cd tools-lambdas && python -m pytest tests -q` — all tests pass.
+      Verify: `cd tools-lambdas && python -m pytest tests -q` â€” all tests pass.
 
 - [ ] 10. Wire the agent's Gateway-MCP mode (dual-mode toggle; DIRECT stays default).
       Add three `_getenv`-backed fields to `agent/config.py`: `tool_mode`
@@ -197,7 +197,7 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       Files: `agent/config.py`, `agent/gateway_client.py`, `agent/strands_agent.py`
       Verify: `python -c "from agent.strands_agent import build_agent;
       a, c = build_agent(tool_mode='gateway'); print(type(a), type(c))"` with NO AWS
-      creds/network — imports and constructs cleanly; and `python -m pytest agent -q`
+      creds/network â€” imports and constructs cleanly; and `python -m pytest agent -q`
       stays 42 passed, 1 skipped.
 
 - [ ] 11. Preserve HITL for the six writes over MCP. In `agent/approval.py` add
@@ -210,7 +210,7 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       `with mcp_client:` (unpacking the `(agent, mcp_client)` tuple from
       `build_agent`); DIRECT mode path unchanged.
       Files: `agent/approval.py`, `agent/chat.py`
-      Verify: `python -m pytest agent -q` — existing HITL tests stay green.
+      Verify: `python -m pytest agent -q` â€” existing HITL tests stay green.
 
 - [ ] 12. Add the agent-side unit tests: new prefix cases in
       `agent/tests/test_write_tools_unit.py` (`_bare_name` strips `___`; a
@@ -220,7 +220,7 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       and constructs cleanly offline with no AWS/network and returns the
       `(agent, mcp_client)` tuple; the MCP client is constructed, not started).
       Files: `agent/tests/test_write_tools_unit.py`, `agent/tests/test_gateway_mode.py`
-      Verify: `python -m pytest agent -q` — new tests pass; prior 42 passed / 1
+      Verify: `python -m pytest agent -q` â€” new tests pass; prior 42 passed / 1
       skipped baseline preserved (count grows by the new tests, still 1 skipped).
 
 - [ ] 13. Add the CDK assertion test `infra-cdk/tests/test_gateway_stack.py`
@@ -231,7 +231,7 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
       `lambda:InvokeFunction` on the four function ARNs, four invoke permissions, and
       no `Fn::ImportValue` in the template.
       Files: `infra-cdk/tests/test_gateway_stack.py`
-      Verify: `cd infra-cdk && python -m pytest tests -q` — all CDK assertion tests
+      Verify: `cd infra-cdk && python -m pytest tests -q` â€” all CDK assertion tests
       pass.
 
 - [ ] 14. Run the full OFFLINE verification gate and fix any cross-cutting seams:
@@ -249,25 +249,25 @@ call): `jira_search_stories`, `jira_get_stories_by_assignee`,
 
 ---
 
-## DEFERRED — LIVE operator steps (NOT part of the offline gate)
+## DEFERRED â€” LIVE operator steps (NOT part of the offline gate)
 
 These are documented for a human to run with `aws sso login --profile lava`
 active; they are NOT executed by this plan and no live results are fabricated.
 
 1. From `infra-cdk/`: `cdk deploy --all --profile lava` (CDK deploys the four mock
    stacks first, then `MahaloGatewayStack` via the construct-reference dependency).
-2. Copy the `GatewayMcpUrl` CfnOutput → set `MAHALO_GATEWAY_MCP_URL` and
+2. Copy the `GatewayMcpUrl` CfnOutput â†’ set `MAHALO_GATEWAY_MCP_URL` and
    `MAHALO_TOOL_MODE=gateway` in the agent environment.
 3. Confirm the caller IAM principal has `bedrock-agentcore:InvokeGateway` on the
    gateway ARN.
-4. Validate inbound auth (design §6.4 open item): run one GATEWAY-mode tool call
+4. Validate inbound auth (design Â§6.4 open item): run one GATEWAY-mode tool call
    and confirm the SigV4 `httpx.Auth` (correct signing service name) is accepted
    by the `AWS_IAM` authorizer for the SSO admin role. If not, switch
    `authorizerType` to `CUSTOM_JWT`, stand up a Cognito app-client, and use the
    bearer-token path. Record which mechanism worked.
 5. Run the LIVE integration check (GATEWAY-mode end-to-end: "list my repositories"
-   → payment-service; "show my stories" (dev-6) → PAY-; a `github_create_branch`
-   write → interrupt fires → approve → branch created) and record outcomes in
+   â†’ payment-service; "show my stories" (dev-6) â†’ PAY-; a `github_create_branch`
+   write â†’ interrupt fires â†’ approve â†’ branch created) and record outcomes in
    `docs/.agents/tasks/task4-verification.md`.
 
 ---
@@ -283,7 +283,7 @@ active; they are NOT executed by this plan and no live results are fabricated.
   `@tool` signatures.
 - Step order is dependency-driven: the shared modules (assignee, tool_schemas,
   composites, adapter) come before the handlers that call them (step 6), the CDK
-  stack that reads `tool_schemas.py` (step 7), and the tests (steps 8–9, 12–13).
-  The agent-side changes (10–11) are independent of the Lambda side and could run
+  stack that reads `tool_schemas.py` (step 7), and the tests (steps 8â€“9, 12â€“13).
+  The agent-side changes (10â€“11) are independent of the Lambda side and could run
   in parallel, but are sequenced after for a single coherent review.
 ```

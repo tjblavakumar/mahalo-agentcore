@@ -1,4 +1,4 @@
-# Task 3 — Verification (Lambda reimplementation of the four mocks)
+# Task 3 â€” Verification (Lambda reimplementation of the four mocks)
 
 Status: COMPLETE. Code reviewed and APPROVED
 (`docs/.agents/tasks/task3-code-review.json`, verdict `APPROVED`). Offline
@@ -7,7 +7,7 @@ are DEFERRED operator actions (see end).
 
 ## Verification commands and results
 
-Run from the workspace root `D:\<USER>\LavaCode\AI\mahalo-agentcore`.
+Run from the workspace root `<WORKSPACE_ROOT>`.
 
 1. tools-lambdas unit/handler suite
 
@@ -15,7 +15,7 @@ Run from the workspace root `D:\<USER>\LavaCode\AI\mahalo-agentcore`.
    & "tools-lambdas/.venv/Scripts/python.exe" -m pytest tools-lambdas/tests -q
    ```
 
-   Result: **68 passed** (503 warnings — benign `datetime.utcnow()`
+   Result: **68 passed** (503 warnings â€” benign `datetime.utcnow()`
    DeprecationWarning from botocore's signer; no failures).
 
 2. infra-cdk synth + unit suite
@@ -32,7 +32,7 @@ Run from the workspace root `D:\<USER>\LavaCode\AI\mahalo-agentcore`.
      `MahaloMockGithubStack.template.json`,
      `MahaloMockServicenowStack.template.json`.
      (Note: this CDK version prints "Unknown option(s): --all" and ignores the
-     flag — `synth` already defaults to synthesizing every stack, so all four
+     flag â€” `synth` already defaults to synthesizing every stack, so all four
      templates were still produced. Spot-checked the Jira template: `"Runtime":
      "python3.13"`, Function-URL `"AuthType": "NONE"`, and the `JiraUrl` /
      `JiraArn` outputs are present.)

@@ -11,7 +11,7 @@ from aws_cdk import assertions
 
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 
 def _template():

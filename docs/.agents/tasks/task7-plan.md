@@ -1,11 +1,11 @@
-# Task 7 — Implementation Plan
+# Task 7 â€” Implementation Plan
 
 Derived from the APPROVED design `docs/.agents/tasks/task7-design.md` (grounded by
-`docs/.agents/tasks/task7-investigation.md`). The design decisions A–E are LOCKED; this
-plan only sequences the work — it does not re-decide architecture.
+`docs/.agents/tasks/task7-investigation.md`). The design decisions Aâ€“E are LOCKED; this
+plan only sequences the work â€” it does not re-decide architecture.
 
-**Absolute rules.** Only write under `d:/<USER>/LavaCode/AI/mahalo-agentcore`.
-`mahalo-dock` (`d:/<USER>/LavaCode/AI/mahalo-dock/`) is READ ONLY — copy from
+**Absolute rules.** Only write under `<WORKSPACE_ROOT>`.
+`mahalo-dock` (`<FALLBACK_ROOT>/`) is READ ONLY â€” copy from
 it, never edit it. No git commit/push. No `npm run dev`/`next dev`/`next start`/watch. No
 deploy (no `cdk deploy`/`cdk bootstrap`). Windows PowerShell: `;` not `&&`, `$env:VAR="x"`.
 Run `pytest agent -q` in a shell with NO `MAHALO_*` env vars (Task-5 quirk). `infra-cdk`
@@ -15,14 +15,14 @@ has its own `.venv` (activate before `cdk`/its `pytest`); the agent venv is at
 **Offline gate baselines to preserve.** agent `pytest agent -q` = 99 passed / 1 skipped
 (no `MAHALO_*` env); api `pytest api -q` = 15; tools-lambdas `pytest tools-lambdas/tests
 -q` = 94 (mock default) + new real-mode tests; infra-cdk `pytest tests -q` = 42 passed /
-1 skipped + new assertions; `cdk synth --all` exit 0 offline, 8 → 10 templates; zero
+1 skipped + new assertions; `cdk synth --all` exit 0 offline, 8 â†’ 10 templates; zero
 LangChain; frontend `npm ci; npm run lint; npm run test; npm run build` GREEN.
 
 This plan has two largely independent parts: Part A (frontend port) and Part B (Gitea +
 hosting IaC + Lambda wiring). They share no code, so either order works; the items within
 each part are ordered by dependency.
 
-## Part A — Frontend port (design §A, §B browser side, §D.1)
+## Part A â€” Frontend port (design Â§A, Â§B browser side, Â§D.1)
 
 - [ ] 1. Scaffold `frontend/` with the VERBATIM config/tooling copied from
       `mahalo-dock/frontend/`: `package.json`, `package-lock.json`, `vitest.config.ts`,
@@ -72,7 +72,7 @@ each part are ordered by dependency.
       `/chat` POST body to `{ message, session_id, project_id: null }`; replace suggestions
       with `buildSuggestions({ role: 'developer', project: null, connectedTypes: ['github','jira'] })`;
       delete the "Connections Required" block; make the "How can I help you today?" block
-      unconditional (gated on `messages.length === 0`); remove the "✨ Generate more"
+      unconditional (gated on `messages.length === 0`); remove the "âœ¨ Generate more"
       button and the header scope chip; reduce `ChatInput` `disabled` to `isLoading`.
       Files: `frontend/src/app/(protected)/chat/page.tsx`.
       Verify: deferred to item 8.
@@ -80,13 +80,13 @@ each part are ordered by dependency.
 - [ ] 6. Swap the API client auth (`src/services/api.ts`). Keep `request()`/
       `normalizeErrorMessage`/`api.get/post/...`; keep base URL from
       `process.env.NEXT_PUBLIC_API_URL` (update only the default/comment); REMOVE the
-      `sessionStorage['mahalo3_token']` → `Authorization: Bearer` block; add SigV4 signing
+      `sessionStorage['mahalo3_token']` â†’ `Authorization: Bearer` block; add SigV4 signing
       via `fromCognitoIdentityPool` (`NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID`,
       `NEXT_PUBLIC_AWS_REGION`) + `new AwsClient({ ..., service: 'lambda', region })` and
       `aws.fetch(url, { method, headers, body: JSON.stringify(body) })`; do NOT mutate
       headers/body after signing. Add exact-pinned deps `aws4fetch` +
       `@aws-sdk/credential-providers` to `package.json` and regenerate `package-lock.json`.
-      Add `frontend/.env.example`. Surface §B.5 auth errors into the assistant error bubble.
+      Add `frontend/.env.example`. Surface Â§B.5 auth errors into the assistant error bubble.
       Files: `frontend/src/services/api.ts`, `frontend/package.json`,
       `frontend/package-lock.json`, `frontend/.env.example`.
       Verify: deferred to item 8.
@@ -104,10 +104,10 @@ each part are ordered by dependency.
       `systems_queried` is optional (mock the signer/fetch), then run the full offline
       gate.
       Files: `frontend/src/**/*.test.ts(x)`.
-      Verify: `cd frontend; npm ci; npm run lint; npm run test; npm run build` — all exit 0
+      Verify: `cd frontend; npm ci; npm run lint; npm run test; npm run build` â€” all exit 0
       and `frontend/out/index.html` is produced.
 
-## Part B — Gitea + hosting IaC + Lambda wiring (design §B.4, §C, §D.2, §E)
+## Part B â€” Gitea + hosting IaC + Lambda wiring (design Â§B.4, Â§C, Â§D.2, Â§E)
 
 - [ ] 9. Port the Gitea adapter into `tools-lambdas/github/` from
       `mahalo-dock/mock-services/github/`: `gitea_backend.py` (repo_id==name under one
@@ -118,7 +118,7 @@ each part are ordered by dependency.
 
 - [ ] 10. Wire real mode into the github Lambda. `routes.py`: ADD
       `build_gitea_router(backend)` (same route table, delegates to the backend, maps
-      `BackendError`→`error()`); leave `build_router(store, token)` UNCHANGED. `handler.py`:
+      `BackendError`â†’`error()`); leave `build_router(store, token)` UNCHANGED. `handler.py`:
       add module-scope `_MODE` + Gitea env constants + SSM token resolution (boto3
       `get_parameter(..., WithDecryption=True)` cached, fallback `GITEA_TOKEN`/
       `GITEA_TOKEN_FILE`); make `_get_router()` short-circuit the DynamoDB `Store`/seed when
@@ -129,7 +129,7 @@ each part are ordered by dependency.
       Verify: item 12.
 
 - [ ] 11. Add real-mode unit tests (httpx transport mocked, no live Gitea) asserting the
-      contract translation (repo_id→name, `_publicize` rewrite, author-id mapping) and that
+      contract translation (repo_idâ†’name, `_publicize` rewrite, author-id mapping) and that
       mock mode is untouched.
       Files: `tools-lambdas/tests/test_github_handler.py`.
       Verify: item 12.
@@ -139,7 +139,7 @@ each part are ordered by dependency.
       `GITHUB_MODE=real`.
       Verify: command above passes.
 
-- [ ] 13. Guard the github-only Gitea wiring on `MockServiceStack` (design §C.4b): add
+- [ ] 13. Guard the github-only Gitea wiring on `MockServiceStack` (design Â§C.4b): add
       optional kwargs `gitea_mode=False`, `gitea_env=None`, `gitea_token_param_name=None`;
       the env merge (`GITHUB_MODE=real` + Gitea env) and the SSM `grant_read` branch are
       BOTH guarded `service == 'github' and gitea_mode`. Defaults leave all four instances
@@ -147,20 +147,20 @@ each part are ordered by dependency.
       Files: `infra-cdk/mahalo_infra/mock_service_stack.py`.
       Verify: item 18.
 
-- [ ] 14. Create `MahaloGiteaStack` (design §C.2/§C.3/§C.5): dedicated `aws_ec2.Vpc` (1
+- [ ] 14. Create `MahaloGiteaStack` (design Â§C.2/Â§C.3/Â§C.5): dedicated `aws_ec2.Vpc` (1
       public subnet, no NAT, NOT `from_lookup`); `aws_ec2.Instance` (AL2023, t3.small,
       public subnet/IP) with UserData that `docker run`s `gitea/gitea:1.27.3` by reference
-      and runs the `gitea/` bootstrap one-shot; `aws_ec2.SecurityGroup` (SSH 22 → CfnParameter
-      `AdminCidr` no 0.0.0.0/0 default; Gitea 3000 → CfnParameter `GiteaIngressCidr` default
+      and runs the `gitea/` bootstrap one-shot; `aws_ec2.SecurityGroup` (SSH 22 â†’ CfnParameter
+      `AdminCidr` no 0.0.0.0/0 default; Gitea 3000 â†’ CfnParameter `GiteaIngressCidr` default
       0.0.0.0/0); gp3 EBS at `/data` `RemovalPolicy.DESTROY` (overridable via `RetainGiteaData`);
       SSM SecureString param-name refs for token + admin password; CfnOutput public URL. No
       `fromLookup`, no `DockerImageAsset`.
       Files: `infra-cdk/mahalo_infra/gitea_stack.py`.
       Verify: item 18.
 
-- [ ] 15. Create `MahaloFrontendStack` (design §D.2, §B.2): private `aws_s3.Bucket`
+- [ ] 15. Create `MahaloFrontendStack` (design Â§D.2, Â§B.2): private `aws_s3.Bucket`
       (`DESTROY`, `auto_delete_objects=True`, no public access); `aws_cloudfront.Distribution`
-      with a SINGLE S3 origin via OAC and SPA 403/404→`index.html` (NO Function-URL origin);
+      with a SINGLE S3 origin via OAC and SPA 403/404â†’`index.html` (NO Function-URL origin);
       flag-gated `aws_s3_deployment.BucketDeployment` behind `-c buildFrontend=1`/
       `MAHALO_BUILD_FRONTEND=1` (offline uses an empty/placeholder source or skips);
       `aws_cognito.CfnIdentityPool(allow_unauthenticated_identities=True)` + `aws_iam.Role`
@@ -171,15 +171,15 @@ each part are ordered by dependency.
       Files: `infra-cdk/mahalo_infra/frontend_stack.py`.
       Verify: item 18.
 
-- [ ] 16. Add `FunctionUrlCorsOptions` to `MahaloApiStack` (design §B.4): add a `cors=`
-      block to the existing `fn.add_function_url(auth_type=AWS_IAM)` call — `allowed_origins`
+- [ ] 16. Add `FunctionUrlCorsOptions` to `MahaloApiStack` (design Â§B.4): add a `cors=`
+      block to the existing `fn.add_function_url(auth_type=AWS_IAM)` call â€” `allowed_origins`
       = CloudFront origin (CfnParameter, NOT `*`); `allowed_methods` = POST/GET/OPTIONS;
       `allowed_headers` = Authorization, X-Amz-Date, X-Amz-Security-Token,
-      X-Amz-Content-Sha256, Content-Type; `max_age` ≈ 300s. Auth stays AWS_IAM.
+      X-Amz-Content-Sha256, Content-Type; `max_age` â‰ˆ 300s. Auth stays AWS_IAM.
       Files: `infra-cdk/mahalo_infra/api_stack.py`.
       Verify: item 18.
 
-- [ ] 17. Wire the new stacks in `app.py` by direct construct reference (design §E.1):
+- [ ] 17. Wire the new stacks in `app.py` by direct construct reference (design Â§E.1):
       read `giteaMode` context once and pass Gitea kwargs to the github instance ONLY; add
       `MahaloGiteaStack` and `MahaloFrontendStack(api_stack=...)` after `MahaloApiStack`,
       all with `env=_ENV`. Port the Gitea bootstrap assets into `gitea/` (`bootstrap.sh` +
@@ -201,10 +201,10 @@ each part are ordered by dependency.
       succeeds offline and only the github template gains `GITHUB_MODE=real`.
 
 - [ ] 19. Write `docs/.agents/tasks/task7-deploy-runbook.md` with the DEFERRED live operator
-      steps (design §E.4, §D.2): SSM param creation; `cdk deploy MahaloGiteaStack`; confirm
+      steps (design Â§E.4, Â§D.2): SSM param creation; `cdk deploy MahaloGiteaStack`; confirm
       Gitea healthy + seed repo; `cdk deploy MahaloMockGithubStack -c giteaMode=real`; the
-      ordered frontend deploy (API → read `RuntimeApiUrl`; frontend stack without
-      `-c buildFrontend=1` → read `IdentityPoolId` + CloudFront domain; set the three
+      ordered frontend deploy (API â†’ read `RuntimeApiUrl`; frontend stack without
+      `-c buildFrontend=1` â†’ read `IdentityPoolId` + CloudFront domain; set the three
       `NEXT_PUBLIC_*` + `npm run build`; frontend stack `-c buildFrontend=1`; re-deploy API
       so CORS `allowed_origins` includes the CloudFront domain); end-to-end smoke test. State
       clearly none of this runs in the offline gate.
@@ -216,6 +216,6 @@ each part are ordered by dependency.
 - [ ] 20. Run every offline gate and confirm green: frontend
       `cd frontend; npm ci; npm run lint; npm run test; npm run build`;
       `pytest tools-lambdas/tests -q` (94 + new); from `infra-cdk/` `cdk synth --all`
-      (10 templates, offline) + `pytest tests -q`; and — only if touched — `pytest agent -q`
+      (10 templates, offline) + `pytest tests -q`; and â€” only if touched â€” `pytest agent -q`
       (NO `MAHALO_*` env; expect 99/1) and `pytest api -q` (expect 15). Confirm zero
       LangChain and clean up any temp files. No commit/push, no deploy.

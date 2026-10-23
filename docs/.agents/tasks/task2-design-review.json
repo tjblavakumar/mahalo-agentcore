@@ -5,7 +5,7 @@
       "id": 1,
       "severity": "NIT",
       "title": "HITL decision's end_tool_cycle() filtering explanation is inaccurate (conclusion still correct)",
-      "location": "task2-hitl-decision.md — 'Resume re-fires BeforeToolCallEvent — verified' bullet",
+      "location": "task2-hitl-decision.md â€” 'Resume re-fires BeforeToolCallEvent â€” verified' bullet",
       "problem": "Claims the v1:before_tool_call interrupt id 'survives end_tool_cycle() filtering because it does not start with _AGENT_STREAM_INTERRUPT_ID_PREFIX'. In strands/interrupt.py, end_tool_cycle() KEEPS only ids starting with that prefix (and non-None response) and DROPS everything else, including the before_tool_call id. The real reason the interrupt persists: _handle_tool_execution calls _stop_for_interrupts(...) and returns before the end_tool_cycle() reset (which only runs on the non-interrupt completion path). The design's conclusion (resume returns the stored response) is correct and was verified end to end from source; only the justification is wrong.",
       "fix": "Replace the end_tool_cycle() sentence with: the interrupt persists because the interrupt path in _handle_tool_execution calls _stop_for_interrupts(...) and returns before the end_tool_cycle() reset; resume() writes the response onto the stored Interrupt by id, and the replayed BeforeToolCallEvent recomputes the same id and returns that response."
     },
@@ -13,18 +13,18 @@
       "id": 2,
       "severity": "NIT",
       "title": "jira_update_story PUT body shape stated ambiguously",
-      "location": "task2-design.md — Jira contract table, jira_update_story row",
+      "location": "task2-design.md â€” Jira contract table, jira_update_story row",
       "problem": "'body = only provided fields, under the resolved change set' could be read as a wrapped {\"changes\": {...}} body. The verified mahalo-dock executor sends the bare changes dict (json=params.get('changes', {})), and the mock UpdateStoryRequest expects top-level status/assignee/priority/sprint_id/story_points. A wrapped body would be silently ignored (no-op update).",
-      "fix": "State explicitly: PUT body is the bare changes dict (top-level fields), not wrapped under a 'changes' key — i.e. make_request(..., method='PUT', body=changes). Align the contract table with test-plan item 5."
+      "fix": "State explicitly: PUT body is the bare changes dict (top-level fields), not wrapped under a 'changes' key â€” i.e. make_request(..., method='PUT', body=changes). Align the contract table with test-plan item 5."
     },
     {
       "id": 3,
       "severity": "NIT",
       "title": "pre-GET seam named as make_request but read module calls it via the _jira_request wrapper",
-      "location": "task2-design.md — Jira contract note on the update-story existence pre-GET",
+      "location": "task2-design.md â€” Jira contract note on the update-story existence pre-GET",
       "problem": "jira_get_story does not call make_request directly; it calls module-private _jira_request(endpoint=...), which calls make_request(settings.jira_url, settings.jira_token, ...). Functionally identical, so correctness is unaffected; the wording over-claims 'the same call'.",
-      "fix": "Reword to 'issues the same GET jira_get_story makes — make_request(...) (the read module reaches it via its private _jira_request helper)'. Calling make_request directly (as the design states) is the cleaner choice since it avoids importing a third private symbol; just fix the wording."
+      "fix": "Reword to 'issues the same GET jira_get_story makes â€” make_request(...) (the read module reaches it via its private _jira_request helper)'. Calling make_request directly (as the design states) is the cleaner choice since it avoids importing a third private symbol; just fix the wording."
     }
   ],
-  "reviewDoc": "D:/<USER>/LavaCode/AI/mahalo-agentcore/docs/.agents/tasks/task2-design-review.md"
+  "reviewDoc": "<WORKSPACE_ROOT>/docs/.agents/tasks/task2-design-review.md"
 }

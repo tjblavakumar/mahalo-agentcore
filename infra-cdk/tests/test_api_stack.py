@@ -13,7 +13,7 @@ from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 
 def _api_template():
@@ -40,7 +40,7 @@ def test_function_url_auth_none():
 
 
 def test_function_url_cors_block():
-    # Task 7c (§B): the Function URL is AuthType=NONE; the browser calls it with
+    # Task 7c (Â§B): the Function URL is AuthType=NONE; the browser calls it with
     # no AWS credentials and asserts the persona via X-Mahalo-Persona. CORS allows
     # the wildcard origin (no credentials to gate) + Content-Type + the persona
     # header; the old SigV4 headers are gone.
@@ -62,7 +62,7 @@ def test_function_url_cors_block():
     ):
         assert header not in cors["AllowHeaders"]
     assert cors["MaxAge"] == 300
-    # Demo wildcard origin (§B): safe because requests carry no credentials.
+    # Demo wildcard origin (Â§B): safe because requests carry no credentials.
     assert cors["AllowOrigins"] == ["*"]
 
 
