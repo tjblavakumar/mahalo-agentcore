@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Create the idempotent, phase-selectable builder-side bash deploy script scripts/builder-deploy.sh that runs the full staged cdk deploy on the EC2 builder (instance role, no --profile), including the two-phase frontend build with the mandatory --exclusively ordering and the API-CORS-last invariant, and captures CfnOutputs. Grounded in task7b-design.md §B/§C/§D. Depends on FEAT-001 (the builder stack and its CfnOutputs/stack names); the script drives the EXISTING app stacks (names from app.py) plus the new builder context. No git commit/push; the script runs on the builder, never on the VDI.",
+  "status": "pending",
+  "steps": [
+    "CREATE scripts/builder-deploy.sh with a bash shebang and `set -euo pipefail`. Arg parser mapping flags to env: --phase <name> -> PHASE, --commit <sha> -> COMMIT, --admin-cidr <cidr> -> ADMIN_CIDR; a --help/usage listing phases toolchain|backend|runtime-api|frontend|gitea|all. Overridable env with defaults: REPO_URL=https://github.com/tjblavakumar/mahalo-agentcore.git, BUILDER_HOME=/home/ssm-user, COMMIT=origin/main. Export AWS_REGION=us-east-1, AWS_DEFAULT_REGION=us-east-1, and MAHALO_BUILD_IMAGE=1 ONCE at the top and keep them exported for the whole run. Every phase starts with `cd \"${BUILDER_HOME:-/home/ssm-user}\"` then enters mahalo-agentcore. All aws/cdk commands use the instance role (NO --profile).",
+    "Phase `toolchain`: verify/install git, Docker (invoked via sudo throughout — do not rely on docker-group membership), Node 24, Python 3.13, AWS CLI v2, and the pinned CDK CLI. Clone-or-update: `git clone \"$REPO_URL\" || (cd mahalo-agentcore && git fetch && git checkout \"$COMMIT\" && git pull --ff-only)`. Create and pip-install infra-cdk/.venv (from infra-cdk/requirements.txt) and agent/.venv (from agent/requirements.txt). Assert `node --version` is 24.x and `sudo docker info` succeeds.",
+    "Phase `backend` (no Docker): ACCOUNT=$(aws sts get-caller-identity --query Account --output text); then `aws cloudformation describe-stacks --stack-name CDKToolkit >/dev/null 2>&1 || cdk bootstrap aws://$ACCOUNT/us-east-1`; then from infra-cdk/ with .venv active `cdk deploy MahaloMemoryIdentityStack MahaloGatewayStack MahaloMockJiraStack MahaloMockConfluenceStack MahaloMockGithubStack MahaloMockServicenowStack --require-approval never --outputs-file /tmp/mahalo-backend-outputs.json`. Parse MemoryId, GatewayMcpUrl.",
+    "Phase `runtime-api` (Docker — the reason the builder exists): `cdk deploy MahaloRuntimeStack MahaloApiStack --require-approval never --outputs-file /tmp/mahalo-rtapi-outputs.json`. Parse RuntimeArn and RuntimeApiUrl.",
+    "Phase `frontend` (no Docker; needs a prior npm run build) — enforce this EXACT order: (2) `cdk deploy MahaloFrontendStack --exclusively --require-approval never --outputs-file /tmp/mahalo-fe-outputs.json` (MANDATORY --exclusively so MahaloApiStack is not pulled in with the placeholder FrontendOrigin); read RUNTIME_API_URL (from the rtapi outputs file), IDENTITY_POOL_ID and FRONTEND_URL (from the fe outputs file). (3) fail-fast `: \"${RUNTIME_API_URL:?}\"; : \"${IDENTITY_POOL_ID:?}\"`; then `cd frontend && npm ci` and `NEXT_PUBLIC_API_URL=\"$RUNTIME_API_URL\" NEXT_PUBLIC_AWS_REGION=us-east-1 NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID=\"$IDENTITY_POOL_ID\" npm run build`; then `test -f out/index.html || { echo 'export missing frontend/out'; exit 1; }`. (4) `cd ../infra-cdk && cdk deploy MahaloFrontendStack --exclusively -c buildFrontend=1 --require-approval never` (MANDATORY --exclusively again). (5) LAST deploy of the phase: `cdk deploy MahaloApiStack -c buildImage=1 --parameters FrontendOrigin=\"$FRONTEND_URL\" --require-approval never` (MAHALO_BUILD_IMAGE=1 still exported so the API keeps its bundled deps). A partial --phase frontend re-run must re-execute the whole ordered sequence.",
+    "Phase `gitea`: pre-flight `aws ssm get-parameter --name /mahalo/gitea/adapter-token` and `--name /mahalo/gitea/admin-password`, failing fast with a pointer to docs/.agents/tasks/task7-deploy-runbook.md §1 if absent; then `cdk deploy MahaloGiteaStack --parameters AdminCidr=\"${ADMIN_CIDR:?set --admin-cidr}\" --require-approval never --outputs-file /tmp/mahalo-gitea-outputs.json`; print GiteaPublicUrl. Do NOT emit `cdk deploy MahaloMockGithubStack -c giteaMode=real` — the real-github flip is deferred to task7-deploy-runbook.md (it needs an app.py _GITEA_ENV change out of scope here).",
+    "Phase `all`: run toolchain -> backend -> runtime-api -> frontend in order (NOT gitea, which is opt-in via --phase gitea --admin-cidr).",
+    "Add fail-fast guards before expensive steps: `aws sts get-caller-identity` (instance role live) and `sudo docker info` before any cdk deploy; non-empty NEXT_PUBLIC_* before the frontend build. Parse each --outputs-file and write a consolidated /tmp/mahalo-outputs.env (MemoryId, GatewayMcpUrl, RuntimeArn, RuntimeApiUrl, IdentityPoolId, FrontendUrl, and Gitea* when run) plus echo a human-readable summary to stdout.",
+    "Include the §D.1 app-stack teardown guidance as a documented `--phase destroy-app` option OR a clearly-commented block (optional): `cdk destroy` all ten app stacks --force (CDK computes reverse-dependency order), idempotent re-run on failure. The builder's own teardown is VDI-only and lives in the runbook (FEAT-003), NOT this script."
+  ],
+  "acceptance_criteria": [
+    "`bash -n scripts/builder-deploy.sh` reports no syntax errors.",
+    "If shellcheck is available, `shellcheck scripts/builder-deploy.sh` reports no errors.",
+    "The script's --help/usage lists the phases toolchain|backend|runtime-api|frontend|gitea|all.",
+    "MAHALO_BUILD_IMAGE=1 and AWS_REGION/AWS_DEFAULT_REGION=us-east-1 are exported once at top and never unset; no builder-side aws/cdk command passes --profile.",
+    "In the frontend phase, steps 2 and 4 pass --exclusively and step 5 (MahaloApiStack with the real FrontendOrigin) is the final deploy of the phase.",
+    "The gitea phase pre-flights the two SSM params and does NOT emit the giteaMode=real github flip."
+  ],
+  "verification": [
+    "bash -n scripts/builder-deploy.sh   (no syntax errors)",
+    "shellcheck scripts/builder-deploy.sh   (if installed; no errors)",
+    "grep -n 'exclusively' scripts/builder-deploy.sh   (confirm both frontend-infra deploys use it) and inspect that the MahaloApiStack CORS deploy is the last deploy in the frontend phase",
+    "grep -n 'giteaMode=real' scripts/builder-deploy.sh   (must return nothing)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

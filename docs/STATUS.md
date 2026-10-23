@@ -4,11 +4,18 @@
 **Branch:** `main` @ `d4f386f` — **Tasks 0-7 all committed + pushed, in sync with
 origin.** Every task is offline-complete + code-review APPROVED. Nothing of ours
 is deployed to AWS (only the free CDKToolkit bootstrap stack remains).
-**NEXT ACTION:** the full live end-to-end deploy + browser validation of Tasks
-3-7 together, done WITH the user (see the "RESUME" block at the top of
-`docs/CONTINUATION.md` for the staged deploy sequence + prereqs: `aws sso login
---profile lava` and Docker Desktop running). Then Task 8 (re-deployable CDK +
-teardown) and Task 9 (docs).
+**NEXT ACTION:** execute the **EC2 Docker-builder runbook**
+(`docs/.agents/tasks/task7b-ec2-builder-runbook.md`) for the full live end-to-end
+deploy + browser validation of Tasks 3-7 together, done WITH the user, then code
+review of Task 7b. The operator workstation is an AWS WorkSpaces VDI with **no
+local Docker** (no nested virtualization), so the deploy path is NOT "run
+`cdk deploy --all` locally with Docker Desktop" — it is **"provision
+`MahaloBuilderStack` from the VDI (Docker-free synth) → SSM into the arm64 EC2
+builder → run `scripts/builder-deploy.sh --phase all`"** (the builder has Docker
+and runs the two Docker-dependent deploys natively on Graviton). The app now has
+**11 CDK stacks** (the 10 app stacks + `MahaloBuilderStack`). See
+`docs/.agents/tasks/task7b-design.md` for the design. Then Task 8 (re-deployable
+CDK + teardown) and Task 9 (docs).
 **Repo:** https://github.com/tjblavakumar/mahalo-agentcore
 
 This is the one-page "where are we" view. For per-task depth see `docs/PLAN.md`
@@ -63,8 +70,23 @@ The Runtime harness and thin API reuse the same `build_agent` seam the CLI uses.
 DynamoDB) were deployed, live-validated, then destroyed (`cdk destroy --all`) to
 stop spend — confirmed zero `Mahalo*` CloudFormation stacks remain. Only the free
 `CDKToolkit` bootstrap stack is left (account `<AWS_ACCOUNT_ID>`, `us-east-1`, SSO
-profile `lava`). Everything redeploys cleanly via `cdk deploy --all --profile lava`
-(~7 min; the Gateway gets a fresh id/MCP-URL each deploy — re-read the CfnOutputs).
+profile `lava`).
+
+**Deploy path (VDI — no local Docker):** because the operator workstation is an
+AWS WorkSpaces VDI with no nested virtualization, the two Docker-dependent deploys
+(the `MahaloRuntimeStack` ARM64 agent image and the `MahaloApiStack` Lambda
+dependency bundle) cannot run locally. The supported path is the **EC2
+Docker-builder** (Task 7b): deploy the Docker-free `MahaloBuilderStack` from the
+VDI, SSM into the arm64 EC2 builder, and run `scripts/builder-deploy.sh --phase
+all` there for the full staged deploy; validate in the browser at the CloudFront
+`FrontendUrl`; then tear down the app stacks **from the builder** and the builder
+**from the VDI last**. Full steps in
+`docs/.agents/tasks/task7b-ec2-builder-runbook.md` (design in
+`docs/.agents/tasks/task7b-design.md`). The app now has **11 CDK stacks** (the 10
+app stacks + `MahaloBuilderStack`). The old "run `cdk deploy --all --profile lava`
+locally with Docker Desktop" path is superseded for the VDI by the builder (it
+still works from any workstation that actually has local Docker). Each deploy's
+Gateway gets a fresh id/MCP-URL — re-read the CfnOutputs.
 
 ---
 

@@ -1,0 +1,7 @@
+# Enforce LF for files that run on Linux (the EC2 builder, Lambdas, containers).
+# Without this, git's autocrlf on Windows can commit CRLF and break bash
+# shebangs / Docker builds on the deploy host.
+*.sh    text eol=lf
+*.bash  text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf

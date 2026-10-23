@@ -17,7 +17,7 @@ Offline-safety (§E.2): the ``BucketDeployment`` that uploads the built ``out/``
 bundle is flag-gated behind ``-c buildFrontend=1`` / ``MAHALO_BUILD_FRONTEND=1``;
 the default/offline branch skips it so ``cdk synth`` needs no prior ``next build``.
 The bucket + distribution + identity pool/role live in THIS stack (not a new
-stack), so the ``cdk synth --all`` template count stays 10.
+stack), so the ``cdk synth --all`` template count is 11.
 """
 
 from __future__ import annotations

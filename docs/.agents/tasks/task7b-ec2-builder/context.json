@@ -1,0 +1,32 @@
+{
+  "project_type": "AWS CDK v2 (Python) IaC monorepo for an Amazon Bedrock AgentCore + Strands rewrite of mahalo-dock; plus a Next.js 16 static frontend, FastAPI thin-API Lambda, and tools Lambdas.",
+  "language": "Python (CDK + Lambdas + agent), bash (builder script), PowerShell (operator/VDI), TypeScript/Next.js (frontend).",
+  "build_system": "AWS CDK v2 Python (aws-cdk-lib>=2.251,<3) under infra-cdk/ with its own .venv; frontend is npm + Next.js 16.3.3 static export (output:'export' -> frontend/out/).",
+  "test_framework": "pytest for infra-cdk (infra-cdk/requirements-dev.txt = pytest) using aws_cdk.assertions.Template per-stack assertions; vitest for frontend.",
+  "build_command": "cd infra-cdk && cdk synth --all  (offline, Docker-free, credential-free; must exit 0)",
+  "test_command": "cd infra-cdk && pytest tests -q   (baseline before this task: 42 passed, 1 skipped)",
+  "verification_instructions": "Run from infra-cdk/ with its .venv active. (1) cdk synth MahaloBuilderStack and cdk synth --all must exit 0 with NO Docker and NO AWS credentials. (2) cdk list must report exactly 11 stacks after wiring the builder (app.py currently has 10 app stacks: 4 mocks + Gateway + MemoryIdentity + Runtime + Api + Gitea + Frontend). (3) pytest tests -q must pass (prior 42/1 plus the new builder tests). For the bash script: bash -n scripts/builder-deploy.sh (and shellcheck if available). The full live cdk deploy is an operator-only step, NOT run during implementation.",
+  "snapshot_or_generated_files": "frontend/out/ is produced by `npm run build` (Next.js static export) and is uploaded by MahaloFrontendStack's BucketDeployment only when -c buildFrontend=1. Not checked in. No other generated artifacts for this task.",
+  "environment_constraints": "Operator workstation is an AWS WorkSpaces VDI with NO nested virtualization = NO local Docker. All new CDK MUST synth without Docker (no DockerImageAsset, no BundlingOptions). Account <AWS_ACCOUNT_ID>, region us-east-1, SSO profile 'lava' (VDI only). The EC2 builder uses an IAM instance role (NO --profile on the builder). Never write under D:/<USER>/LavaCode/AI/mahalo-dock. Do NOT git commit or push. New scripts go under scripts/.",
+  "contribution_requirements": "Only create/modify files under the mahalo-agentcore workspace. Offline synth gate must stay green and Docker-free. frontend/AGENTS.md says read the bundled Next 16 docs under node_modules/next/dist/docs/ before touching frontend build mechanics (relevant only to confirming the `npm run build` -> out/ behavior, already verified in the design). Mirror existing per-stack test style in infra-cdk/tests/.",
+  "key_patterns": "Offline-safe EC2/VPC pattern from gitea_stack.py: an `availability_zones` @property returning [f'{self.region}a'] so synth needs no AZ lookup; ec2.Vpc(max_azs=1, nat_gateways=0) with one PUBLIC subnet CREATED (not from_lookup); ec2.MachineImage.latest_amazon_linux2023(...) resolves AMI via a CloudFormation SSM-parameter at DEPLOY time (no synth-time AWS call); instance.instance.associate_public_ip_address = True; block_devices with gp3 + delete_on_termination; instance.apply_removal_policy(RemovalPolicy.DESTROY). The builder differs: pass role= at ec2.Instance construction (L2 auto-creates the CfnInstanceProfile; .role is read-only post-build), arm64 via cpu_type=ec2.AmazonLinuxCpuType.ARM_64, and ZERO ingress rules. Docker branches in runtime_stack.py/api_stack.py are flag-gated by `-c buildImage=1` / MAHALO_BUILD_IMAGE=1. frontend_stack.py BucketDeployment is gated by `-c buildFrontend=1` and uploads prebuilt frontend/out/ (no Docker). test_gitea_stack.py::test_no_docker_image_asset asserts `'DockerImage' not in str(template.to_json())` — reuse this.",
+  "relevant_files": [
+    "infra-cdk/mahalo_infra/builder_stack.py (CREATE — MahaloBuilderStack)",
+    "infra-cdk/mahalo_infra/gitea_stack.py (STUDY — offline-safe VPC/EC2 pattern to mirror; note it has NO role)",
+    "infra-cdk/app.py (MODIFY — add MahaloBuilderStack line; currently 10 app stacks)",
+    "infra-cdk/mahalo_infra/runtime_stack.py (STUDY — Docker build branch gated by buildImage; RuntimeArn output)",
+    "infra-cdk/mahalo_infra/api_stack.py (STUDY — Lambda dep bundling gated by buildImage; FrontendOrigin CfnParameter default https://example.cloudfront.net; RuntimeApiUrl output)",
+    "infra-cdk/mahalo_infra/frontend_stack.py (MODIFY — fix stale 'stays 10' docstring at line 20 -> 11; _FRONTEND_OUT = frontend/out; IdentityPoolId + FrontendUrl outputs)",
+    "infra-cdk/tests/test_gitea_stack.py (STUDY — per-stack assertion style + no-docker pattern to mirror)",
+    "infra-cdk/tests/test_builder_stack.py (CREATE — per-stack assertions for the builder)",
+    "infra-cdk/requirements.txt (aws-cdk-lib>=2.251,<3 — pin CDK CLI to a matching 2.x.y)",
+    "agent/Dockerfile (STUDY — line 14 FROM --platform=linux/arm64 python:3.13-slim; why arm64 is mandatory)",
+    "scripts/builder-deploy.sh (CREATE — builder-side staged deploy script)",
+    "scripts/ (existing scripts: verify-agentcore.ps1, gw_hitl_smoke.py, reset-mock-tables.ps1 — place the new script here)",
+    "docs/.agents/tasks/task7b-ec2-builder-runbook.md (CREATE — operator runbook)",
+    "docs/.agents/tasks/task7b-design.md (the APPROVED design — authoritative spec, §A-§H)",
+    "docs/STATUS.md (MODIFY — record the EC2-builder deploy path; 11 stacks)",
+    "docs/CONTINUATION.md (MODIFY — record the EC2-builder deploy path)"
+  ],
+  "directory_structure": "infra-cdk/ = CDK app (app.py + mahalo_infra/*_stack.py + tests/test_*_stack.py, with .venv + requirements.txt + requirements-dev.txt). agent/ = Strands agent + Dockerfile (arm64). api/ = FastAPI thin-API Lambda. tools-lambdas/ = four mock Lambdas. frontend/ = Next.js 16 static app (output:'export' -> out/). scripts/ = ops scripts (new bash builder script goes here). docs/ = STATUS.md, CONTINUATION.md, PLAN.md, ARCHITECTURE.md, and docs/.agents/tasks/ for per-task investigation/design/review/plan/runbook artifacts (task7b- prefix)."
+}

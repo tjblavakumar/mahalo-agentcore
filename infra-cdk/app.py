@@ -9,6 +9,7 @@ a ``MockServiceStack`` for one of jira/confluence/github/servicenow.
 import aws_cdk as cdk
 
 from mahalo_infra.api_stack import MahaloApiStack
+from mahalo_infra.builder_stack import MahaloBuilderStack
 from mahalo_infra.frontend_stack import MahaloFrontendStack
 from mahalo_infra.gateway_stack import MahaloGatewayStack
 from mahalo_infra.gitea_stack import MahaloGiteaStack
@@ -96,6 +97,10 @@ def main() -> None:
         api_stack=api_stack,
         env=_ENV,
     )
+    # Task 7b: transient arm64 AL2023 EC2 builder host for the Docker-dependent
+    # build/deploy steps the WorkSpaces VDI cannot run. Standalone (no
+    # cross-references), mirroring the other independent stacks.
+    MahaloBuilderStack(app, "MahaloBuilderStack", env=_ENV)
     app.synth()
 
 

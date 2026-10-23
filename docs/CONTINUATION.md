@@ -5,11 +5,13 @@ root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
 > For a one-page "where are we / what's left" snapshot, read `docs/STATUS.md`
-> first. As of 2026-10-18: Tasks 0-6 DONE (6 is OFFLINE-COMPLETE + code-review
-> APPROVED, committed+pushed as `172890c`); live deploy is a deferred operator
-> step; nothing of ours is deployed; **Task 7 (Gitea + frontend hosting) is
-> IN PROGRESS — design phase, not yet implemented.** This CONTINUATION file has
-> the full operational detail.
+> first. As of 2026-10-18: Tasks 0-7 DONE; live deploy is a deferred operator step;
+> nothing of ours is deployed. **Task 7b (EC2 Docker-builder deploy path) is DONE
+> on disk** — `MahaloBuilderStack` (FEAT-001), `scripts/builder-deploy.sh`
+> (FEAT-002), and the operator runbook + doc updates (FEAT-003) are all complete;
+> the app is now **11 CDK stacks**. Because the VDI has no local Docker, the live
+> deploy runs via that builder (see the RESUME block below). This CONTINUATION
+> file has the full operational detail.
 
 > ⏸️ RESUME TOMORROW — Task 7 in-flight (workflow `wf_15b843019e9d877e`, PAUSED):
 > ✅ TASK 7 DONE, committed + pushed (`main` @ `d4f386f`, in sync with origin).
@@ -17,7 +19,8 @@ bottom before doing anything.
 > the Task-6 thin API with the two-call `/chat` + `/chat/approve` HITL + browser
 > SigV4 via a Cognito unauthenticated Identity Pool), and self-hosted Gitea is
 > added (github Lambda behind `GITHUB_MODE=real`, mock still default). Two new CDK
-> stacks: `MahaloGiteaStack` + `MahaloFrontendStack` (now 10 templates). Code
+> stacks: `MahaloGiteaStack` + `MahaloFrontendStack` (10 app templates; Task 7b's
+> `MahaloBuilderStack` later brings the app to 11 stacks). Code
 > reviewed APPROVED (`docs/.agents/tasks/task7-code-review.json`). Offline gates
 > GREEN and independently re-verified: frontend `npm ci`/lint/vitest(12)/`npm run
 > build` all pass (static export emitted to `frontend/out/`), tools-lambdas 103
@@ -25,18 +28,34 @@ bottom before doing anything.
 > templates offline/Docker-free, zero LangChain, mahalo-dock untouched. agent 99/1
 > + api 15 baselines unaffected (Task 7 didn't touch them).
 >
-> ⏭️ NEXT ACTION = THE FULL LIVE END-TO-END DEPLOY + VALIDATION, WITH THE USER.
-> This is Tasks 3-7 all deployed together for the first time, driven in the
-> browser. NOTHING of ours is currently deployed (only the free CDKToolkit).
-> Prereqs: (1) `aws sso login --profile lava` (token expires every few hours —
-> re-auth at start; verify `aws sts get-caller-identity --profile lava`);
-> (2) **Docker Desktop MUST be running** — the Runtime agent image AND the Gitea
-> image are container assets built+pushed to ECR via `-c buildImage=1`; without
-> Docker the Runtime/Gitea stacks can't deploy. The deploy runbook is
-> `docs/.agents/tasks/task6-deploy-runbook.md` (+ Task-7 frontend/Gitea steps in
-> `task7-*`). Recommended staged sequence (do NOT fire one blind `cdk deploy
-> --all`; go group-by-group from `infra-cdk/` with its `.venv` active and show the
-> user CfnOutputs at each gate):
+> ⏭️ NEXT ACTION = THE FULL LIVE END-TO-END DEPLOY + VALIDATION, WITH THE USER,
+> VIA THE EC2 DOCKER-BUILDER (Task 7b). This is Tasks 3-7 all deployed together
+> for the first time, driven in the browser. NOTHING of ours is currently deployed
+> (only the free CDKToolkit).
+>
+> **NO LOCAL DOCKER ON THE VDI.** The operator workstation is an AWS WorkSpaces
+> VDI with no nested virtualization, so `cdk deploy` of the two Docker-dependent
+> stacks (`MahaloRuntimeStack` ARM64 agent image + `MahaloApiStack` Lambda
+> dependency bundle) CANNOT run locally. The deploy path is therefore:
+> **(1) provision `MahaloBuilderStack` from the VDI** (pure-CFN, Docker-free synth)
+> → **(2) SSM into the arm64 EC2 builder** (no SSH, no inbound ports) →
+> **(3) run `scripts/builder-deploy.sh --phase all` on the builder** (it has Docker
+> and the full toolchain; builds the ARM64 image natively on Graviton) →
+> **(4) retrieve CfnOutputs (`RuntimeApiUrl`, `IdentityPoolId`, CloudFront
+> `FrontendUrl`)** → **(5) validate in the browser** → **(6) tear down the app
+> stacks from the builder, then the builder from the VDI LAST** (never
+> self-destruct the builder from inside its own SSM session). FEAT-002
+> (`scripts/builder-deploy.sh`) and FEAT-003 (the runbook) are COMPLETE. The full
+> operator runbook is `docs/.agents/tasks/task7b-ec2-builder-runbook.md`; the
+> design is `docs/.agents/tasks/task7b-design.md`. The app now has **11 CDK
+> stacks** (the 10 app stacks + `MahaloBuilderStack`).
+>
+> Prereq: `aws sso login --profile lava` on the VDI (token expires every few hours
+> — re-auth at start; verify `aws sts get-caller-identity --profile lava`). Docker
+> Desktop is NOT required on the VDI — the builder provides Docker. The old
+> local-Docker staged sequence below is retained for reference / for any
+> workstation that DOES have local Docker, but on the VDI follow the runbook above
+> instead of firing these `cdk deploy` commands locally:
 >   1. Backend data/tools: `cdk deploy` the 4 `MahaloMock*Stack` + `MahaloGatewayStack`
 >      + `MahaloMemoryIdentityStack` (+ bootstrap if a fresh account:
 >      `cdk bootstrap` — CDKToolkit already exists, so likely skip).
@@ -60,7 +79,11 @@ bottom before doing anything.
 > Known live-gate watch-items (from the Task-4/6 verifications): SigV4 signing
 > service is `bedrock-agentcore`; the Identity WAT path is OFF under the AWS_IAM
 > MVP; the github-by-NAME-vs-repo-id mock quirk may 404 a name-based write (expected,
-> not a bug — the HITL gate still fires). Then NEXT=Task 8 (re-deployable CDK + teardown).
+> not a bug — the HITL gate still fires). Task 7b (EC2 Docker-builder) FEAT-002
+> (`scripts/builder-deploy.sh`) and FEAT-003 (the runbook + these doc updates) are
+> COMPLETE; the immediate next action is to EXECUTE the runbook
+> (`docs/.agents/tasks/task7b-ec2-builder-runbook.md`) for the live gate and run
+> the Task 7b code review. Then NEXT=Task 8 (re-deployable CDK + teardown).
 
 > HARD RULE: Only create or modify files UNDER
 > `D:\<USER>\LavaCode\AI\mahalo-agentcore`. NEVER write to
