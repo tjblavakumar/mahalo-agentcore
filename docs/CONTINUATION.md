@@ -13,7 +13,55 @@ bottom before doing anything.
 > deploy runs via that builder (see the RESUME block below). This CONTINUATION
 > file has the full operational detail.
 
-> ⏸️ RESUME TOMORROW — Task 7 in-flight (workflow `wf_15b843019e9d877e`, PAUSED):
+> ⏸️ RESUME TOMORROW — LIVE DEPLOY attempted via the EC2 builder; BLOCKED on one
+> fixable CDK bug. Git `main` @ `bf04b7b` (pushed). NOTHING is deployed — the live
+> deploy FAILED during asset-staging (before any app stack was created), and the
+> `MahaloBuilderStack` EC2 was TORN DOWN after, so there is ZERO overnight spend
+> (only the free CDKToolkit remains). Confirmed: no `Mahalo*` CloudFormation stacks
+> exist; builder instance `i-00e61041a8c172dac` is terminated.
+>
+> THE BUG TO FIX FIRST (root cause, verified from the builder deploy log): the
+> `MahaloRuntimeStack` agent-image `from_asset` (and/or the thin-API asset) uses an
+> asset source directory that INCLUDES `infra-cdk/cdk.out/` (and likely `.venv`),
+> so CDK recursively copies `cdk.out` into the staged asset → infinite nesting →
+> `ENAMETOOLONG: name too long ... cdk.out/asset.../infra-cdk/cdk.out/asset.../...`.
+> It does NOT surface in offline `cdk synth` (which doesn't stage the real asset),
+> which is why Task 6/7 offline gates stayed green. FIX: give the DockerImageAsset /
+> `from_asset` a proper source dir + `exclude`/`.dockerignore` (exclude `cdk.out`,
+> `**/.venv`, `**/__pycache__`, `node_modules`, `.git`) — or point the asset at the
+> minimal build context (the `agent/` dir with its own Dockerfile) rather than a
+> parent that contains `cdk.out`. Check `agent/Dockerfile` build context + the
+> `from_asset(..., exclude=...)` calls in `infra-cdk/mahalo_infra/runtime_stack.py`
+> and `api_stack.py`. Add an exclude-assertion so a future offline test catches it.
+> This is a small, well-understood fix — delegate it to a coder, re-verify, commit.
+>
+> THE EC2-BUILDER DEPLOY PATH ITSELF WORKED up to that point: `MahaloBuilderStack`
+> deployed from the VDI (pure CFN, no Docker), SSM Session Manager connected,
+> UserData installed the toolchain + cloned the repo, and `scripts/builder-deploy.sh`
+> ran — Docker on the builder successfully bundled the thin-API deps before hitting
+> the asset-nesting error. So the approach is sound; only the asset source/exclude
+> is wrong.
+>
+> TWO OPERATIONAL GOTCHAS learned (bake into the retry):
+>   1. CDK/Node SDK can't read the AWS CLI v2 SSO token cache on this VDI. Before any
+>      `cdk deploy`/`destroy` from the VDI, export creds into the env:
+>      `aws configure export-credentials --profile lava --format env-no-export` and
+>      set each AWS_* var (they EXPIRE after ~1hr — re-export as needed). Then run cdk
+>      WITHOUT `--profile`. `cdk destroy` from the VDI also needs the infra-cdk `.venv`
+>      active OR just `aws cloudformation delete-stack` directly (what we used).
+>   2. `.gitattributes` now forces LF on `*.sh`/Dockerfile; TWO files (`agent/Dockerfile`,
+>      `scripts/builder-deploy.sh`) were previously dropped by a `git add --renormalize`
+>      and had to be re-added — both are tracked now at `bf04b7b`. Double-check with
+>      `git ls-files` if anything else seems missing on the builder clone.
+>
+> RETRY SEQUENCE TOMORROW (after the asset-exclude fix is committed+pushed): re-deploy
+> `MahaloBuilderStack` from the VDI → SSM in → `git pull` on the builder →
+> `scripts/builder-deploy.sh --phase all` → capture outputs → USER validates in the
+> browser (READ + two-call HITL write) → teardown app stacks from builder, then
+> `MahaloBuilderStack` from the VDI last. SSO `lava` valid today (re-login if expired).
+>
+> ---
+>
 > ✅ TASK 7 DONE, committed + pushed (`main` @ `d4f386f`, in sync with origin).
 > The mahalo-dock Next.js chat frontend is ported into `frontend/` (retargeted to
 > the Task-6 thin API with the two-call `/chat` + `/chat/approve` HITL + browser
