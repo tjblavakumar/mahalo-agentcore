@@ -1,28 +1,23 @@
-"""CDK synth assertion tests for MahaloFrontendStack (Task 7, design §D.2/§B.2).
+"""CDK synth assertion tests for MahaloFrontendStack (Task 7, design §D.2 / Task 7c §C).
 
-Offline: the distribution has a SINGLE S3 origin (no Function-URL origin), the
-bucket is private, and the Cognito unauthenticated identity pool + role (granted
-only lambda:InvokeFunctionUrl) are present. The BucketDeployment is flag-gated,
-so the default synth needs no prior ``next build``.
+Offline: the distribution has a SINGLE S3 origin (no Function-URL origin) and the
+bucket is private. Task 7c removed the SCP-blocked Cognito unauthenticated
+identity pool + role, so no Cognito resources are present and the stack no longer
+takes an ``api_stack`` parameter. The BucketDeployment is flag-gated, so the
+default synth needs no prior ``next build``.
 """
 
 import aws_cdk as cdk
 from aws_cdk import assertions
 
-from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.frontend_stack import MahaloFrontendStack
-from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
-from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
 _ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
 
 
 def _frontend_template(context: dict | None = None) -> assertions.Template:
     app = cdk.App(context=context or {})
-    memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack", env=_ENV)
-    runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
-    api = MahaloApiStack(app, "MahaloApiStack", runtime_stack=runtime, env=_ENV)
-    frontend = MahaloFrontendStack(app, "MahaloFrontendStack", api_stack=api, env=_ENV)
+    frontend = MahaloFrontendStack(app, "MahaloFrontendStack", env=_ENV)
     return assertions.Template.from_stack(frontend)
 
 
@@ -67,37 +62,18 @@ def test_spa_error_responses():
         assert e["ResponseCode"] == 200
 
 
-def test_identity_pool_unauthenticated():
+def test_no_cognito_identity_pool():
+    # Task 7c: the SCP-blocked Cognito identity pool + role attachment are gone.
     tmpl = _frontend_template()
-    tmpl.resource_count_is("AWS::Cognito::IdentityPool", 1)
-    tmpl.has_resource_properties(
-        "AWS::Cognito::IdentityPool",
-        {"AllowUnauthenticatedIdentities": True},
-    )
-    tmpl.resource_count_is("AWS::Cognito::IdentityPoolRoleAttachment", 1)
+    tmpl.resource_count_is("AWS::Cognito::IdentityPool", 0)
+    tmpl.resource_count_is("AWS::Cognito::IdentityPoolRoleAttachment", 0)
 
 
-def test_unauth_role_only_invoke_function_url():
-    tmpl = _frontend_template()
-    policies = tmpl.find_resources("AWS::IAM::Policy")
-    invoke_actions = []
-    for policy in policies.values():
-        for stmt in policy["Properties"]["PolicyDocument"]["Statement"]:
-            act = stmt["Action"]
-            acts = act if isinstance(act, list) else [act]
-            if "lambda:InvokeFunctionUrl" in acts:
-                invoke_actions.append(acts)
-    assert invoke_actions, "expected a lambda:InvokeFunctionUrl grant"
-    # The grant is scoped to exactly that single action (least privilege).
-    for acts in invoke_actions:
-        assert acts == ["lambda:InvokeFunctionUrl"]
-
-
-def test_outputs_identity_pool_and_frontend_url():
+def test_outputs_frontend_url_only():
     tmpl = _frontend_template()
     outputs = tmpl.find_outputs("*")
-    assert "IdentityPoolId" in outputs
     assert "FrontendUrl" in outputs
+    assert "IdentityPoolId" not in outputs
 
 
 def test_bucket_deployment_flag_gated():

@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { buildSuggestions } from "@/lib/chatSuggestions";
 import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 import ChatInput from "@/components/chat/ChatInput";
 import ChatMessage from "@/components/chat/ChatMessage";
 import ProposalCard from "@/components/chat/ProposalCard";
@@ -38,6 +40,8 @@ interface ChatApiResponse {
 }
 
 export default function ChatPage() {
+  const router = useRouter();
+  const { persona, logout } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -61,12 +65,17 @@ export default function ChatPage() {
     return suffix ? `msg-${messageIdRef.current}-${suffix}` : `msg-${messageIdRef.current}`;
   }, []);
 
-  // Fixed demo starter prompts: a developer with GitHub + Jira connected and no
-  // scoped project. The thin API has no suggestions/connections backend, so the
-  // context is static rather than live.
+  // Starter prompts for the logged-in persona (GitHub + Jira connected, no
+  // scoped project). The thin API has no suggestions/connections backend, so the
+  // context is static rather than live; only the role tracks the persona.
   const templateSuggestions = useMemo(
-    () => buildSuggestions({ role: "developer", project: null, connectedTypes: ["github", "jira"] }),
-    []
+    () =>
+      buildSuggestions({
+        role: persona?.role ?? "developer",
+        project: null,
+        connectedTypes: ["github", "jira"],
+      }),
+    [persona?.role]
   );
 
   useEffect(() => {
@@ -82,11 +91,15 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    const result = await api.post<ChatApiResponse>("/chat", {
-      message,
-      session_id: sessionId,
-      project_id: null,
-    });
+    const result = await api.post<ChatApiResponse>(
+      "/chat",
+      {
+        message,
+        session_id: sessionId,
+        project_id: null,
+      },
+      persona?.personaId
+    );
 
     if (result.data) {
       if (!sessionId || result.data.session_id !== sessionId) {
@@ -121,11 +134,15 @@ export default function ChatPage() {
     if (!interruptId) return;
     setApprovingId(msg.id);
 
-    const result = await api.post<ActionResult>("/chat/approve", {
-      session_id: sessionId,
-      interrupt_id: interruptId,
-      approved: true,
-    });
+    const result = await api.post<ActionResult>(
+      "/chat/approve",
+      {
+        session_id: sessionId,
+        interrupt_id: interruptId,
+        approved: true,
+      },
+      persona?.personaId
+    );
 
     if (result.data) {
       setActionResults((prev) => ({ ...prev, [msg.id]: result.data! }));
@@ -139,11 +156,15 @@ export default function ChatPage() {
     if (!interruptId) return;
     setApprovingId(msg.id);
 
-    const result = await api.post<ActionResult>("/chat/approve", {
-      session_id: sessionId,
-      interrupt_id: interruptId,
-      approved: false,
-    });
+    const result = await api.post<ActionResult>(
+      "/chat/approve",
+      {
+        session_id: sessionId,
+        interrupt_id: interruptId,
+        approved: false,
+      },
+      persona?.personaId
+    );
 
     if (result.data) {
       setActionResults((prev) => ({ ...prev, [msg.id]: result.data! }));
@@ -162,6 +183,23 @@ export default function ChatPage() {
               Ask about your projects, sprints, documentation, and code
             </p>
           </div>
+          {persona && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">
+                {persona.personaLabel} · {persona.displayName}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  router.push("/login");
+                }}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Messages Area */}

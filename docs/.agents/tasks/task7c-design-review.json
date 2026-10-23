@@ -1,0 +1,27 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "location": "design \u00a7A.1 / investigation \u00a71",
+      "problem": "Cites mahalo-dock/mock-services/jira/seed_data.py as the source of the real dev-ids, but mahalo-dock does not exist in the workspace. The real file is tools-lambdas/jira/seed_data.py. Table values (dev-1 Marcus Chen, dev-5 David Kim, dev-6 Lava Dev) are verified correct, so this is a provenance citation error, not a data error.",
+      "fix": "Change the \u00a7A.1 source reference to tools-lambdas/jira/seed_data.py; no table value changes."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "location": "design \u00a7D.3",
+      "problem": "Instructs the implementer to 'port the SHAPE' of mahalo-dock's AuthContext.tsx / ProtectedRoute.tsx / login/page.tsx, but that repo is absent from the workspace. The behavioral spec in \u00a7D.3 is detailed enough to build each file without the reference, so this is not a blocker.",
+      "fix": "Drop the 'port from mahalo-dock' phrasing (or mark the mahalo-dock reference as external/unavailable) and treat the inline \u00a7D.3 behavioral spec as authoritative."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "location": "design \u00a7D.3 (layout.tsx / AuthContext.tsx)",
+      "problem": "layout.tsx is currently a Server Component (exports metadata); AuthProvider uses context/state/sessionStorage and must be a Client Component. The design does not state this explicitly.",
+      "fix": "Note that AuthContext.tsx carries \"use client\" and layout.tsx stays a Server Component rendering <AuthProvider> as a child so `export const metadata` remains valid; read node_modules/next/dist/docs/ before writing the layout/provider per the workspace rule."
+    }
+  ],
+  "reviewDoc": "docs/.agents/tasks/task7c-design-review.md"
+}

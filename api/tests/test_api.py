@@ -279,6 +279,93 @@ def test_approve_missing_interrupt_id_is_422():
 
 
 # --------------------------------------------------------------------------- #
+# persona-header -> identity mapping (Task 7c §A.3 / §F.1)
+# --------------------------------------------------------------------------- #
+
+def _capture_chat_body(monkeypatch) -> dict:
+    """Monkeypatch invoke_runtime to capture the forwarded /chat body."""
+    import app.routers.chat as chat
+
+    captured: dict = {}
+
+    def _fake_invoke(*, session_id, body, runtime_user_id=None):
+        captured.update(body)
+        return {"status": "complete", "response": "ok", "session_id": session_id}
+
+    monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
+    return captured
+
+
+def test_persona_header_pm_maps_to_dev1_product_manager(monkeypatch):
+    captured = _capture_chat_body(monkeypatch)
+    resp = _client().post(
+        "/chat", json={"message": "hi"}, headers={"X-Mahalo-Persona": "pm"}
+    )
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-1"
+    assert captured["role"] == "product_manager"
+
+
+def test_persona_header_dev_maps_to_dev6_developer(monkeypatch):
+    captured = _capture_chat_body(monkeypatch)
+    resp = _client().post(
+        "/chat", json={"message": "hi"}, headers={"X-Mahalo-Persona": "dev"}
+    )
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-6"
+    assert captured["role"] == "developer"
+
+
+def test_persona_header_exec_maps_to_dev5_executive(monkeypatch):
+    captured = _capture_chat_body(monkeypatch)
+    resp = _client().post(
+        "/chat", json={"message": "hi"}, headers={"X-Mahalo-Persona": "exec"}
+    )
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-5"
+    assert captured["role"] == "executive"
+
+
+def test_persona_header_absent_defaults_to_developer(monkeypatch):
+    captured = _capture_chat_body(monkeypatch)
+    resp = _client().post("/chat", json={"message": "hi"})
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-6"
+    assert captured["role"] == "developer"
+
+
+def test_persona_header_unknown_defaults_to_developer(monkeypatch):
+    captured = _capture_chat_body(monkeypatch)
+    resp = _client().post(
+        "/chat", json={"message": "hi"}, headers={"X-Mahalo-Persona": "wizard"}
+    )
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-6"
+    assert captured["role"] == "developer"
+
+
+def test_current_identity_maps_header():
+    from app.auth import Identity, current_identity
+
+    class _FakeRequest:
+        def __init__(self, headers: dict):
+            self.headers = headers
+
+    assert current_identity(_FakeRequest({"X-Mahalo-Persona": "exec"})) == Identity(
+        "dev-5", "executive"
+    )
+    # Case-insensitive + whitespace tolerant.
+    assert current_identity(_FakeRequest({"X-Mahalo-Persona": " PM "})) == Identity(
+        "dev-1", "product_manager"
+    )
+    # Empty / unknown -> safe developer default.
+    assert current_identity(_FakeRequest({"X-Mahalo-Persona": ""})) == Identity(
+        "dev-6", "developer"
+    )
+    assert current_identity(_FakeRequest({})) == Identity("dev-6", "developer")
+
+
+# --------------------------------------------------------------------------- #
 # zero-LangChain / no-agent guard over the source tree (item 10)
 # --------------------------------------------------------------------------- #
 
