@@ -127,7 +127,13 @@ class MahaloRuntimeStack(Stack):
             agent_runtime_artifact=artifact,
             environment_variables=environment,
             authorizer_configuration=authorizer,
-            tracing_enabled=True,
+            # Tracing provisions an X-Ray->CloudWatch Logs delivery pipeline that
+            # requires a one-time account-level UpdateTraceSegmentDestination
+            # (else AWS::Logs::Delivery fails and the stack rolls back). It is an
+            # observability nice-to-have, not needed for the demo, so keep it off.
+            # To enable later: run `aws xray update-trace-segment-destination
+            # --destination CloudWatchLogs` once, then set this True.
+            tracing_enabled=False,
             lifecycle_configuration=agentcore.LifecycleConfiguration(
                 idle_runtime_session_timeout=Duration.minutes(15),
                 max_lifetime=Duration.hours(8),
