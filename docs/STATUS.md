@@ -1,21 +1,40 @@
 # mahalo-agentcore â€” Project Status
 
-**Snapshot date:** 2026-10-18 (updated)
-**Branch:** `main` @ `d4f386f` â€” **Tasks 0-7 all committed + pushed, in sync with
-origin.** Every task is offline-complete + code-review APPROVED. Nothing of ours
-is deployed to AWS (only the free CDKToolkit bootstrap stack remains).
-**NEXT ACTION:** execute the **EC2 Docker-builder runbook**
-(`docs/.agents/tasks/task7b-ec2-builder-runbook.md`) for the full live end-to-end
-deploy + browser validation of Tasks 3-7 together, done WITH the user, then code
-review of Task 7b. The operator workstation is an AWS WorkSpaces VDI with **no
-local Docker** (no nested virtualization), so the deploy path is NOT "run
-`cdk deploy --all` locally with Docker Desktop" â€” it is **"provision
-`MahaloBuilderStack` from the VDI (Docker-free synth) â†’ SSM into the arm64 EC2
-builder â†’ run `scripts/builder-deploy.sh --phase all`"** (the builder has Docker
-and runs the two Docker-dependent deploys natively on Graviton). The app now has
-**11 CDK stacks** (the 10 app stacks + `MahaloBuilderStack`). See
-`docs/.agents/tasks/task7b-design.md` for the design. Then Task 8 (re-deployable
-CDK + teardown) and Task 9 (docs).
+**Snapshot date:** 2026-10-19 (updated)
+**Branch:** `main` (in sync with origin; history was rewritten + force-pushed for
+a security scrub — see below).
+
+**BACKEND IS DEPLOYED AND LIVE-VALIDATED END-TO-END.** Via the EC2 Docker-builder
+(`scripts/builder-deploy.sh`, run on an arm64 Graviton builder since the VDI has no
+Docker), the backend stacks are deployed and PROVEN working with real signed
+calls: a READ ("list my repositories" -> payment-service et al.) and a full HITL
+WRITE (propose -> approve -> executed; created PAY-111 and read it back) routed
+thin API -> AgentCore Runtime -> hosted Strands agent -> Bedrock Sonnet 4.5 ->
+GATEWAY/MCP -> mock Lambdas -> DynamoDB. Five deploy-time bugs were found+fixed
+(asset nesting, X-Ray tracing, Lambda arch, stale boto3, missing `common` in the
+image, DIRECT-vs-GATEWAY wiring). The backend stacks + the Gitea EC2 + the
+`MahaloBuilderStack` builder are CURRENTLY RUNNING (small spend).
+
+**FRONTEND auth reworked (task7c) — DONE offline, NOT yet deployed.** The
+SCP-blocked Cognito Identity Pool is removed; replaced with a hardcoded demo
+persona login (pm/dev/exec -> {developer_id, role}) so the operator logs in as
+Product Manager / Developer / Executive and the agent behaves as that persona.
+Thin-API Function URL -> `AuthType=NONE`; browser sends `X-Mahalo-Persona` header;
+`api/app/auth.py::current_identity` maps it (default developer). Offline gates
+GREEN (thin-API 21, frontend lint+19 tests+`npm run build` static export, infra
+frontend/api/app synth 12). Committed; NOT yet deployed.
+
+**SECURITY:** all sensitive identifiers (AWS account id, SSO role ARN, SSO UserId,
+corporate email, SSO role name, OS user paths) were scrubbed from every tracked
+file AND purged from ALL git history via `git filter-repo`, then force-pushed.
+`infra-cdk/app.py` reads the account from `CDK_DEFAULT_ACCOUNT`/`AWS_ACCOUNT_ID`
+env; tests use dummy account `123456789012`. Verified: no secrets in any commit.
+
+**NEXT ACTION:** redeploy the frontend + thin API via the builder (the thin API
+needs the new persona `auth.py` + `AuthType=NONE`; the frontend stack is now
+Cognito-free), then the operator validates persona login + chat in the browser.
+The app has 11 CDK stacks (10 app + `MahaloBuilderStack`). Then Task 8
+(re-deployable CDK + teardown) and Task 9 (docs).
 **Repo:** https://github.com/tjblavakumar/mahalo-agentcore
 
 This is the one-page "where are we" view. For per-task depth see `docs/PLAN.md`
