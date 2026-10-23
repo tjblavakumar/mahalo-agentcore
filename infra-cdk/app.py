@@ -57,7 +57,7 @@ def main() -> None:
         )
     # Task 4: the Gateway stack fronts the four mock Lambdas (ARNs by direct
     # construct reference; CDK auto-orders the deploy via the implicit dependency).
-    MahaloGatewayStack(
+    gateway_stack = MahaloGatewayStack(
         app,
         "MahaloGatewayStack",
         mock_stacks=mock_stacks,
@@ -72,12 +72,17 @@ def main() -> None:
     )
     # Task 6: Runtime hosting the Strands agent (L2 agentcore.Runtime) + the thin
     # API Function-URL Lambda. Direct construct references (no Fn.import_value),
-    # mirroring how the gateway/memory stacks are wired. DIRECT tool mode by
-    # default so no gateway cross-reference is required for the offline gate.
+    # mirroring how the gateway/memory stacks are wired.
+    # GATEWAY tool mode (the intended production path): the hosted agent reaches
+    # the four mock Lambdas through the deployed AgentCore Gateway over MCP, so
+    # _environment sets MAHALO_GATEWAY_MCP_URL from gateway_stack. (DIRECT mode's
+    # localhost:500x mock URLs do not exist inside the Runtime container.)
     runtime_stack = MahaloRuntimeStack(
         app,
         "MahaloRuntimeStack",
         memory_stack=memory_identity,
+        gateway_stack=gateway_stack,
+        tool_mode="gateway",
         env=_ENV,
     )
     api_stack = MahaloApiStack(
