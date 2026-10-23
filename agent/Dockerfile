@@ -18,6 +18,14 @@ RUN pip install --no-cache-dir -r agent/requirements.txt
 # Copy the whole agent package (25 tools + the runtime harness).
 COPY agent/ ./agent/
 
+# The agent imports the shared `common` package (single-source assignee resolver
+# + schemas, created in Task 4 under tools-lambdas/common/). agent/tools/jira_tools.py
+# does `from common.assignee import resolve_assignee`, so `common` MUST be on the
+# path inside the image. Copy it to /app/common (WORKDIR /app is on sys.path for
+# `python -m agent.runtime_app`). Without this the Runtime fails to start with
+# ModuleNotFoundError: No module named 'common'.
+COPY tools-lambdas/common/ ./common/
+
 # NOTE (design §A.6 / Finding 1): do NOT set AWS_PROFILE. agent/config.py then
 # resolves the "lava" default; _build_bedrock_model checks botocore
 # available_profiles and, because "lava" is absent in the container, builds a
