@@ -1,17 +1,17 @@
-# Task 6 — Runtime hosting: OFFLINE verification
+# Task 6 â€” Runtime hosting: OFFLINE verification
 
 Host the Strands agent on **Amazon Bedrock AgentCore Runtime** behind a thin,
 stateless API (`api/`). This document records the **offline gate** re-run with
 **real output** in a clean environment (no `MAHALO_*` env vars set), confirms the
 Task-6 success criteria that are provable offline, and lists the **deferred live
-operator steps** (which were NOT run — no live/deploy results are fabricated).
+operator steps** (which were NOT run â€” no live/deploy results are fabricated).
 
 - Code review: **APPROVED** (`docs/.agents/tasks/task6-code-review.json`, 0
   blocking findings; 2 non-blocking "possible" items scheduled for the live gate).
-- Deploy policy: the automated gate is **OFFLINE** — `cdk synth` + unit tests +
+- Deploy policy: the automated gate is **OFFLINE** â€” `cdk synth` + unit tests +
   import/construct, no network, no AWS creds. Nothing here auto-deploys.
 - Hard rule honored: every artifact is under
-  `D:/<USER>/LavaCode/AI/mahalo-agentcore`; `mahalo-dock` untouched.
+  `<WORKSPACE_ROOT>`; `mahalo-dock` untouched.
 
 Environment for the run: a PowerShell session with **no `MAHALO_*` env vars**
 (the Task-5 `test_memory_mode.py` / `test_gateway_mode.py` cases read ambient env
@@ -22,7 +22,7 @@ guard that removes any ambient `MAHALO_*` vars for the child process.
 
 ## Commands run and REAL output (offline only)
 
-### 1. Agent suite — Runtime entrypoint + all prior baselines
+### 1. Agent suite â€” Runtime entrypoint + all prior baselines
 
 Clean env, then:
 
@@ -40,7 +40,7 @@ Real output (tail):
 ```
 
 **Result: 99 passed, 1 skipped.** The 1 skip is the single live-integration test
-(`test_integration_live.py`) that skips gracefully with the tunnel/mocks down —
+(`test_integration_live.py`) that skips gracefully with the tunnel/mocks down â€”
 not fabricated, same skip carried since Task 1.
 
 Per-file collection (clean env, `--collect-only`):
@@ -55,21 +55,21 @@ Per-file collection (clean env, `--collect-only`):
 | `test_memory_mode.py` | 10 |
 | `test_runtime_app.py` | **24 (Task 6)** |
 | `test_integration_live.py` | 1 (skipped) |
-| **total** | **100 collected → 99 passed / 1 skipped** |
+| **total** | **100 collected â†’ 99 passed / 1 skipped** |
 
 This is the clean-env **69 passed / 1 skipped** baseline from Task 5 **plus 30
 Task-6 additions**, all green:
-- **DIRECT** core preserved — the Task-1/2 read+write+HITL baseline (42 passed /
+- **DIRECT** core preserved â€” the Task-1/2 read+write+HITL baseline (42 passed /
   1 skipped) lives in `test_tools_unit.py` (13) + `test_write_tools_unit.py` (36)
   + `test_hitl.py` (6) + the integration skip; untouched.
 - **Task-4 GATEWAY** (`test_gateway_mode.py`, 6) and **Task-5 Memory/Identity**
   (`test_memory_mode.py` 10 + `test_identity_mode.py` 4) preserved.
 - **Task-6** adds `test_runtime_app.py` (24): entrypoint chat/approve legs, HITL
-  propose→approve→reject, chain-breadcrumb-from-restored-state, session-id
+  proposeâ†’approveâ†’reject, chain-breadcrumb-from-restored-state, session-id
   contract, input validation, `build_and_attach` composition order (DIRECT and
   GATEWAY), import-time offline-safety, and the Bedrock profile-resolution path.
 
-### 2. Thin API suite (`api/`) — the stateless forwarder
+### 2. Thin API suite (`api/`) â€” the stateless forwarder
 
 ```powershell
 & "api/.venv/Scripts/python.exe" -m pytest api -q
@@ -83,7 +83,7 @@ Real output (tail):
 ```
 
 **Result: 15 passed.** Covers: offline import of the FastAPI app + Mangum handler,
-the §A.3 request/response contract forwarding (chat + approve/reject), error
+the Â§A.3 request/response contract forwarding (chat + approve/reject), error
 mapping (502 on invoke failure, in-band error passthrough), and the **zero-agent /
 zero-LangChain** guards over the `api/` source tree and over `sys.modules` after
 importing `app.main`.
@@ -102,7 +102,7 @@ Real output (tail):
 94 passed, 634 warnings in 58.91s
 ```
 
-**Result: 94 passed** — the Task-3/4 baseline (94) preserved; Task 6 did not
+**Result: 94 passed** â€” the Task-3/4 baseline (94) preserved; Task 6 did not
 touch the Lambdas. (Warnings are upstream botocore `utcnow()` deprecations.)
 
 ### 4. infra-cdk suite (in `infra-cdk/.venv`)
@@ -150,7 +150,7 @@ Successfully synthesized to ...\infra-cdk\cdk.out
 EXITCODE=0
 ```
 
-**Exit 0.** Eight templates produced — the six from Task 5 plus the two new
+**Exit 0.** Eight templates produced â€” the six from Task 5 plus the two new
 Task-6 stacks:
 
 ```
@@ -215,7 +215,7 @@ Confirms:
   the `/chat` + `/chat/approve` + `/healthz` routes are present. The boto3
   `bedrock-agentcore` client is lazy, so import touches no AWS.
 - **Zero forbidden imports:** importing the thin API pulls in **no `agent.*` and
-  no `langchain*`** modules — the edge is a pure forwarder.
+  no `langchain*`** modules â€” the edge is a pure forwarder.
 
 ### 7. Zero LangChain anywhere
 
@@ -224,35 +224,35 @@ A tree-wide search for `langchain`/`langgraph` import statements across
 the `api/tests/test_api.py` guards that fail if any `langchain`/`agent` import
 appears, and comments in `api/requirements.txt` / `api/app/__init__.py` stating
 the forwarder must not import LangChain. There are **no LangChain or LangGraph
-imports** in any source or requirements file. The runtime import check in §6 also
+imports** in any source or requirements file. The runtime import check in Â§6 also
 confirms zero `langchain*` modules load at import.
 
 ---
 
-## Success criteria — confirmation (offline-provable)
+## Success criteria â€” confirmation (offline-provable)
 
 | Criterion | Status | Evidence (offline) |
 |-----------|--------|--------------------|
-| Runtime entrypoint hosts the agent | ✅ | `agent/runtime_app.py` — `BedrockAgentCoreApp` + single `@app.entrypoint invoke`, reusing the unchanged `build_agent` seam via `agent/runtime_session.build_and_attach`; imports offline (§6); synthed as `AWS::BedrockAgentCore::Runtime` + endpoint (§5). |
-| Thin stateless API with request/response contract | ✅ | `api/app` FastAPI + Mangum Function-URL Lambda; `/chat` + `/chat/approve` forward the §A.3 `{action, prompt/decision, interrupt_id, ...}` request and map `{response, proposal?, session_id, status, error?}` back; 15/15 tests (§2); synthed as Lambda + Function URL `AWS_IAM` (§5). |
-| HITL approve/reject over the two-call protocol | ✅ | `_handle_chat` returns `pending_approval` + proposal on interrupt; `_handle_approve` resumes the restored interrupt, emits the `[SYSTEM]` breadcrumb only on a closed APPROVE cycle, nothing on REJECT; the six writes stay gated by `WriteApprovalHook`. Covered by `test_runtime_app.py` (pending/approve/reject/chained-repropose/stale-id). |
-| Session contract | ✅ | Session id arrives on the `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id` header (surfaced as `context.session_id`), never in the body; a missing header is generated + echoed back. `test_missing_session_header_generates_and_echoes_id` + the thin-API `session_id` passthrough. |
-| Offline-constructible + unit-tested with stubs | ✅ | Entrypoint and thin API import/construct with no network/creds (§6); `build_and_attach` and the entrypoint legs are unit-tested with `build_and_attach` / agent / Memory-manager stubbed (§1, §2). |
-| Per-request sessions wired to Task-5 Memory, cross-invocation persistence demonstrated offline via a mocked Memory client | ✅ | `build_and_attach(session_id, ...)` calls `build_agent(memory=True, session_id=...)` → `attach_memory` (the single AWS touch: `ListEvents` rehydrate + per-turn persistence hooks). Offline proof with a **stubbed/mocked Memory manager**: `test_memory_mode.py` asserts the STM config (`filter_restored_tool_context=True`, `batch_size=1`, session_id/actor_id binding) and that the per-turn persistence callbacks register; `test_runtime_app.py::test_approve_emits_breadcrumb_from_restored_state` demonstrates the approve leg deriving the chain breadcrumb from **restored** interrupt state (i.e. state carried across an invocation boundary) with the Memory layer stubbed. |
-| Deferred Identity Runtime path landed | ✅ | The Runtime Workload-Access-Token plumbing is in place and config-flippable: `runtime_stack` injects `MAHALO_IDENTITY_ENABLED` (off for the AWS_IAM MVP) + `MAHALO_IDENTITY_JIRA_PROVIDER`; `MahaloApiStack(identity_enabled=True)` wires the per-user `grant_invoke_runtime_for_user`; `runtime_client.invoke_runtime` forwards `runtimeUserId`; the chat router sends `runtimeUserId` only when Identity is enabled. Descoped from the live MVP gate per the design (SigV4 inbound) — the enablement flip (not a redesign) is in the deploy runbook. |
-| DIRECT / GATEWAY CLI intact | ✅ | `agent/chat.py` unchanged for DIRECT (default) and GATEWAY; `test_gateway_mode.py` (6) + the DIRECT read/write/HITL suite all green (§1). `build_and_attach` reuses the same `attach_gateway_tools`→`attach_memory` seams as the CLI (single MCP start, no double-start). |
-| Zero LangChain | ✅ | §7 — no LangChain/LangGraph imports anywhere; thin-API import loads zero `langchain*` / `agent.*` modules (§6). |
+| Runtime entrypoint hosts the agent | âœ… | `agent/runtime_app.py` â€” `BedrockAgentCoreApp` + single `@app.entrypoint invoke`, reusing the unchanged `build_agent` seam via `agent/runtime_session.build_and_attach`; imports offline (Â§6); synthed as `AWS::BedrockAgentCore::Runtime` + endpoint (Â§5). |
+| Thin stateless API with request/response contract | âœ… | `api/app` FastAPI + Mangum Function-URL Lambda; `/chat` + `/chat/approve` forward the Â§A.3 `{action, prompt/decision, interrupt_id, ...}` request and map `{response, proposal?, session_id, status, error?}` back; 15/15 tests (Â§2); synthed as Lambda + Function URL `AWS_IAM` (Â§5). |
+| HITL approve/reject over the two-call protocol | âœ… | `_handle_chat` returns `pending_approval` + proposal on interrupt; `_handle_approve` resumes the restored interrupt, emits the `[SYSTEM]` breadcrumb only on a closed APPROVE cycle, nothing on REJECT; the six writes stay gated by `WriteApprovalHook`. Covered by `test_runtime_app.py` (pending/approve/reject/chained-repropose/stale-id). |
+| Session contract | âœ… | Session id arrives on the `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id` header (surfaced as `context.session_id`), never in the body; a missing header is generated + echoed back. `test_missing_session_header_generates_and_echoes_id` + the thin-API `session_id` passthrough. |
+| Offline-constructible + unit-tested with stubs | âœ… | Entrypoint and thin API import/construct with no network/creds (Â§6); `build_and_attach` and the entrypoint legs are unit-tested with `build_and_attach` / agent / Memory-manager stubbed (Â§1, Â§2). |
+| Per-request sessions wired to Task-5 Memory, cross-invocation persistence demonstrated offline via a mocked Memory client | âœ… | `build_and_attach(session_id, ...)` calls `build_agent(memory=True, session_id=...)` â†’ `attach_memory` (the single AWS touch: `ListEvents` rehydrate + per-turn persistence hooks). Offline proof with a **stubbed/mocked Memory manager**: `test_memory_mode.py` asserts the STM config (`filter_restored_tool_context=True`, `batch_size=1`, session_id/actor_id binding) and that the per-turn persistence callbacks register; `test_runtime_app.py::test_approve_emits_breadcrumb_from_restored_state` demonstrates the approve leg deriving the chain breadcrumb from **restored** interrupt state (i.e. state carried across an invocation boundary) with the Memory layer stubbed. |
+| Deferred Identity Runtime path landed | âœ… | The Runtime Workload-Access-Token plumbing is in place and config-flippable: `runtime_stack` injects `MAHALO_IDENTITY_ENABLED` (off for the AWS_IAM MVP) + `MAHALO_IDENTITY_JIRA_PROVIDER`; `MahaloApiStack(identity_enabled=True)` wires the per-user `grant_invoke_runtime_for_user`; `runtime_client.invoke_runtime` forwards `runtimeUserId`; the chat router sends `runtimeUserId` only when Identity is enabled. Descoped from the live MVP gate per the design (SigV4 inbound) â€” the enablement flip (not a redesign) is in the deploy runbook. |
+| DIRECT / GATEWAY CLI intact | âœ… | `agent/chat.py` unchanged for DIRECT (default) and GATEWAY; `test_gateway_mode.py` (6) + the DIRECT read/write/HITL suite all green (Â§1). `build_and_attach` reuses the same `attach_gateway_tools`â†’`attach_memory` seams as the CLI (single MCP start, no double-start). |
+| Zero LangChain | âœ… | Â§7 â€” no LangChain/LangGraph imports anywhere; thin-API import loads zero `langchain*` / `agent.*` modules (Â§6). |
 
 **Not provable offline (scheduled for the live gate):** the two non-blocking
-code-review "possible" items — (1) the direct-Runtime-call session-id fallback
+code-review "possible" items â€” (1) the direct-Runtime-call session-id fallback
 length (32-char hex vs AgentCore's 33-char minimum; cannot fire via the thin API,
 which sends a 36-char uuid4), and (2) the cross-VM HITL restore under live
 conditions (`filter_restored_tool_context=False` pending-write rebuild across a
-cold process boundary). Both are addressed in the live runbook §C.5.
+cold process boundary). Both are addressed in the live runbook Â§C.5.
 
 ---
 
-## DEFERRED LIVE OPERATOR STEPS (NOT run here — documented only)
+## DEFERRED LIVE OPERATOR STEPS (NOT run here â€” documented only)
 
 These are **billable, operator-run** steps for a live Runtime demo. The full
 runbook is `docs/.agents/tasks/task6-deploy-runbook.md`; the exact commands are
@@ -280,7 +280,7 @@ flag before the deploy:
 $env:MAHALO_BUILD_IMAGE = "1"   # turns on the Docker build/bundle branches
 ```
 
-### CDK deploy (CDK L2 Runtime path — not starter-toolkit/boto3)
+### CDK deploy (CDK L2 Runtime path â€” not starter-toolkit/boto3)
 
 Deploy the dependency stacks first, then the Runtime, then the thin API
 (direct construct refs let CDK auto-order; listed explicitly for clarity):
@@ -300,28 +300,28 @@ cdk deploy MahaloApiStack --profile lava        # note the RuntimeApiUrl output
 
 ### End-to-end live invocation checks (through the deployed thin API, SigV4-signed)
 
-1. **READ** — a read routes Strands → Bedrock → tools → reply:
+1. **READ** â€” a read routes Strands â†’ Bedrock â†’ tools â†’ reply:
    ```
    POST <RuntimeApiUrl>/chat   {"message":"list my repositories"}
    ```
    Expect a `complete` reply naming the real mock repos (e.g. `payment-service`).
 
-2. **HITL WRITE via the two-call approve protocol** — propose, then approve:
+2. **HITL WRITE via the two-call approve protocol** â€” propose, then approve:
    ```
    POST <RuntimeApiUrl>/chat          {"message":"create a feature branch for PAY-109"}
       -> expect status=pending_approval + a proposal, NOTHING written yet
    POST <RuntimeApiUrl>/chat/approve  {"session_id":S,"interrupt_id":<id>,"approved":true}
       -> expect exactly one write and NO ValidationException
    ```
-   On a fresh proposal, `approved:false` must write nothing. A branch → commit →
+   On a fresh proposal, `approved:false` must write nothing. A branch â†’ commit â†’
    PR chain across three approves must re-propose no completed step (the
    `[SYSTEM]` breadcrumb is persisted to Memory and seen on the next turn).
    > If the approve raises a `ValidationException` (toolResult/toolUse mismatch),
-   > apply the design §C.4 fallback (explicit `pending_action` proposal) — this is
+   > apply the design Â§C.4 fallback (explicit `pending_action` proposal) â€” this is
    > the designated live gate for the `filter_restored_tool_context=False`
    > pending-write rebuild, not a surprise.
 
-3. **Cross-invocation Memory persistence** — same `session_id` across two calls:
+3. **Cross-invocation Memory persistence** â€” same `session_id` across two calls:
    ```
    POST <RuntimeApiUrl>/chat  {"message":"remember my favorite repo is payment-service","session_id":S}
    POST <RuntimeApiUrl>/chat  {"message":"what's my favorite repo?","session_id":S}
@@ -352,9 +352,9 @@ cdk deploy MahaloApiStack --profile lava        # note the RuntimeApiUrl output
 | Thin API suite (`pytest api -q`) | **15 passed** |
 | tools-lambdas (`pytest tools-lambdas/tests -q`) | **94 passed** |
 | infra-cdk (`pytest tests -q`) | **42 passed, 1 skipped** (Docker deploy-branch test, operator-only) |
-| `cdk synth --all` | **exit 0** — 8 templates (incl. `MahaloRuntimeStack`, `MahaloApiStack`) |
-| Runtime entrypoint import offline | **OK** — `BedrockAgentCoreApp`, no network |
-| Thin API import offline | **OK** — zero `agent.*` / `langchain*` imports |
-| Zero LangChain | **confirmed** — no LangChain/LangGraph imports anywhere |
+| `cdk synth --all` | **exit 0** â€” 8 templates (incl. `MahaloRuntimeStack`, `MahaloApiStack`) |
+| Runtime entrypoint import offline | **OK** â€” `BedrockAgentCoreApp`, no network |
+| Thin API import offline | **OK** â€” zero `agent.*` / `langchain*` imports |
+| Zero LangChain | **confirmed** â€” no LangChain/LangGraph imports anywhere |
 
 No deploy was run; no live/Memory/Identity results were fabricated.

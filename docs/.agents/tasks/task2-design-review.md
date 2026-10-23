@@ -1,11 +1,11 @@
-# Task 2 — Design review (fresh, no authoring context)
+# Task 2 â€” Design review (fresh, no authoring context)
 
 Reviewed: `docs/.agents/tasks/task2-design.md` and `docs/.agents/tasks/task2-hitl-decision.md`.
 
-This review was performed by reading the actual sources the design cites —
+This review was performed by reading the actual sources the design cites â€”
 the installed Strands 1.61.1 SDK under `agent/.venv/Lib/site-packages/strands`,
 the new `agent/` package, and the mahalo-dock originals under
-`D:\<USER>\LavaCode\AI\mahalo-dock` — rather than taking the
+`<FALLBACK_ROOT>` â€” rather than taking the
 design's word for any claim.
 
 ## Verdict
@@ -15,7 +15,7 @@ precision/wording fixes that do not block implementation.
 
 The three load-bearing requirements all hold under source verification:
 
-1. The HITL mechanism decision is grounded in the real 1.61.1 SDK — every cited
+1. The HITL mechanism decision is grounded in the real 1.61.1 SDK â€” every cited
    symbol exists and the resume/replay behavior is confirmed from source, not
    asserted.
 2. All six write-tool contracts (names, params, verbs, endpoints, bodies,
@@ -27,20 +27,20 @@ The three load-bearing requirements all hold under source verification:
 
 ## Findings
 
-### 1. NIT — HITL decision's mechanistic explanation of `end_tool_cycle()` filtering is inaccurate (conclusion is still correct)
+### 1. NIT â€” HITL decision's mechanistic explanation of `end_tool_cycle()` filtering is inaccurate (conclusion is still correct)
 
-**Where:** `task2-hitl-decision.md`, "Resume re-fires `BeforeToolCallEvent` —
+**Where:** `task2-hitl-decision.md`, "Resume re-fires `BeforeToolCallEvent` â€”
 verified" bullet: *"the interrupt id does not start with
-`_AGENT_STREAM_INTERRUPT_ID_PREFIX` … so `end_tool_cycle()` / `to_dict()`'s
+`_AGENT_STREAM_INTERRUPT_ID_PREFIX` â€¦ so `end_tool_cycle()` / `to_dict()`'s
 invocation-scoped filtering does not drop it before the resume applies the
 response."*
 
 **Problem:** This reasoning is backwards. Reading
 `strands/interrupt.py::_InterruptState.end_tool_cycle()`, it *keeps only*
 interrupts whose id starts with `_AGENT_STREAM_INTERRUPT_ID_PREFIX` **and** has a
-non-None response; everything else (including our `v1:before_tool_call:…` id) is
+non-None response; everything else (including our `v1:before_tool_call:â€¦` id) is
 **dropped**. So the before-tool-call interrupt does not "survive
-`end_tool_cycle()` filtering" — it would be cleared if that function ran.
+`end_tool_cycle()` filtering" â€” it would be cleared if that function ran.
 
 The real reason the interrupt persists to the resume: in
 `strands/event_loop/event_loop.py::_handle_tool_execution`, when an interrupt is
@@ -54,8 +54,8 @@ assistant message (same `toolUseId`), `BeforeToolCallEvent._interrupt_id`
 recomputes the identical id, and `event.interrupt()` finds the stored interrupt
 now carrying a response and **returns** it.
 
-**Why NIT not MEDIUM:** the design's *conclusion* — that the second-pass
-`event.interrupt()` returns the stored response — is correct and I verified it
+**Why NIT not MEDIUM:** the design's *conclusion* â€” that the second-pass
+`event.interrupt()` returns the stored response â€” is correct and I verified it
 end to end from source. Only the stated justification is wrong, so the design is
 safe to build on; the explanation should be corrected so a future reader isn't
 misled.
@@ -70,47 +70,47 @@ misled.
 > id, and the replayed `BeforeToolCallEvent` recomputes the same id and returns
 > that response.
 
-### 2. NIT — `jira_update_story` PUT body shape is stated ambiguously
+### 2. NIT â€” `jira_update_story` PUT body shape is stated ambiguously
 
 **Where:** `task2-design.md`, Jira contract table, `jira_update_story` row:
 *"PUT `/stories/{story_id}` (body = only provided fields, under the resolved
 change set)"*.
 
-**Problem:** "under the resolved change set" is ambiguous — it could be read as a
+**Problem:** "under the resolved change set" is ambiguous â€” it could be read as a
 wrapped `{"changes": {...}}` body. The verified mahalo-dock executor sends the
 **bare** changes dict: `client.put(f"{url}/stories/{story_id}",
 json=params.get("changes", {}))`, and the mock's `UpdateStoryRequest` (verified
 in `mock-services/jira/main.py`) expects top-level `status`/`assignee`/`priority`/
 `sprint_id`/`story_points`. A wrapped body would be silently ignored by the mock
-(all fields None → no-op update returning the unchanged story).
+(all fields None â†’ no-op update returning the unchanged story).
 
 **Fix:** State explicitly: *"PUT body is the bare `changes` dict (top-level
 `status`/`assignee`/`priority`/`sprint_id`/`story_points`), not wrapped under a
-`changes` key — i.e. `make_request(..., method="PUT", body=changes)`."* The test
+`changes` key â€” i.e. `make_request(..., method="PUT", body=changes)`."* The test
 plan (item 5) already says "with only provided `changes`"; make the contract
 table match that intent so the implementer does not wrap it.
 
-### 3. NIT — pre-GET seam named as `make_request` but the frozen read module actually calls it via the `_jira_request` wrapper
+### 3. NIT â€” pre-GET seam named as `make_request` but the frozen read module actually calls it via the `_jira_request` wrapper
 
 **Where:** `task2-design.md`, Jira contract note: *"reuses the shared read seam
 `make_request(settings.jira_url, settings.jira_token,
-endpoint=f"/stories/{story_id}")` … the same call the read tool `jira_get_story`
+endpoint=f"/stories/{story_id}")` â€¦ the same call the read tool `jira_get_story`
 already makes."*
 
 **Problem:** Minor imprecision. Verified in `agent/tools/jira_tools.py`:
-`jira_get_story` does not call `make_request` directly — it calls the
+`jira_get_story` does not call `make_request` directly â€” it calls the
 module-private `_jira_request(endpoint=...)`, which in turn calls
 `make_request(settings.jira_url, settings.jira_token, endpoint=..., params=...)`.
 Functionally identical (same URL, token, default GET), so this does not affect
 correctness; the wording just over-claims "the same call."
 
 **Fix:** Either call the pre-GET through `_jira_request` for exactness, or
-reword to: *"issues the same GET `jira_get_story` makes — `make_request(...)`
+reword to: *"issues the same GET `jira_get_story` makes â€” `make_request(...)`
 via the module's `_jira_request` helper."* Note `_jira_request` is module-private
 to the frozen read module, so if the write module calls it directly that adds a
 third imported private symbol alongside `_resolve_assignee`/`_fetch_developers`;
 calling `make_request` directly (as the design currently states) avoids that and
-is the cleaner choice — just fix the "same call" wording.
+is the cleaner choice â€” just fix the "same call" wording.
 
 ---
 
@@ -125,7 +125,7 @@ Each item below was confirmed by reading the cited source this review iteration.
   as described.
 - `_InterruptState.resume(prompt)` requires a list of `interruptResponse`
   contents, writes `response` onto the stored `Interrupt` by `interruptId`, and
-  raises `KeyError` for an unknown id — matches the design.
+  raises `KeyError` for an unknown id â€” matches the design.
 - `strands/types/interrupt.py::_Interruptible.interrupt(name, reason, response)`
   raises `InterruptException` on first (unanswered) call and **returns** the
   stored response on the second call (`if interrupt_.response is not None:
@@ -134,13 +134,13 @@ Each item below was confirmed by reading the cited source this review iteration.
 - The module docstring carries the worked `delete_tool` approval example using
   `BeforeToolCallEvent`, `event.interrupt("for_delete_tool", reason=...)`,
   `event.cancel_tool`, `result.stop_reason == "interrupt"`, and resume via
-  `{"interruptResponse": {"interruptId", "response"}}` — the design adopts this
+  `{"interruptResponse": {"interruptId", "response"}}` â€” the design adopts this
   pattern faithfully.
 - `strands/hooks/events.py::BeforeToolCallEvent` is
   `HookEvent[...] , _Interruptible` with writable `cancel_tool`,
   `selected_tool`, `tool_use`, and
   `_interrupt_id = f"v1:before_tool_call:{self.tool_use['toolUseId']}:{uuid5(NAMESPACE_OID, name)}"`
-  — exactly as cited, so a constant interrupt name is sufficient for per-call
+  â€” exactly as cited, so a constant interrupt name is sufficient for per-call
   uniqueness (design finding 4 resolution holds).
 - `event_loop.py` confirms: the resume replays `PendingToolExecution.
   assistant_message` as `tool_use` **without re-calling the model**; the same
@@ -148,39 +148,39 @@ Each item below was confirmed by reading the cited source this review iteration.
   is in the "bubble, do not wrap" set. The interrupt is preserved across the
   return/resume boundary because `_stop_for_interrupts` returns before
   `end_tool_cycle()` (see Finding 1).
-- The fallback clause ("if no native mechanism exists…") correctly does not
-  apply — a native mechanism exists and is used.
+- The fallback clause ("if no native mechanism existsâ€¦") correctly does not
+  apply â€” a native mechanism exists and is used.
 
 **Write-tool contracts (traced to mahalo-dock `agent/agent.py::execute_proposed_action`):**
-- `jira_create_story` → POST `/stories`, body = full params, 201 → `✅ Story
-  created successfully: **{id}** - {title}`. ✓
-- `jira_update_story` → PUT `/stories/{story_id}`, body = bare `changes` dict,
-  200 → `✅ Story updated successfully: **{id}** - {title}`. ✓ (see Finding 2 for
+- `jira_create_story` â†’ POST `/stories`, body = full params, 201 â†’ `âœ… Story
+  created successfully: **{id}** - {title}`. âœ“
+- `jira_update_story` â†’ PUT `/stories/{story_id}`, body = bare `changes` dict,
+  200 â†’ `âœ… Story updated successfully: **{id}** - {title}`. âœ“ (see Finding 2 for
   the body-shape wording.) The mock `@app.put("/stories/{story_id}")` returns
   default 200 and echoes the full story (has `id` and `title`), so the success
-  string is valid against the real mock, not merely a test fixture — the design's
+  string is valid against the real mock, not merely a test fixture â€” the design's
   finding-7 caveat is conservative.
-- `github_create_branch` → POST `/repos/{repo_id}/branches`, body
-  `{"name", "from_branch"}`, 201 → `✅ Branch created successfully: **{name}**`.
-  ✓ Already-exists: executor treats `status in (409, 422)` or `"already exists"`
+- `github_create_branch` â†’ POST `/repos/{repo_id}/branches`, body
+  `{"name", "from_branch"}`, 201 â†’ `âœ… Branch created successfully: **{name}**`.
+  âœ“ Already-exists: executor treats `status in (409, 422)` or `"already exists"`
   in text as success; the mock `create_branch` raises `BackendError(409, "Branch
   already exists")` on a duplicate (verified in
   `mock-services/github/mock_backend.py`). The design's detection on the
   `make_request` error string (`"status 409"` / `"status 422"` / `"already
   exists"`) covers this.
-- `github_commit_files` → POST `/repos/{repo_id}/commits`, body
-  `{"branch", "message", "files"}`, 201 → `✅ Committed {files} to **{branch}**`
-  (+ optional `🔗 {url}`). ✓
-- `github_open_pull_request` → POST `/repos/{repo_id}/pulls`, body
-  `{"head", "base", "title" or head, "body"}`, 201 → `✅ Pull request opened:
-  **#{number}** {title}` (+ optional url). ✓
-- `servicenow_create_incident` → POST `/incidents`, body = full params, 201 →
-  `✅ Incident opened successfully: **{id}** - {title} ({severity})`. ✓
+- `github_commit_files` â†’ POST `/repos/{repo_id}/commits`, body
+  `{"branch", "message", "files"}`, 201 â†’ `âœ… Committed {files} to **{branch}**`
+  (+ optional `ðŸ”— {url}`). âœ“
+- `github_open_pull_request` â†’ POST `/repos/{repo_id}/pulls`, body
+  `{"head", "base", "title" or head, "body"}`, 201 â†’ `âœ… Pull request opened:
+  **#{number}** {title}` (+ optional url). âœ“
+- `servicenow_create_incident` â†’ POST `/incidents`, body = full params, 201 â†’
+  `âœ… Incident opened successfully: **{id}** - {title} ({severity})`. âœ“
 - All write-tool signatures/defaults/docstring tags (`[WRITE ACTION - REQUIRES
   APPROVAL]`, repo-NAME discipline, full-file-contents rule,
   `_normalize_files_arg` behavior) match the mahalo-dock tool modules verbatim.
 - `agent/tools/http.py::make_request` supports GET/POST/PUT and returns
-  `{"error": "Request failed with status {code}: {text}"}` on non-2xx — the seam
+  `{"error": "Request failed with status {code}: {text}"}` on non-2xx â€” the seam
   the write tools reuse. Confirmed.
 
 **Count / behavior requirements:**
@@ -192,11 +192,11 @@ Each item below was confirmed by reading the cited source this review iteration.
   `mahalo-dock/backend/app/routers/chat.py::approve_action` (create_branch,
   commit_files, open_pull_request, plus the generic fallback). Verified
   character-for-character. The design uses `p['key']` direct indexing for
-  required positional params (`branch_name`, `branch`, `head`, `repo_id` — always
+  required positional params (`branch_name`, `branch`, `head`, `repo_id` â€” always
   present in `tool_use["input"]`) and `p.get('base', 'main')` for the defaulted
   `base`; safe.
 - Prompt coverage: `agent/prompts.py` already contains "do NOT execute the change
-  — they return a proposal that the user approves separately" (mechanism-agnostic),
+  â€” they return a proposal that the user approves separately" (mechanism-agnostic),
   the CHECK-IN-CODE FLOW sub-bullets under IMPORTANT RULE 2 (`[SYSTEM]` honoring,
   full-file-contents re-emit), and "Never fabricate a confirmation." So the
   design's "no prompt change needed" conclusion is correct.

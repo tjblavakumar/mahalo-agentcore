@@ -1,12 +1,12 @@
-# Task 7 — Deploy runbook (DEFERRED operator steps)
+# Task 7 â€” Deploy runbook (DEFERRED operator steps)
 
 **None of this is run in the offline gate.** The automated gate is synth + unit
 tests only (`cdk synth --all` Docker-free / cred-free producing 10 templates,
 `pytest tests -q`, `pytest tools-lambdas/tests -q`, and the frontend
-`npm ci/lint/test/build`). The live wiring below — creating SSM secrets, `cdk
+`npm ci/lint/test/build`). The live wiring below â€” creating SSM secrets, `cdk
 deploy`, Gitea bootstrap + repo seed, flipping the github Lambda to `real`, the
-ordered frontend deploy, and the end-to-end smoke test — is a **documented
-operator procedure** (design §E.4 / §D.2 / §C.3). Run it by hand, with real AWS
+ordered frontend deploy, and the end-to-end smoke test â€” is a **documented
+operator procedure** (design Â§E.4 / Â§D.2 / Â§C.3). Run it by hand, with real AWS
 credentials, when standing the demo up.
 
 All CDK commands run from `infra-cdk/` with its own `.venv` active. Windows
@@ -20,7 +20,7 @@ PowerShell: use `;` (not `&&`) and `$env:VAR="x"` for env vars.
 - Real AWS credentials for account `<AWS_ACCOUNT_ID>` / region `us-east-1`
   (profile `lava`), e.g. `cdk deploy ... --profile lava`.
 - The account/region is bootstrapped for CDK assets
-  (`cdk bootstrap` — one-time; NOT run in the offline gate).
+  (`cdk bootstrap` â€” one-time; NOT run in the offline gate).
 
 ---
 
@@ -35,7 +35,7 @@ aws ssm put-parameter --profile lava --region us-east-1 `
   --name "/mahalo/gitea/admin-password" --type SecureString `
   --value "<a-strong-password>" --overwrite
 
-# Adapter API token placeholder — the bootstrap OVERWRITES this with the real
+# Adapter API token placeholder â€” the bootstrap OVERWRITES this with the real
 # minted token in step 3. Create it so the github Lambda's read-grant resolves.
 aws ssm put-parameter --profile lava --region us-east-1 `
   --name "/mahalo/gitea/adapter-token" --type SecureString `
@@ -96,7 +96,7 @@ curl -fsS -H "Authorization: token <token>" \
   "$GITEA_PUBLIC_URL/api/v1/repos/mahalo_admin/payment-service"
 ```
 
-The bootstrap is idempotent — re-running it is safe (admin/token/repo are
+The bootstrap is idempotent â€” re-running it is safe (admin/token/repo are
 reused or recreated to a usable state).
 
 ---
@@ -119,7 +119,7 @@ cdk deploy MahaloMockGithubStack -c giteaMode=real --profile lava
 
 ---
 
-## 5. Frontend deploy (ordered — the chicken-and-egg, design §D.2)
+## 5. Frontend deploy (ordered â€” the chicken-and-egg, design Â§D.2)
 
 `NEXT_PUBLIC_*` are inlined at `next build`, and the browser calls the Function
 URL directly (not through CloudFront). So the build needs the API URL + identity
@@ -156,7 +156,7 @@ pool id, which both exist BEFORE the bundle is built.
      --parameters FrontendOrigin="<FrontendUrl>"
    ```
 
-The CloudFront domain is stable after step 2, so steps 3–5 have no further
+The CloudFront domain is stable after step 2, so steps 3â€“5 have no further
 circular dependency. (An operator may pin a custom domain to decouple entirely.)
 
 ---
@@ -170,8 +170,8 @@ circular dependency. (An operator may pin a custom domain to decouple entirely.)
    headers).
 3. Trigger a HITL write (e.g. "open a PR on payment-service"). Approve the
    proposal card; confirm the write lands in Gitea (new branch/commit/PR visible
-   at `GiteaPublicUrl`), proving browser → CloudFront static app → direct SigV4
-   call → thin API → Runtime → github Lambda (real) → Gitea.
+   at `GiteaPublicUrl`), proving browser â†’ CloudFront static app â†’ direct SigV4
+   call â†’ thin API â†’ Runtime â†’ github Lambda (real) â†’ Gitea.
 
 ---
 

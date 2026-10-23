@@ -1,4 +1,4 @@
-"""CDK synth assertion tests for MahaloFrontendStack (Task 7, design §D.2 / Task 7c §C).
+"""CDK synth assertion tests for MahaloFrontendStack (Task 7, design Â§D.2 / Task 7c Â§C).
 
 Offline: the distribution has a SINGLE S3 origin (no Function-URL origin) and the
 bucket is private. Task 7c removed the SCP-blocked Cognito unauthenticated
@@ -12,7 +12,7 @@ from aws_cdk import assertions
 
 from mahalo_infra.frontend_stack import MahaloFrontendStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 
 def _frontend_template(context: dict | None = None) -> assertions.Template:

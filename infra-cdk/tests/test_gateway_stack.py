@@ -27,7 +27,7 @@ if _TOOLS_LAMBDAS not in sys.path:
 
 from common import tool_schemas  # noqa: E402
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 _SERVICES = ("jira", "confluence", "github", "servicenow")
 _TARGET_NAMES = {
     "jira": "mock-jira",

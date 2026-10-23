@@ -1,4 +1,4 @@
-# Task 7b — Verification note (FINALIZE pass, code review APPROVED)
+# Task 7b â€” Verification note (FINALIZE pass, code review APPROVED)
 
 **Date:** 2026-10-22
 **Iteration:** FINALIZE. The FEAT-002/FEAT-003 code review is APPROVED
@@ -11,13 +11,13 @@ run; all writes stayed under the `mahalo-agentcore` workspace root and
 **Environment:** Windows WorkSpaces VDI. Commands run from `infra-cdk/` using its
 `.venv` (Python 3.13.9). CDK CLI 2.1145.0 (matches the `_CDK_CLI_VERSION` pin).
 Confirmed NO `MAHALO_*` environment variables were set. AWS creds were
-absent/expired, so every synth printed the benign "expired AWS credentials … the
-CDK app will synth without current account information" note and still succeeded —
+absent/expired, so every synth printed the benign "expired AWS credentials â€¦ the
+CDK app will synth without current account information" note and still succeeded â€”
 confirming offline, credential-free, Docker-free synth.
 
 ---
 
-## Offline gate — real captured results
+## Offline gate â€” real captured results
 
 ### 1. `cdk synth MahaloBuilderStack` (offline, Docker-free)
 
@@ -26,16 +26,16 @@ $ cdk synth MahaloBuilderStack
 There are expired AWS credentials in your environment. The CDK app will synth without current account information.
 [WARNING] aws-cdk-lib.CfnResource#addDependency is deprecated.
   Use `addResourceDependency` instead.
-  (… x4 — benign deprecation notice)
+  (â€¦ x4 â€” benign deprecation notice)
 81 feature flags are not configured. Run 'cdk flags --unstable=flags' to learn more.
 Parameters:
-  BuilderInstanceType: … (t4g.large, arm64)
-  BuilderVolumeSizeGiB: … (40)
+  BuilderInstanceType: â€¦ (t4g.large, arm64)
+  BuilderVolumeSizeGiB: â€¦ (40)
 Resources:
-  BuilderVpc…, BuilderSg (NO ingress — SSM Session Manager only),
+  BuilderVpcâ€¦, BuilderSg (NO ingress â€” SSM Session Manager only),
   BuilderRole (SSMManagedInstanceCore + AdministratorAccess),
   BuilderInstance (AL2023 arm64 AMI via SSM param, gp3 root, UserData installs
-  docker/git/node24/python3.13/awscli/cdk) …
+  docker/git/node24/python3.13/awscli/cdk) â€¦
 Outputs:
   BuilderInstanceId, BuilderPublicDns
 ```
@@ -48,7 +48,7 @@ build, no network calls.
 
 ```
 $ cdk synth --all
-… (same benign expired-creds / deprecation / feature-flag warnings)
+â€¦ (same benign expired-creds / deprecation / feature-flag warnings)
 EXITCODE=0
 
 Templates emitted to cdk.out/ (11):
@@ -96,8 +96,8 @@ BASH_N_EXIT=0
 
 **Result: exit 0 (clean).**
 
-shellcheck: **NOT AVAILABLE** on this VDI — it is not on the PowerShell PATH and
-not on the git-bash PATH (`command -v shellcheck` → `SHELLCHECK_NOT_AVAILABLE`),
+shellcheck: **NOT AVAILABLE** on this VDI â€” it is not on the PowerShell PATH and
+not on the git-bash PATH (`command -v shellcheck` â†’ `SHELLCHECK_NOT_AVAILABLE`),
 so it could not be run. `bash -n` is clean. The script is only ever executed on
 the Linux arm64 builder per the runbook; `bash` is not on the plain PowerShell
 PATH, so the syntax check used the git-bash interpreter.
@@ -109,7 +109,7 @@ $ Select-String -Path cdk.out\MahaloBuilderStack.template.json -Pattern 'DockerI
 DockerImage occurrences in MahaloBuilderStack.template.json: 0
 ```
 
-**Result: 0 occurrences — `DockerImage` is ABSENT.** The builder stack is pure
+**Result: 0 occurrences â€” `DockerImage` is ABSENT.** The builder stack is pure
 CloudFormation (VPC + SG + IAM role + EC2 instance); it contains no
 `DockerImageAsset`.
 
@@ -136,7 +136,7 @@ CloudFormation (VPC + SG + IAM role + EC2 instance); it contains no
   stack *replaced*.
 - **mahalo-dock untouched.** All writes in this task stayed under the
   `mahalo-agentcore` workspace root. `git status` shows only `mahalo-agentcore`
-  changes; nothing under `D:/<USER>/LavaCode/AI/mahalo-dock` was read
+  changes; nothing under `<FALLBACK_ROOT>` was read
   or written.
 - **No git commit/push** was performed (per the Task 7b absolute rules).
 - **No live/billable deploy** was run.

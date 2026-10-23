@@ -12,7 +12,7 @@ from aws_cdk import assertions
 
 from mahalo_infra.mock_service_stack import MockServiceStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 # service -> (table name, handler, token env key, token value)
 _CASES = {

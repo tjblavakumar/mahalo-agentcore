@@ -1,4 +1,4 @@
-# infra-cdk — mock-service Lambdas (AWS CDK v2, Python)
+# infra-cdk â€” mock-service Lambdas (AWS CDK v2, Python)
 
 CDK app that provisions the four mahalo mock services (Jira, Confluence, GitHub,
 ServiceNow) as AWS Lambda functions, each fronted by a Function URL and backed by
@@ -37,7 +37,7 @@ py -3.13 -m venv .venv
 & .venv/Scripts/python.exe -m pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-## Synth (offline — no AWS creds)
+## Synth (offline â€” no AWS creds)
 
 ```powershell
 cd infra-cdk
@@ -47,7 +47,7 @@ cdk synth --all
 
 Produces four CloudFormation templates under `cdk.out/`.
 
-## Tests (offline — no AWS creds)
+## Tests (offline â€” no AWS creds)
 
 ```powershell
 cd infra-cdk
@@ -75,9 +75,9 @@ cdk deploy --all --profile lava
 
 Deploy prints each stack's outputs: the four Function URLs and function ARNs.
 
-### Output → agent `*_URL` mapping
+### Output â†’ agent `*_URL` mapping
 
-Each stack emits two CfnOutputs — a Function URL and a function ARN (the ARN feeds
+Each stack emits two CfnOutputs â€” a Function URL and a function ARN (the ARN feeds
 Task 4's Gateway import). Map the URL outputs onto the agent's `*_URL` env vars:
 
 | Stack                         | URL output     | ARN output     | Agent env var       |

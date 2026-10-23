@@ -1,4 +1,4 @@
-# Task 7c — Design: Hardcoded Persona Login (demo), remove SCP-blocked Cognito
+# Task 7c â€” Design: Hardcoded Persona Login (demo), remove SCP-blocked Cognito
 
 ## Overview
 
@@ -14,8 +14,8 @@ request header, `X-Mahalo-Persona`. The thin API's `current_identity()` maps tha
 header to the `{developer_id, role}` the Runtime already consumes.
 
 Nothing downstream of the thin API changes: persona -> role -> agent system
-prompt is already wired and tested end-to-end (investigation §3). This task
-touches only four surfaces — the thin API identity dependency, the two CDK
+prompt is already wired and tested end-to-end (investigation Â§3). This task
+touches only four surfaces â€” the thin API identity dependency, the two CDK
 stacks (`api_stack.py`, `frontend_stack.py`), the frontend transport + login UI,
 and the tests that assert the old auth shape.
 
@@ -34,8 +34,8 @@ Lambda behind a Function URL. Infra AWS CDK (Python, `infra-cdk/.venv`). No new
 dependencies are introduced; two are removed.
 
 > **Absolute path rule honored:** every file listed below is under
-> `D:/<USER>/LavaCode/AI/mahalo-agentcore`. `mahalo-dock` is
-> read-only — only the *shape* of its login/`AuthContext`/`ProtectedRoute` UI is
+> `<WORKSPACE_ROOT>`. `mahalo-dock` is
+> read-only â€” only the *shape* of its login/`AuthContext`/`ProtectedRoute` UI is
 > ported; no file in `mahalo-dock` is modified. No git commit. No worktree.
 
 ---
@@ -48,7 +48,7 @@ The hardcoded credential table lives in exactly **one** new frontend module,
 `frontend/src/lib/personas.ts`, and is the demo's entire auth surface. It uses
 the real dev-ids from `mahalo-dock/mock-services/jira/seed_data.py` and the
 confirmed role strings from `agent/prompts.py` `ROLE_PROMPTS`
-(investigation §1).
+(investigation Â§1).
 
 | userid | password | personaId | developer_id | role              | display name |
 |--------|----------|-----------|--------------|-------------------|--------------|
@@ -56,8 +56,8 @@ confirmed role strings from `agent/prompts.py` `ROLE_PROMPTS`
 | `dev`  | `dev123` | `dev`     | `dev-6`      | `developer`       | Lava Dev     |
 | `exec` | `exec123`| `exec`    | `dev-5`      | `executive`       | David Kim    |
 
-Passwords use the `…123` form from the task brief. `role` values are exactly the
-three `ROLE_PROMPTS` keys — any other value is rejected by the Runtime's
+Passwords use the `â€¦123` form from the task brief. `role` values are exactly the
+three `ROLE_PROMPTS` keys â€” any other value is rejected by the Runtime's
 `_resolve_role` and falls back to `developer`.
 
 Shape (TypeScript):
@@ -93,7 +93,7 @@ export function authenticate(userid: string, password: string): Persona | null {
 sensitive-looking `password` never leaves the browser and never travels in a
 request.
 
-### A.2 How the persona reaches the backend — EXACT contract
+### A.2 How the persona reaches the backend â€” EXACT contract
 
 - **Header name (exact):** `X-Mahalo-Persona`
 - **Allowed values (exact):** `pm`, `dev`, `exec`
@@ -113,10 +113,10 @@ client-side table in `personas.ts` are conceptually the same table expressed in
 two languages; both are tiny and must be kept in sync by hand. Keeping the
 authoritative `{developer_id, role}` derivation in `auth.py` (not read from a
 free-form body field) means a malformed or hostile header can only ever select
-one of three fixed, known-good identities or the safe default — never inject an
+one of three fixed, known-good identities or the safe default â€” never inject an
 arbitrary `developer_id`/`role`.
 
-### A.3 Thin-API `current_identity()` — exact new shape
+### A.3 Thin-API `current_identity()` â€” exact new shape
 
 `api/app/auth.py` changes from a zero-arg dependency returning a constant to a
 dependency that reads the header off the FastAPI `Request`:
@@ -161,7 +161,7 @@ case-insensitively after `strip()`; the only accepted values are `pm|dev|exec`.
 On any other value (empty, unknown, wrong case that still is not one of the
 three after lowercasing, multiple values) the behavior is a silent fallback to
 `("dev-6", "developer")`. No error is raised and nothing is logged at request
-time — a demo user mistyping a header must never see a 4xx; the safe default is
+time â€” a demo user mistyping a header must never see a 4xx; the safe default is
 correct behavior, not an error. (If desired, a single `logger.debug` on fallback
 is acceptable but not required.)
 
@@ -174,7 +174,7 @@ changes `auth_type` from `lambda_.FunctionUrlAuthType.AWS_IAM` to
 `lambda_.FunctionUrlAuthType.NONE`. The browser then calls the Function URL with
 no SigV4 and no AWS credentials.
 
-**CORS block — kept, with these exact changes:**
+**CORS block â€” kept, with these exact changes:**
 
 - `allowed_origins`: **`["*"]`** for the demo. Justification: with
   `AuthType=NONE` the browser sends **no credentials** (no cookies, no
@@ -183,12 +183,12 @@ no SigV4 and no AWS credentials.
   re-deploy dance where the API needed the CloudFront domain as a
   `CfnParameter` before the frontend stack existed. Because the endpoint is
   already publicly invokable under `AuthType=NONE`, narrowing CORS to the
-  CloudFront origin would add no real security (CORS is not an auth control) —
+  CloudFront origin would add no real security (CORS is not an auth control) â€”
   it would only add deploy-ordering friction. For the demo the `*` wildcard is
   the simpler, honest choice and is explicitly accepted. The `FrontendOrigin`
   `CfnParameter` is therefore **removed** from `api_stack.py` (it no longer
-  gates anything), which also simplifies §C.
-- `allowed_methods`: unchanged — `[POST, GET]` (OPTIONS preflight is served
+  gates anything), which also simplifies Â§C.
+- `allowed_methods`: unchanged â€” `[POST, GET]` (OPTIONS preflight is served
   automatically and is not a valid value).
 - `allowed_headers`: **`["Content-Type", "X-Mahalo-Persona"]`**. The SigV4
   headers (`Authorization`, `X-Amz-Date`, `X-Amz-Security-Token`,
@@ -204,7 +204,7 @@ AWS_IAM / browser signs SigV4" must be rewritten to describe the `AuthType=NONE`
 **Security tradeoff (explicitly ACCEPTED):** `AuthType=NONE` makes the thin-API
 Function URL callable by anyone on the internet who knows the URL. For a
 single-user demo over mock data with no live systems this is accepted. The URL
-is not secret-grade but is also not published in source (see §D). Documented
+is not secret-grade but is also not published in source (see Â§D). Documented
 here as the deliberate demo posture; GovCloud/OKTA replaces it later.
 
 ---
@@ -213,7 +213,7 @@ here as the deliberate demo posture; GovCloud/OKTA replaces it later.
 
 Delete from `infra-cdk/mahalo_infra/frontend_stack.py`:
 
-- the `cognito.CfnIdentityPool` ("IdentityPool") construct (§4 block),
+- the `cognito.CfnIdentityPool` ("IdentityPool") construct (Â§4 block),
 - the `iam.Role` ("UnauthRole") with its `FederatedPrincipal` assume-role,
 - the `unauth_role.add_to_policy(...)` `lambda:InvokeFunctionUrl` statement that
   referenced `api_stack.function.function_arn`,
@@ -231,10 +231,10 @@ SPA error routing) + the flag-gated `BucketDeployment`**, and keeps the
 the `api_stack` constructor parameter is no longer needed. Decision: **keep the
 `api_stack` parameter in the signature but stop referencing it**, OR drop it.
 Chosen: **drop the `api_stack` parameter** from `MahaloFrontendStack.__init__`
-and update **all three** instantiation sites accordingly —
+and update **all three** instantiation sites accordingly â€”
 `infra-cdk/app.py`, the test helper `_frontend_template` in
 `infra-cdk/tests/test_frontend_stack.py`, and
-`infra-cdk/tests/test_app.py` (the 11-stack guard) — each currently passes
+`infra-cdk/tests/test_app.py` (the 11-stack guard) â€” each currently passes
 `api_stack=...`. Carrying an unused constructor arg is dead weight and the
 investigation confirms nothing else uses it. (If `app.py` relies
 on an explicit stack dependency for ordering, replace it with
@@ -245,7 +245,7 @@ required.)
 **Dangling-reference check:** nothing else may reference the deleted
 `IdentityPoolId` output or `self.identity_pool`. `grep` confirms the only
 consumer was the frontend `NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID` env var, which
-is removed in §D. The stack must still `cdk synth` with the Cognito constructs
+is removed in Â§D. The stack must still `cdk synth` with the Cognito constructs
 gone; `cdk synth --all` must still emit **11 templates** (the pool/role lived
 inside this existing stack, not a separate stack, so the count is unchanged).
 Synth stays offline/Docker-free and flag-gated exactly as today (the
@@ -284,21 +284,21 @@ async function request<T>(endpoint, options, personaId?: PersonaId): Promise<Api
 
 The persona header value comes from the logged-in persona. Chosen wiring: the
 `post` helper accepts an optional `personaId` and the chat page passes the
-active persona's `personaId` into each `api.post(...)` call. (Alternative — a
-module-level `setPersona()` mutable singleton — is rejected: it is implicit
+active persona's `personaId` into each `api.post(...)` call. (Alternative â€” a
+module-level `setPersona()` mutable singleton â€” is rejected: it is implicit
 global state that is harder to test and reason about than an explicit argument.)
 So the signature becomes `api.post<T>(endpoint, body, personaId?)`; `get/put/
 delete` gain the same optional trailing arg for symmetry though only `post` is
 used by the chat flow.
 
 - `API_BASE_URL` stays env-driven via `NEXT_PUBLIC_API_URL`. The live Function
-  URL (`https://dkgwvy2h42xkejgmjc3tsvi4ku0qcyuz.lambda-url.us-east-1.on.aws/`)
-  is supplied at deploy time, **never hardcoded in source** — the placeholder
+  URL (`https://<LAMBDA_URL_HOST>/`)
+  is supplied at deploy time, **never hardcoded in source** â€” the placeholder
   default is retained only as a non-functional fallback.
 - Error handling for the transport (each `fetch` can fail): a network/DNS
   failure throws and is caught, returning `{ data: null, error: <message> }`
-  (recoverable at the UI — the chat page already renders
-  `Sorry, I encountered an error: …`). A non-2xx response is read for a
+  (recoverable at the UI â€” the chat page already renders
+  `Sorry, I encountered an error: â€¦`). A non-2xx response is read for a
   `detail`/`message` body and returned as `{ data: null, error }`. Nothing is
   thrown to the caller; nothing is logged beyond the existing `console.error`
   path. This mirrors today's contract so `chat/page.tsx` is unaffected.
@@ -310,14 +310,14 @@ generate the session id on the first `/chat` (the API does `str(uuid.uuid4())` =
 36 chars, satisfying the >= 33 rule) and echoes it back; the chat page stores
 and resends it. No client-side id generation is required. If the client ever
 generates one, it MUST be >= 33 chars; the simplest safe choice is
-`crypto.randomUUID()` (36 chars). Decision: **keep API-generated session ids** —
+`crypto.randomUUID()` (36 chars). Decision: **keep API-generated session ids** â€”
 it is the existing green path and needs no change.
 
 ### D.3 Login UI + persona context (port mahalo-dock SHAPE only)
 
 New/changed files, all under the agentcore frontend:
 
-- **`frontend/src/contexts/AuthContext.tsx`** (new) — ports the *shape* of
+- **`frontend/src/contexts/AuthContext.tsx`** (new) â€” ports the *shape* of
   mahalo-dock's `AuthProvider`/`useAuth`, but with **no backend**: `login(userid,
   password)` calls the pure `authenticate()` from `personas.ts`; on success it
   stores the selected `Persona` in React state and persists it to
@@ -327,37 +327,37 @@ New/changed files, all under the agentcore frontend:
   Exposes `{ persona, isLoading, login, logout }`.
 
   Decision on storage: **`sessionStorage`** (per-tab, cleared on tab close) over
-  `localStorage` — the task allows either; `sessionStorage` matches mahalo-dock
+  `localStorage` â€” the task allows either; `sessionStorage` matches mahalo-dock
   and keeps demo sessions from leaking across tabs. React context is the
   in-memory source of truth; `sessionStorage` is only for reload-survival.
 
-- **`frontend/src/components/common/ProtectedRoute.tsx`** (new) — ports
+- **`frontend/src/components/common/ProtectedRoute.tsx`** (new) â€” ports
   mahalo-dock's guard: while `isLoading` show the spinner, if no `persona`
   redirect to `/login`, else render children.
 
-- **`frontend/src/app/login/page.tsx`** (new) — ports the mahalo-dock login form
+- **`frontend/src/app/login/page.tsx`** (new) â€” ports the mahalo-dock login form
   *shape* (centered card, error banner, submit button) but with **userid +
   password** fields instead of email, plus a small persona hint. A persona
   selector is implicit: typing one of the three credentials selects the persona.
   Optionally render three "quick login" buttons (PM / Developer / Executive)
-  that prefill the credentials — a nice demo affordance, not required. On
+  that prefill the credentials â€” a nice demo affordance, not required. On
   successful `login()` it `router.push("/chat")`; on failure it shows "Invalid
   credentials".
 
-- **`frontend/src/app/(protected)/layout.tsx`** (new) — wraps children in
+- **`frontend/src/app/(protected)/layout.tsx`** (new) â€” wraps children in
   `<ProtectedRoute>` so the whole `(protected)/` segment (which already contains
   `chat/`) is gated. This is the cleanest gate point given Next's route groups.
 
-- **`frontend/src/app/layout.tsx`** (changed) — wrap `{children}` in
+- **`frontend/src/app/layout.tsx`** (changed) â€” wrap `{children}` in
   `<AuthProvider>` so context is available app-wide (including `/login`).
 
-- **`frontend/src/app/page.tsx`** (changed) — instead of unconditionally pushing
+- **`frontend/src/app/page.tsx`** (changed) â€” instead of unconditionally pushing
   to `/chat`, read `useAuth()`: push to `/chat` when a persona exists, else to
   `/login`. (Simpler alternative: always push to `/login` and let the login page
   bounce an already-authenticated user to `/chat`. Chosen: route from `page.tsx`
-  based on context — one decision point, no double redirect.)
+  based on context â€” one decision point, no double redirect.)
 
-- **`frontend/src/app/(protected)/chat/page.tsx`** (changed) —
+- **`frontend/src/app/(protected)/chat/page.tsx`** (changed) â€”
   1. call `const { persona, logout } = useAuth();`
   2. replace the hardcoded `role: "developer"` in the `buildSuggestions({...})`
      memo with `role: persona?.role ?? "developer"` (and add `persona?.role` to
@@ -366,23 +366,23 @@ New/changed files, all under the agentcore frontend:
      `api.post<ChatApiResponse>("/chat", {...}, persona?.personaId)` and the two
      `api.post<ActionResult>("/chat/approve", {...}, persona?.personaId)` calls;
   4. add a small header element showing the persona label + display name (e.g.
-     "Developer · Lava Dev") and a **Logout** button that calls `logout()` then
+     "Developer Â· Lava Dev") and a **Logout** button that calls `logout()` then
      `router.push("/login")`.
 
-  The two-call HITL approve/reject UX is otherwise unchanged — only the
+  The two-call HITL approve/reject UX is otherwise unchanged â€” only the
   transport under `api.post` and the added persona arg differ.
 
 ### D.4 Env + dependencies
 
-- **`frontend/.env.example`** — keep `NEXT_PUBLIC_API_URL` (document it as the
+- **`frontend/.env.example`** â€” keep `NEXT_PUBLIC_API_URL` (document it as the
   `AuthType=NONE` Function URL now); **remove** `NEXT_PUBLIC_AWS_REGION` and
   `NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID`.
-- **`frontend/package.json`** — remove `@aws-sdk/credential-providers`
+- **`frontend/package.json`** â€” remove `@aws-sdk/credential-providers`
   (`3.1154.0`) and `aws4fetch` (`1.0.20`) from `dependencies`. No new dependency
   is added (`crypto.randomUUID` and `fetch` are platform built-ins). `npm ci`
-  must still resolve the lockfile — the lockfile is regenerated as part of the
+  must still resolve the lockfile â€” the lockfile is regenerated as part of the
   implementation so `npm ci` stays deterministic.
-- **`frontend/AGENTS.md`** — the `BEGIN/END:nextjs-agent-rules` block is
+- **`frontend/AGENTS.md`** â€” the `BEGIN/END:nextjs-agent-rules` block is
   auto-regenerated by `next dev`; the implementer must not run `next dev` (the
   offline gate forbids watch processes) and must leave that block intact. Before
   writing any frontend code the implementer reads the relevant guide under
@@ -397,7 +397,7 @@ New/changed files, all under the agentcore frontend:
   the UI is the entire auth. Explicitly accepted.
 - The agent and all mock services are **shared** across personas; the ONLY
   things that vary by persona are `role` and `developer_id`, both consumed
-  unchanged by the already-wired Runtime path (investigation §3). No agent,
+  unchanged by the already-wired Runtime path (investigation Â§3). No agent,
   prompt, runtime, `common/`, or `models.py` change is in scope.
 - The agent's literal identity display name stays "Lava Dev" (only `role`
   switches behavior), as flagged in the investigation; forwarding `user_name`
@@ -414,23 +414,23 @@ mapping is proven at the route boundary. Use the existing `_client()` /
 `TestClient` + a monkeypatched `invoke_runtime` that captures the forwarded
 `body`, and send the header:
 
-- `test_persona_header_pm_maps_to_dev1_product_manager` — `POST /chat` with
-  header `X-Mahalo-Persona: pm` ⇒ captured `body["developer_id"] == "dev-1"` and
+- `test_persona_header_pm_maps_to_dev1_product_manager` â€” `POST /chat` with
+  header `X-Mahalo-Persona: pm` â‡’ captured `body["developer_id"] == "dev-1"` and
   `body["role"] == "product_manager"`.
-- `test_persona_header_dev_maps_to_dev6_developer` — header `dev` ⇒
+- `test_persona_header_dev_maps_to_dev6_developer` â€” header `dev` â‡’
   `developer_id == "dev-6"`, `role == "developer"`.
-- `test_persona_header_exec_maps_to_dev5_executive` — header `exec` ⇒
+- `test_persona_header_exec_maps_to_dev5_executive` â€” header `exec` â‡’
   `developer_id == "dev-5"`, `role == "executive"`.
-- `test_persona_header_absent_defaults_to_developer` — no header ⇒
+- `test_persona_header_absent_defaults_to_developer` â€” no header â‡’
   `developer_id == "dev-6"`, `role == "developer"`.
-- `test_persona_header_unknown_defaults_to_developer` — header `wizard` ⇒
+- `test_persona_header_unknown_defaults_to_developer` â€” header `wizard` â‡’
   `developer_id == "dev-6"`, `role == "developer"`.
 
 Also add a direct unit test on the dependency using a lightweight stub request:
 
-- `test_current_identity_maps_header` — call `current_identity` with a fake
-  object exposing `.headers = {"X-Mahalo-Persona": "exec"}` ⇒
-  `Identity("dev-5", "executive")`; empty/unknown ⇒ `Identity("dev-6","developer")`.
+- `test_current_identity_maps_header` â€” call `current_identity` with a fake
+  object exposing `.headers = {"X-Mahalo-Persona": "exec"}` â‡’
+  `Identity("dev-5", "executive")`; empty/unknown â‡’ `Identity("dev-6","developer")`.
 
 The existing approve test already asserts `role` is NOT forwarded on approve;
 that stays. The capture-based `test_chat_proposal_passthrough` (which asserts
@@ -439,7 +439,7 @@ unaffected.
 
 ### F.2 Infra assertions
 
-**`infra-cdk/tests/test_api_stack.py` — UPDATE:**
+**`infra-cdk/tests/test_api_stack.py` â€” UPDATE:**
 - `test_function_url_auth_iam` -> rename/retarget to
   `test_function_url_auth_none`: assert `AWS::Lambda::Url` `AuthType == "NONE"`.
 - `test_function_url_cors_block`: change the auth assertion to
@@ -447,11 +447,11 @@ unaffected.
   `"Content-Type"` and `"X-Mahalo-Persona"` in `cors["AllowHeaders"]` and assert
   the SigV4 headers are **absent**; `AllowMethods == {"POST","GET"}` and
   `MaxAge == 300` stay. Replace the `AllowOrigins != ["*"]` assertion with
-  `cors["AllowOrigins"] == ["*"]` (the demo wildcard, §B).
+  `cors["AllowOrigins"] == ["*"]` (the demo wildcard, Â§B).
 - Unaffected: `test_single_python313_lambda`, `test_runtime_arn_env_and_output`,
   `test_lambda_role_can_invoke_runtime`.
 
-**`infra-cdk/tests/test_frontend_stack.py` — UPDATE:**
+**`infra-cdk/tests/test_frontend_stack.py` â€” UPDATE:**
 - Delete `test_identity_pool_unauthenticated` and
   `test_unauth_role_only_invoke_function_url` (the constructs are gone).
 - `test_outputs_identity_pool_and_frontend_url` -> rename to
@@ -461,17 +461,17 @@ unaffected.
   `tmpl.resource_count_is("AWS::Cognito::IdentityPool", 0)` and
   `resource_count_is("AWS::Cognito::IdentityPoolRoleAttachment", 0)`.
 - Update the `_frontend_template` helper to stop passing `api_stack=api` to
-  `MahaloFrontendStack(...)` (per §C the parameter is dropped). The `api`
+  `MahaloFrontendStack(...)` (per Â§C the parameter is dropped). The `api`
   stack may stay instantiated in the helper or be removed; removing it is
   cleaner since the frontend no longer depends on it.
 - Unaffected: `test_private_bucket`,
   `test_distribution_single_s3_origin_no_function_url_origin`,
   `test_spa_error_responses`, `test_bucket_deployment_flag_gated`.
 
-**`infra-cdk/tests/test_app.py` — UPDATE (not an assertion change, a call-site
+**`infra-cdk/tests/test_app.py` â€” UPDATE (not an assertion change, a call-site
 fix):** its `MahaloFrontendStack(app, "MahaloFrontendStack", api_stack=api_stack,
-env=_ENV)` line must drop `api_stack=` per §C, or synth throws on the removed
-parameter. The assertion itself — `len(app.synth().stacks) == 11` — stays and
+env=_ENV)` line must drop `api_stack=` per Â§C, or synth throws on the removed
+parameter. The assertion itself â€” `len(app.synth().stacks) == 11` â€” stays and
 must still hold (the Cognito constructs lived inside the existing frontend
 stack, so no stack is added or removed).
 
@@ -482,7 +482,7 @@ stack, so no stack is added or removed).
 
 ### F.3 Frontend tests
 
-**`frontend/src/services/api.test.ts` — REWRITE:** remove the `aws4fetch` and
+**`frontend/src/services/api.test.ts` â€” REWRITE:** remove the `aws4fetch` and
 `@aws-sdk/credential-providers` mocks; mock the global `fetch` instead
 (`vi.stubGlobal("fetch", fetchMock)` or `globalThis.fetch = fetchMock`).
 Preserve the two behavioral assertions:
@@ -528,7 +528,7 @@ infra-cdk (`infra-cdk/`, `.venv` active):
 
 Unaffected and must stay green: Python agent/api/tools-lambdas suites; zero
 LangChain in the Python tree (`test_no_langchain_or_agent_in_api_source` still
-passes — `auth.py` adds only a `fastapi` import, no `agent`/`langchain`);
+passes â€” `auth.py` adds only a `fastapi` import, no `agent`/`langchain`);
 `common/`, `agent/`, `runtime` are NOT in scope.
 
 PowerShell examples:
@@ -548,12 +548,12 @@ cd ..\infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloApiStack; cdk syn
 | 3 | `infra-cdk/mahalo_infra/frontend_stack.py` | Delete Cognito pool + unauth role + policy + attachment + `IdentityPoolId` output + `self.identity_pool`; drop `cognito`/`iam` imports; drop `api_stack` param; fix docstring |
 | 4 | `infra-cdk/app.py` | Update `MahaloFrontendStack(...)` instantiation to drop `api_stack=` arg |
 | 4b | `infra-cdk/tests/test_app.py` | Drop `api_stack=` from the `MahaloFrontendStack(...)` call; keep the `== 11` stacks assertion |
-| 5 | `frontend/src/lib/personas.ts` | NEW — the one credential table + `authenticate()` |
-| 6 | `frontend/src/services/api.ts` | Plain `fetch`; drop aws4fetch/Cognito; `post(…, personaId?)` sends `X-Mahalo-Persona` |
-| 7 | `frontend/src/contexts/AuthContext.tsx` | NEW — client-only persona provider (`sessionStorage`) |
-| 8 | `frontend/src/components/common/ProtectedRoute.tsx` | NEW — gate shape ported from dock |
-| 9 | `frontend/src/app/login/page.tsx` | NEW — userid/password + persona login |
-| 10 | `frontend/src/app/(protected)/layout.tsx` | NEW — wraps segment in `ProtectedRoute` |
+| 5 | `frontend/src/lib/personas.ts` | NEW â€” the one credential table + `authenticate()` |
+| 6 | `frontend/src/services/api.ts` | Plain `fetch`; drop aws4fetch/Cognito; `post(â€¦, personaId?)` sends `X-Mahalo-Persona` |
+| 7 | `frontend/src/contexts/AuthContext.tsx` | NEW â€” client-only persona provider (`sessionStorage`) |
+| 8 | `frontend/src/components/common/ProtectedRoute.tsx` | NEW â€” gate shape ported from dock |
+| 9 | `frontend/src/app/login/page.tsx` | NEW â€” userid/password + persona login |
+| 10 | `frontend/src/app/(protected)/layout.tsx` | NEW â€” wraps segment in `ProtectedRoute` |
 | 11 | `frontend/src/app/layout.tsx` | Wrap children in `AuthProvider` |
 | 12 | `frontend/src/app/page.tsx` | Route to `/chat` or `/login` by persona |
 | 13 | `frontend/src/app/(protected)/chat/page.tsx` | Use persona role for suggestions; send `personaId`; header + logout |
@@ -563,7 +563,7 @@ cd ..\infra-cdk; .\.venv\Scripts\Activate.ps1; cdk synth MahaloApiStack; cdk syn
 | 17 | `infra-cdk/tests/test_api_stack.py` | AWS_IAM->NONE; CORS headers/origin update |
 | 18 | `infra-cdk/tests/test_frontend_stack.py` | Remove Cognito tests; `IdentityPoolId` absent; add no-Cognito count test; fix helper |
 | 19 | `frontend/src/services/api.test.ts` | Mock `fetch`; preserve assertions; add header assertion |
-| 20 | `frontend/src/lib/personas.test.ts` | NEW — credential table unit tests |
+| 20 | `frontend/src/lib/personas.test.ts` | NEW â€” credential table unit tests |
 
 Not modified: `api/app/routers/chat.py`, `api/app/models.py`,
 `api/app/runtime_client.py`, `api/app/config.py`, `frontend/src/lib/chatSuggestions.ts`,

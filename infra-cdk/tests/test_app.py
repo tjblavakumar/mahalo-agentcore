@@ -16,7 +16,7 @@ from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 _SERVICES = ("jira", "confluence", "github", "servicenow")
 
 

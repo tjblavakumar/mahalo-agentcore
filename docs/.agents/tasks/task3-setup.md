@@ -1,4 +1,4 @@
-# Task 3 — Setup / Readiness Note
+# Task 3 â€” Setup / Readiness Note
 
 Preparatory work only. No code or seed data ported yet (reserved for later steps).
 
@@ -19,7 +19,7 @@ Credentials are live; no `aws sso login` needed.
 
 ## 3. Source mocks (read-only, from mahalo-dock)
 
-Path: `D:/<USER>/LavaCode/AI/mahalo-dock/mock-services/<svc>/` — READ ONLY, nothing copied.
+Path: `<FALLBACK_ROOT>/mock-services/<svc>/` â€” READ ONLY, nothing copied.
 
 | Service     | main.py | store.py | seed_data.py | requirements.txt | Dockerfile | Extra files |
 |-------------|:-------:|:--------:|:------------:|:----------------:|:----------:|-------------|
@@ -34,7 +34,7 @@ when porting later.
 
 ## 4. Agent tool modules (agentcore workspace)
 
-Path: `D:/<USER>/LavaCode/AI/mahalo-agentcore/agent/tools/`
+Path: `<WORKSPACE_ROOT>/agent/tools/`
 
 Present:
 
@@ -44,7 +44,7 @@ Present:
 - `servicenow_tools.py`, `servicenow_write_tools.py`
 - support: `http.py`, `__init__.py`
 
-**Note:** there is **no `confluence_write_tools.py`** — confluence currently exposes read
+**Note:** there is **no `confluence_write_tools.py`** â€” confluence currently exposes read
 tools only. Keep this in mind when enumerating the endpoints the Confluence Lambda must
 support.
 

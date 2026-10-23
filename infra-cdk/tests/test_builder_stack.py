@@ -1,4 +1,4 @@
-"""CDK synth assertion tests for MahaloBuilderStack (Task 7b, design §A/§E/§F), offline.
+"""CDK synth assertion tests for MahaloBuilderStack (Task 7b, design Â§A/Â§E/Â§F), offline.
 
 The transient builder stack must synthesize fully offline (no Docker, no AWS
 credentials, no context lookup): a CREATED (not looked-up) one-public-subnet
@@ -12,7 +12,7 @@ from aws_cdk import assertions
 
 from mahalo_infra.builder_stack import MahaloBuilderStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 
 def _template() -> assertions.Template:

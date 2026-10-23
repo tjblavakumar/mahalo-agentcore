@@ -4,7 +4,7 @@
     {
       "id": 1,
       "severity": "NIT",
-      "location": "task7b-design.md §A.2 (CPU architecture bullet)",
+      "location": "task7b-design.md Â§A.2 (CPU architecture bullet)",
       "problem": "Cites agent/Dockerfile:8 for the 'FROM --platform=linux/arm64 python:3.13-slim' directive, but it is actually on line 14 (lines 1-13 are the header comment). The ARM64-is-mandatory claim itself is correct and verified; only the line number is wrong.",
       "fix": "Change the citation to agent/Dockerfile:14."
     },
@@ -12,7 +12,7 @@
       "id": 2,
       "severity": "NIT",
       "location": "task7b-design.md header, line 10",
-      "problem": "Embeds an absolute, drive-letter artifact path 'D:/<USER>/LavaCode/AI/mahalo-dock'. Per the review brief, any absolute artifact path in the design is a finding. It sits inside a 'NEVER written' guard so it is harmless at runtime, but it is host/user-specific and does not travel with the repo.",
+      "problem": "Embeds an absolute, drive-letter artifact path '<FALLBACK_ROOT>'. Per the review brief, any absolute artifact path in the design is a finding. It sits inside a 'NEVER written' guard so it is harmless at runtime, but it is host/user-specific and does not travel with the repo.",
       "fix": "Replace with a generic description, e.g. 'the read-only mahalo-dock fallback workspace is NEVER written.'"
     }
   ],

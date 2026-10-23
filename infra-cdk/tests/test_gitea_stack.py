@@ -1,4 +1,4 @@
-"""CDK synth assertion tests for MahaloGiteaStack (Task 7, design §C.2/§C.5), offline.
+"""CDK synth assertion tests for MahaloGiteaStack (Task 7, design Â§C.2/Â§C.5), offline.
 
 The stack must synthesize fully offline (no Docker, no AWS credentials, no
 context lookup): a dedicated VPC that is CREATED (not looked up), an EC2 instance
@@ -11,7 +11,7 @@ from aws_cdk import assertions
 
 from mahalo_infra.gitea_stack import MahaloGiteaStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 
 def _template() -> assertions.Template:

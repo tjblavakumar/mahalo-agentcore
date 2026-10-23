@@ -20,7 +20,7 @@ from aws_cdk import assertions
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
-_ENV = cdk.Environment(account="<AWS_ACCOUNT_ID>", region="us-east-1")
+_ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
 
 def _template():
@@ -79,7 +79,7 @@ def test_runtime_env_vars():
     assert env["MAHALO_IDENTITY_ENABLED"] == "false"
     assert env["MAHALO_TOOL_MODE"] == "direct"
     assert env["MAHALO_IDENTITY_JIRA_PROVIDER"] == "mahalo-jira-apikey"
-    # AWS_PROFILE must NOT be injected (Finding 1 — default credential chain).
+    # AWS_PROFILE must NOT be injected (Finding 1 â€” default credential chain).
     assert "AWS_PROFILE" not in env
 
 
