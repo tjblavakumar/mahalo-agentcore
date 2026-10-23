@@ -68,11 +68,18 @@ class MahaloApiStack(Stack):
                 exclude=_API_ASSET_EXCLUDE,
                 bundling=BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
+                    # The Lambda function below runs on ARM64, so native wheels
+                    # (pydantic_core etc.) MUST be aarch64/manylinux2014. Pin the
+                    # pip platform explicitly so the result does not depend on the
+                    # build host's architecture (the EC2 builder is Graviton/ARM64,
+                    # but pinning keeps this correct on any builder).
                     command=[
                         "bash",
                         "-c",
-                        "pip install -r requirements.txt -t /asset-output "
-                        "&& cp -r app /asset-output",
+                        "pip install -r requirements.txt "
+                        "--platform manylinux2014_aarch64 --python-version 3.13 "
+                        "--only-binary=:all: --implementation cp "
+                        "-t /asset-output && cp -r app /asset-output",
                     ],
                 ),
             )
@@ -86,6 +93,9 @@ class MahaloApiStack(Stack):
             self,
             "ApiFn",
             runtime=lambda_.Runtime.PYTHON_3_13,
+            # ARM64 to match the aarch64 wheels bundled above (and the Graviton
+            # builder). Mismatch -> ImportError: pydantic_core._pydantic_core.
+            architecture=lambda_.Architecture.ARM_64,
             handler="app.main.handler",
             code=code,
             timeout=Duration.seconds(300),
