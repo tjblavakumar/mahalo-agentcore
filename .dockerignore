@@ -1,0 +1,38 @@
+# Docker build-context exclusions for the AgentCore Runtime image asset.
+#
+# The Runtime image asset (infra-cdk/mahalo_infra/runtime_stack.py, the
+# `AgentRuntimeArtifact.from_asset(_REPO_ROOT, file="agent/Dockerfile", …)`
+# deploy branch) uses THIS repo root as the Docker build context. The Docker
+# daemon honors this file when it tars the context, independent of the CDK-level
+# `exclude=` in runtime_stack.py — belt-and-suspenders for the same bug.
+#
+# Root cause these entries prevent: the context root contains infra-cdk/cdk.out,
+# the CDK output dir that itself holds staged assets. Copying it into a new asset
+# nests cdk.out recursively (cdk.out/asset.<h>/infra-cdk/cdk.out/asset.<h>/…) and
+# fails staging with ENAMETOOLONG. The dev virtualenvs (agent/.venv, api/.venv)
+# are excluded too: the image installs deps via `pip install -r agent/requirements.txt`
+# (agent/Dockerfile), so the committed local venvs are never needed and only bloat.
+#
+# Do NOT add agent/ or agent/requirements.txt here — the image COPYs them.
+
+# CDK output (the recursion source)
+infra-cdk/cdk.out
+**/cdk.out
+
+# Local dev virtualenvs (not needed; deps come from pip + requirements.txt)
+.venv
+**/.venv
+
+# Python caches
+**/__pycache__
+**/*.pyc
+.pytest_cache
+**/.pytest_cache
+
+# VCS metadata
+.git
+
+# Node / frontend build artifacts (not part of the agent image)
+**/node_modules
+frontend/out
+frontend/.next

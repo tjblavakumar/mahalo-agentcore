@@ -27,6 +27,20 @@ _API_DIR = os.path.join(
     "api",
 )
 
+# Keep the local dev virtualenv + caches out of the Lambda asset. api/.venv (~60MB)
+# is a committed dev venv — the operator-deploy branch installs deps from
+# requirements.txt via BundlingOptions, so the venv is never needed in the asset and
+# only bloats staging. api/ has no cdk.out, but the glob guards against it regardless.
+_API_ASSET_EXCLUDE = [
+    "**/cdk.out",
+    ".venv",
+    "**/.venv",
+    "**/__pycache__",
+    "**/*.pyc",
+    ".pytest_cache",
+    "**/.pytest_cache",
+]
+
 
 class MahaloApiStack(Stack):
     """Function-URL Lambda forwarding to the AgentCore Runtime."""
@@ -51,6 +65,7 @@ class MahaloApiStack(Stack):
             # Operator deploy: bundle deps into the asset via Docker.
             code = lambda_.Code.from_asset(
                 _API_DIR,
+                exclude=_API_ASSET_EXCLUDE,
                 bundling=BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
                     command=[
@@ -65,7 +80,7 @@ class MahaloApiStack(Stack):
             # Offline gate: plain asset, no Docker. (A pre-built deps layer is the
             # offline-branch fallback for a runnable Lambda; for the synth gate the
             # plain asset is sufficient and Docker-free.)
-            code = lambda_.Code.from_asset(_API_DIR)
+            code = lambda_.Code.from_asset(_API_DIR, exclude=_API_ASSET_EXCLUDE)
 
         fn = lambda_.Function(
             self,
