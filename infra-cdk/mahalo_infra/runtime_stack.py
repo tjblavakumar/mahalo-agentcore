@@ -36,6 +36,31 @@ _REPO_ROOT = os.path.dirname(
 _RUNTIME_NAME = "mahalo_agent_runtime"
 _PLACEHOLDER_IMAGE = "000000000000.dkr.ecr.us-east-1.amazonaws.com/placeholder:latest"
 
+# Paths that MUST NOT be copied into the Runtime image asset. The asset SOURCE is
+# the whole repo root (_REPO_ROOT, so the Dockerfile's `COPY agent/…` context is
+# the repo root). Without these excludes CDK copies infra-cdk/cdk.out — the CDK
+# output dir that itself holds staged assets — into the new asset, producing an
+# infinitely recursive `cdk.out/asset.<hash>/infra-cdk/cdk.out/asset.<hash>/…`
+# path that fails staging with ENAMETOOLONG. The dev virtualenvs (agent/.venv ~120MB,
+# api/.venv ~60MB) and caches are excluded too: they are never needed in the image
+# (agent/Dockerfile installs deps via `pip install -r agent/requirements.txt`), and
+# their bulk is what made the asset huge. Mirrored in the repo-root .dockerignore so
+# the Docker daemon honors the same exclusions when it tars the build context.
+_IMAGE_ASSET_EXCLUDE = [
+    "infra-cdk/cdk.out",
+    "**/cdk.out",
+    ".venv",
+    "**/.venv",
+    "**/__pycache__",
+    "**/*.pyc",
+    ".git",
+    "**/node_modules",
+    "frontend/out",
+    "frontend/.next",
+    ".pytest_cache",
+    "**/.pytest_cache",
+]
+
 
 class MahaloRuntimeStack(Stack):
     """L2 AgentCore Runtime (container) + endpoint + app-level role grants."""
@@ -65,6 +90,11 @@ class MahaloRuntimeStack(Stack):
                 _REPO_ROOT,
                 file="agent/Dockerfile",
                 platform=ecr_assets.Platform.LINUX_ARM64,
+                # Keep cdk.out / dev venvs / caches out of the asset: the source
+                # is the whole repo root, so without this the staged asset nests
+                # cdk.out recursively and blows up with ENAMETOOLONG (see
+                # _IMAGE_ASSET_EXCLUDE). Belt-and-suspenders with .dockerignore.
+                exclude=_IMAGE_ASSET_EXCLUDE,
             )
         else:
             # Offline gate: a CloudFormation-parameter image URI — NO DockerImageAsset.
