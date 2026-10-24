@@ -13,8 +13,61 @@ bottom before doing anything.
 > deploy runs via that builder (see the RESUME block below). This CONTINUATION
 > file has the full operational detail.
 
-> â¸ï¸ RESUME TOMORROW â€” LIVE DEPLOY attempted via the EC2 builder; BLOCKED on one
-> fixable CDK bug. Git `main` @ `bf04b7b` (pushed). NOTHING is deployed â€” the live
+> â¸ï¸ RESUME TOMORROW â€” RESUME HERE (2026-10-19). Git `main` @ `b3a04c7` (pushed, clean tree).
+> THE FULL STACK IS DEPLOYED AND LIVE. Frontend demo URL:
+> https://dw28e5je2s7b9.cloudfront.net (persona login pm/dev/exec — confirm the
+> password in frontend/src/lib/personas.ts). Backend thin-API Function URL:
+> https://dkgwvy2h42xkejgmjc3tsvi4ku0qcyuz.lambda-url.us-east-1.on.aws/. The
+> backend stacks + Gitea EC2 + the MahaloBuilderStack builder (instance
+> i-01cc3571c99412f28) are ALL RUNNING (small spend).
+>
+> FIRST THING ON RESUME — re-auth (SSO LOGIN EXPIRED, needs full
+> `aws sso login --profile lava`, not just cred re-export), then REDEPLOY THE
+> THIN API to pick up the live-chat fix below.
+>
+> JUST FIXED + COMMITTED (b3a04c7), NOT YET REDEPLOYED — the live chat 502:
+> user hit "status -> error" in chat. AgentCore Runtime rejects runtimeSessionId
+> < 33 chars; the thin API forwarded the browser's short session_id verbatim ->
+> 502 "Invalid length ... min length: 33". Fixed in api/app/routers/chat.py with
+> _runtime_session_id() (normalizes missing/short -> >=33, deterministic,
+> prefix-preserved; applied in /chat AND /chat/approve; 23 thin-API tests pass).
+> MUST REDEPLOY: SSM to i-01cc3571c99412f28, then
+> `cd /home/ssm-user/mahalo-agentcore && git fetch && git reset --hard origin/main
+> && bash scripts/builder-deploy.sh --phase runtime-api`. Verify: unsigned POST
+> <thin-api>/chat, header X-Mahalo-Persona: dev, body {"message":"status",
+> "session_id":"x"} returns HTTP 200 (not 502).
+>
+> THEN — UI feature work the user requested (restore dropped screens):
+> Task 7 dropped the mahalo-dock DASHBOARD, CONNECTIONS screen, and LEFT-NAV
+> sidebar (design was "chat surface only"). User wants them back:
+>  1. DASHBOARD driven THROUGH THE AGENT — calls the existing /chat with a
+>     "build my dashboard" prompt per persona and renders the synthesized
+>     cross-service result; NO new backend. For PM, let the user CHOOSE WHICH
+>     PROJECTS to synthesize (multi-select feeding the prompt). Headline demo feature.
+>  2. CONNECTIONS screen showing the 4 services (Jira/Confluence/GitHub/ServiceNow)
+>     as CONNECTED (static "all connected" is fine).
+>  3. Restore the LEFT-NAV SIDEBAR (ported from mahalo-dock shape) linking
+>     Dashboard / Chat / Connections.
+> Port SHAPE from the read-only mahalo-dock frontend (<FALLBACK_ROOT>/frontend/src).
+> Demo-simple, reuse deployed /chat, no new thin-API routes. Deliver via a workflow.
+> Offline gate: frontend npm ci/lint/vitest --run/build + infra synth. Then redeploy
+> frontend via the builder (see rough-edges note).
+>
+> KNOWN ROUGH EDGES (Task 8): scripts/builder-deploy.sh `--phase frontend` has two
+> bugs — errors on the removed Cognito IdentityPool output, and its npm build +
+> S3 upload didn't run — so the frontend was built+synced MANUALLY both times:
+> on the builder `cd frontend; export NEXT_PUBLIC_API_URL=<thin-api-url>
+> NEXT_PUBLIC_AWS_REGION=us-east-1; npm install; npx next build;
+> aws s3 sync out s3://mahalofrontendstack-frontendbucketefe2e19c-hgoxy5hs23db/
+> --delete; aws cloudfront create-invalidation --distribution-id E1SXSYT3Z9NSTZ
+> --paths '/*'`. Frontend S3 bucket:
+> mahalofrontendstack-frontendbucketefe2e19c-hgoxy5hs23db; CloudFront dist
+> E1SXSYT3Z9NSTZ.
+>
+> ---
+>
+> (historical note — an earlier builder run) a live deploy once FAILED during
+> asset-staging and that MahaloBuilderStack EC2 was torn down after. NOTHING is deployed â€” the live
 > deploy FAILED during asset-staging (before any app stack was created), and the
 > `MahaloBuilderStack` EC2 was TORN DOWN after, so there is ZERO overnight spend
 > (only the free CDKToolkit remains). Confirmed: no `Mahalo*` CloudFormation stacks
