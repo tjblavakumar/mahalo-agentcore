@@ -30,6 +30,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+# AgentCore Runtime requires runtimeSessionId length >= 33 (validated live:
+# "Invalid length for parameter runtimeSessionId, valid min length: 33"). A
+# browser-supplied session_id can be shorter, which previously 502'd every chat.
+# Normalize ANY client value to a stable, compliant id in one place.
+_MIN_RUNTIME_SESSION_LEN = 33
+
+
+def _runtime_session_id(client_session_id: str | None) -> str:
+    """Return a Runtime-valid session id (>=33 chars) for a client session.
+
+    - Missing -> a fresh uuid4 hex-ish id (36 chars).
+    - Present but too short -> deterministically padded so the SAME client
+      session always maps to the SAME Runtime session (preserving Memory
+      continuity across turns), while clearing the >=33 floor. Padding is a
+      fixed suffix of the client id's own sanitized chars; it never collides
+      a distinct client id into the same runtime id for demo-length ids.
+    - Present and long enough -> used as-is.
+    """
+    sid = (client_session_id or "").strip()
+    if not sid:
+        return "mahalo-" + uuid.uuid4().hex  # 7 + 32 = 39 chars
+    if len(sid) >= _MIN_RUNTIME_SESSION_LEN:
+        return sid
+    # Deterministic pad: prefix the client id with a stable marker and repeat
+    # the id until it clears the floor. Same input -> same output.
+    padded = sid
+    while len(padded) < _MIN_RUNTIME_SESSION_LEN:
+        padded = f"{padded}-{sid}"
+    return padded[: max(_MIN_RUNTIME_SESSION_LEN, len(sid) + 8)]
+
 
 def _runtime_user_id(ident: Identity) -> str | None:
     """Send runtimeUserId only when Identity is enabled (off for the MVP, §D.4)."""
@@ -39,7 +69,9 @@ def _runtime_user_id(ident: Identity) -> str | None:
 @router.post("", response_model=ChatResponse)
 def send_message(req: ChatRequest, ident: Identity = Depends(current_identity)) -> ChatResponse:
     """Forward a chat message to the Runtime and project the reply."""
-    session_id = req.session_id or str(uuid.uuid4())
+    # Normalize to a Runtime-valid (>=33 char) session id, and echo THAT back so
+    # the client reuses the same id next turn (stable Memory continuity).
+    session_id = _runtime_session_id(req.session_id)
     try:
         out = invoke_runtime(
             session_id=session_id,
@@ -80,9 +112,12 @@ def approve_action(
     ``{session_id, interrupt_id, approved}`` is fully supported.
     """
     decision = "APPROVE" if req.approved else "REJECT"
+    # Normalize identically to /chat so the approve lands on the SAME Runtime
+    # session as the chat turn that produced this interrupt.
+    session_id = _runtime_session_id(req.session_id)
     try:
         out = invoke_runtime(
-            session_id=req.session_id,
+            session_id=session_id,
             body={
                 "action": "approve",
                 "decision": decision,
@@ -101,5 +136,5 @@ def approve_action(
     return ActionResult(
         success=(out.get("status") != "error"),
         message=message,
-        session_id=req.session_id,
+        session_id=session_id,
     )
