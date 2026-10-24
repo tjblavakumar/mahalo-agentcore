@@ -21,6 +21,36 @@ bottom before doing anything.
 > backend stacks + Gitea EC2 + the MahaloBuilderStack builder (instance
 > i-01cc3571c99412f28) are ALL RUNNING (small spend).
 >
+> === 2026-10-20 UPDATE (supersedes the lines just below) ===
+> CHAT-502 FIX IS LIVE (deployed + verified): the runtimeSessionId <33-char bug is
+> fixed and the thin API was redeployed; a live "status" chat returns 200 with a real
+> cross-service answer. The currently-DEPLOYED frontend is still the Task-7c build
+> (chat + login only). Persona logins: pm/pm123, dev/dev123, exec/exec123.
+>
+> IN PROGRESS — task7d (dashboard + connections + left-nav sidebar), workflow
+> wf_92953480fe870c66: DESIGN APPROVED + PLAN written (docs/.agents/tasks/
+> task7d-design.md, task7d-plan.md); BUILD LOOP NOT yet run. RESUME: inspect
+> wf_92953480fe870c66 and resume it (build -> code-review -> verify). If it can't
+> resume cleanly, relaunch a workflow to IMPLEMENT the APPROVED task7d design/plan
+> (frontend-only: Sidebar in (protected)/layout.tsx; agent-driven Dashboard calling
+> /chat with persona "build my dashboard" prompts + PM project multi-select over
+> PAY/CART/AUTH/PROD/ORD, rendered full-width prose; static 4-service Connections).
+> MUST read frontend/node_modules/next/dist/docs/ before Next.js code (breaking
+> changes). Offline gate: frontend npm ci/lint/vitest --run/build green; no backend
+> changes.
+>
+> AFTER task7d BUILDS GREEN — redeploy the FRONTEND manually on the builder (the
+> builder `--phase frontend` is buggy): SSM to i-01cc3571c99412f28, then
+> `cd /home/ssm-user/mahalo-agentcore && git fetch && git reset --hard origin/main &&
+> cd frontend && export NEXT_PUBLIC_API_URL=https://dkgwvy2h42xkejgmjc3tsvi4ku0qcyuz.lambda-url.us-east-1.on.aws/
+> NEXT_PUBLIC_AWS_REGION=us-east-1 && npm install && npx next build && aws s3 sync out
+> s3://mahalofrontendstack-frontendbucketefe2e19c-hgoxy5hs23db/ --delete && aws
+> cloudfront create-invalidation --distribution-id E1SXSYT3Z9NSTZ --paths '/*'`. Then
+> user validates in the browser. Before any builder/cdk command re-export creds
+> (`aws configure export-credentials --profile lava --format env-no-export` -> AWS_*
+> env, region us-east-1; ~1hr TTL). If `aws sso login` itself lapsed, user re-runs it.
+> ============================================================
+>
 > FIRST THING ON RESUME — re-auth (SSO LOGIN EXPIRED, needs full
 > `aws sso login --profile lava`, not just cred re-export), then REDEPLOY THE
 > THIN API to pick up the live-chat fix below.
