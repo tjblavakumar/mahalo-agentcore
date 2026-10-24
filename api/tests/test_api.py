@@ -151,7 +151,10 @@ def test_chat_proposal_passthrough(monkeypatch):
     data = resp.json()
     assert data["status"] == "pending_approval"
     assert data["proposal"]["interrupt_id"] == "itr-1"
-    assert data["session_id"] == "S1"
+    # A short client session id ("S1") is normalized to the Runtime >=33 floor
+    # and that normalized id is echoed back (so the client reuses it next turn).
+    assert len(data["session_id"]) >= 33
+    assert data["session_id"].startswith("S1")
 
 
 def test_chat_complete_passthrough(monkeypatch):
@@ -167,8 +170,9 @@ def test_chat_complete_passthrough(monkeypatch):
     data = resp.json()
     assert data["status"] == "complete"
     assert data["response"] == "hi there"
-    # A session id was generated (str(uuid4), 36 chars) and echoed.
-    assert len(data["session_id"]) == 36
+    # No client session id -> a generated id is echoed. It MUST clear the
+    # AgentCore Runtime >=33-char floor (the bug that 502'd live chats).
+    assert len(data["session_id"]) >= 33
 
 
 def test_chat_invoke_failure_is_502(monkeypatch):
@@ -207,7 +211,10 @@ def test_approve_success_maps_to_action_result(monkeypatch):
     data = resp.json()
     assert data["success"] is True
     assert data["message"] == "done"
-    assert data["session_id"] == "S1"
+    # Approve normalizes the session id identically to /chat (same >=33 floor),
+    # so the echoed id is the normalized form, not the raw "S1".
+    assert len(data["session_id"]) >= 33
+    assert data["session_id"].startswith("S1")
 
 
 def test_approve_forwards_proposal_echo(monkeypatch):
@@ -382,3 +389,50 @@ def test_no_langchain_or_agent_in_api_source():
                 assert not line.startswith(("import agent", "from agent")), (
                     f"agent import in {py}: {line}"
                 )
+
+
+# --------------------------------------------------------------------------- #
+# runtimeSessionId normalization — regression for the live >=33-char 502 bug.
+# AgentCore Runtime rejects runtimeSessionId shorter than 33 chars; the thin API
+# MUST normalize any client session id (including short browser ones) before
+# forwarding. Guards the bug that 502'd a plain "status" chat.
+# --------------------------------------------------------------------------- #
+
+def test_runtime_session_id_normalization():
+    from app.routers.chat import _runtime_session_id
+
+    # Missing -> generated, compliant.
+    gen = _runtime_session_id(None)
+    assert len(gen) >= 33
+    gen2 = _runtime_session_id("")
+    assert len(gen2) >= 33
+
+    # Short client id -> padded to the floor, deterministic, prefix preserved.
+    short = _runtime_session_id("S1")
+    assert len(short) >= 33
+    assert short.startswith("S1")
+    assert _runtime_session_id("S1") == short  # same input -> same output
+
+    # A typical too-short browser id (e.g. 31 chars) is lifted over the floor.
+    almost = "x" * 31
+    assert len(_runtime_session_id(almost)) >= 33
+
+    # Already-long id is used verbatim.
+    long_id = "mahalo-" + ("a" * 30)  # 37 chars
+    assert _runtime_session_id(long_id) == long_id
+
+
+def test_short_client_session_id_is_normalized_before_runtime(monkeypatch):
+    """End-to-end through /chat: a short client session_id must be lifted to a
+    >=33-char runtimeSessionId in the forwarded call (the live 502 fix)."""
+    import app.routers.chat as chat
+
+    seen = {}
+
+    def _fake_invoke(*, session_id, body, runtime_user_id=None):
+        seen["session_id"] = session_id
+        return {"status": "complete", "response": "ok", "session_id": session_id}
+
+    monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
+    _client().post("/chat", json={"message": "status", "session_id": "short-id"})
+    assert len(seen["session_id"]) >= 33
