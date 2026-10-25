@@ -9,10 +9,15 @@ import type { ChatResponse } from "@/types";
 
 export default function DashboardPage() {
   const { persona } = useAuth();
+  const isPM = persona?.role === "product_manager";
   const [result, setResult] = useState<ChatResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  // PM defaults to a SINGLE project so the first synthesis is fast. Synthesizing
+  // all 5 projects fans out to ~23 agent tool calls and can approach the Lambda
+  // timeout; the PM picks more projects and hits Regenerate deliberately. Dev/Exec
+  // have no project selector and synthesize their (smaller) role view directly.
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(isPM ? ["PAY"] : []);
   // The dashboard owns its own session id, distinct from chat, so synthesis
   // does not pollute chat history. Starts null; the thin API normalizes the
   // returned id to a Runtime-valid value (>=33 chars), which is then reused.
