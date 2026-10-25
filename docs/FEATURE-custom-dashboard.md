@@ -49,6 +49,23 @@ chart-based, user-customizable dashboard:
   AgentCore Runtime over the four systems (mock Jira/Confluence/ServiceNow + real
   Gitea).
 
+## USER DECISIONS SO FAR (2026-10-25)
+
+- **Q1 (chart data contract): DECIDED — go with recommendation (a):** strict
+  JSON-envelope over the existing /chat + client-side validation, no new backend
+  for the viz data. Never fall back to text.
+- **Q2 (charting library): DECIDED — go with recommendation:** pick a lib
+  compatible with Next.js 16 static export + React 19 (recharts the likely
+  candidate; verify compat before committing).
+- **Q3 (persistence): REOPENED — discuss tomorrow.** User explicitly does NOT
+  want an empty dashboard on every visit, so saved widgets MUST persist durably.
+  This RULES OUT localStorage-only (my earlier recommendation) — localStorage is
+  per-browser and can be cleared. User suggested "json or sqlite db or some other
+  format." Direction = SERVER-SIDE / durable persistence. Options to weigh
+  tomorrow (see the expanded Q3 below).
+- **Q4 (layout) and Q5 (strict-output enforcement): still open** — decide
+  tomorrow.
+
 ## Key design decisions to make NEXT SESSION (confirm with user)
 
 1. **How does the agent return chart DATA (not prose)?** The dashboard needs
@@ -72,14 +89,30 @@ chart-based, user-customizable dashboard:
    React 19 support. (MUST read frontend/node_modules/next/dist/docs/ before
    Next.js code per frontend/AGENTS.md — this Next.js has breaking changes.)
 
-3. **Where are saved dashboards persisted?** Options:
-   a. **Browser localStorage per persona** (simplest; demo-only; no backend). Each
-      persona's saved widgets live in the browser. RECOMMENDED for a demo.
-   b. Backend persistence (DynamoDB keyed by persona) — survives across browsers/
-      devices but adds a thin-API route + table + redeploy. Only if the user wants
-      cross-device persistence.
-   RECOMMENDATION to propose: (a) localStorage keyed by personaId, unless the user
-   wants server-side persistence.
+3. **Where are saved dashboards persisted? (REOPENED — decide tomorrow.)**
+   HARD REQUIREMENT from the user: saved widgets must persist so the user never
+   sees an empty dashboard on return. So localStorage-only is OUT (per-browser,
+   clearable). The frontend is a STATIC export on S3/CloudFront with NO server of
+   its own, so "durable persistence" means a backend store the dashboard reads/
+   writes via the thin API. Options to weigh:
+   a. **DynamoDB keyed by personaId**, via two new thin-API routes
+      (GET/PUT /dashboard/widgets). Fits the existing AWS stack (the mocks already
+      use DynamoDB + CDK); survives across browsers/devices; naturally per-persona.
+      Adds a small table + 2 routes + a thin-API redeploy. LIKELY RECOMMENDATION.
+   b. **SQLite on the Gitea EC2 host** (or a tiny file) — the user mentioned
+      sqlite. Possible but awkward: the frontend can't reach a DB directly; it'd
+      still need an API in front, and we'd be adding a stateful store on a box
+      meant for Gitea. Not recommended vs. (a).
+   c. **A JSON file in S3 per persona**, read/written via a thin-API route (or a
+      presigned GET for read + an API PUT for write). Simplest store, no table;
+      slightly clunkier concurrency but fine for a single-user demo.
+   d. **Seed a DEFAULT dashboard** (a few starter widgets per persona) so even a
+      brand-new user sees a populated dashboard immediately — addresses the
+      "never empty" ask directly, and composes with (a)/(c). Strongly consider
+      combining a default-seed with whichever durable store we pick.
+   RECOMMENDATION to propose tomorrow: (a) DynamoDB per persona via 2 thin-API
+   routes, PLUS (d) a seeded default dashboard per persona so it's never empty.
+   Confirm with the user; this adds a thin-API route + table + redeploy (accept).
 
 4. **Widget layout:** fixed stacked cards vs. react-grid-layout draggable grid.
    Draggable is nicer but heavier; confirm whether drag/resize is wanted or if a
