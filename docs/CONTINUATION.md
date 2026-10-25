@@ -4,6 +4,26 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-10-25 RESUME-NEXT — custom chart-based dashboard (NEXT FEATURE) ===
+> The user's next ask (to resume "tomorrow"): replace the TEXT-only agent
+> dashboard with a CUSTOM CHART-BASED dashboard. A chat textbox on the Dashboard
+> screen; the user types what they want to see; the agent returns STRICTLY a line
+> chart / area chart / bar chart / table (NO text output); the user can SAVE each
+> chart/table as a persistent widget and DELETE ones they don't want — so each
+> persona builds their own custom dashboard. Decision-complete spec (the 5 open
+> design questions with recommended answers, and the note that mahalo-dock has NO
+> chart lib so this is NOT a straight port) is in docs/FEATURE-custom-dashboard.md
+> — READ THAT FIRST for this feature.
+>
+> === 2026-10-25 UPDATE — REAL GITEA DEMO COMPLETE ===
+> The agent reads/writes REAL Gitea end-to-end (giteaMode=real). Browser URL
+> https://d3ec76atxiij9a.cloudfront.net/ (admin mahalo_admin / <GITEA_ADMIN_PASSWORD>).
+> 5 repos + branches + persona-labeled PRs seeded. Demo login sheet + run guide:
+> docs/DEMO-LOGINS.md. Full record: docs/GITEA-REAL-PLAN.md. Gotcha baked in: this
+> account AUTO-STRIPS 0.0.0.0/0 SG ingress on non-standard ports within seconds —
+> :3000 is scoped to CloudFront prefix list pl-3b927c52, and the github Lambda
+> reaches Gitea via the CloudFront HTTPS URL.
+>
 > === 2026-10-25 UPDATE — GITEA NOW HTTPS/443 VIA CLOUDFRONT ===
 > The office network blocks non-443 outbound, so http://32.193.103.5:3000 times
 > out from the browser. Fixed by fronting Gitea with CloudFront on 443:
