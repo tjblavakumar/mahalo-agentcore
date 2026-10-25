@@ -22,3 +22,6 @@ cdk.context.json
 
 # OS
 .DS_Store
+
+# Workflow scratch artifacts (keep .agents/tasks reports, drop throwaway scratch)
+.agents/scratch/
