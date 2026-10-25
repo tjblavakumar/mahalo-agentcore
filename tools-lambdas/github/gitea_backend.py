@@ -26,7 +26,18 @@ import base64
 import datetime
 import logging
 import os
+import sys
 from typing import Any, Optional
+
+# Real mode runs on Lambda where third-party deps are NOT pip-installed into the
+# runtime (the mock path needs none). ``httpx`` and its pure-Python dependency
+# closure are vendored under ``github/_vendor/`` and ship inside the Lambda asset.
+# Add that dir to ``sys.path`` as a FALLBACK (appended, not prepended) so a normal
+# environment that already has httpx installed (e.g. the dev/test venv) keeps
+# using its own copy, while the deployed Lambda resolves httpx from the vendor dir.
+_VENDOR = os.path.join(os.path.dirname(__file__), "_vendor")
+if os.path.isdir(_VENDOR) and _VENDOR not in sys.path:
+    sys.path.append(_VENDOR)
 
 import httpx
 

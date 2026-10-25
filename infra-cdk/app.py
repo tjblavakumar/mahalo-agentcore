@@ -42,9 +42,9 @@ _SERVICES = ("jira", "confluence", "github", "servicenow")
 # here. Kept as module-level constants so app.py reads them once.
 _GITEA_TOKEN_PARAM = "/mahalo/gitea/adapter-token"
 _GITEA_ENV = {
-    "GITEA_URL": "http://gitea.internal:3000",
+    "GITEA_URL": "https://d3ec76atxiij9a.cloudfront.net",
     "GITEA_ADMIN_USER": "mahalo_admin",
-    "GITEA_PUBLIC_URL": "http://gitea.public:3000",
+    "GITEA_PUBLIC_URL": "https://d3ec76atxiij9a.cloudfront.net",
     "DEMO_DEVELOPER_ID": "dev-6",
     "GITEA_TOKEN_PARAM": _GITEA_TOKEN_PARAM,
 }
