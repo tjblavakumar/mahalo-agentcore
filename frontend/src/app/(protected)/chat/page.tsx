@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { buildSuggestions } from "@/lib/chatSuggestions";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Proposal, ChatResponse } from "@/types";
 import ChatInput from "@/components/chat/ChatInput";
 import ChatMessage from "@/components/chat/ChatMessage";
 import ProposalCard from "@/components/chat/ProposalCard";
@@ -18,25 +19,9 @@ interface Message {
   proposal?: Proposal | null;
 }
 
-interface Proposal {
-  action: string;
-  system: string;
-  params: Record<string, unknown>;
-  description: string;
-  interrupt_id?: string;
-}
-
 interface ActionResult {
   success: boolean;
   message: string;
-}
-
-interface ChatApiResponse {
-  response: string;
-  proposal: Proposal | null;
-  systems_queried?: string[];
-  status: string;
-  session_id: string;
 }
 
 export default function ChatPage() {
@@ -91,7 +76,7 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    const result = await api.post<ChatApiResponse>(
+    const result = await api.post<ChatResponse>(
       "/chat",
       {
         message,
@@ -173,7 +158,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="border-b border-gray-200 bg-white px-6 py-4 flex items-start justify-between gap-4">

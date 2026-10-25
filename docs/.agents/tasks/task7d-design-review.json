@@ -1,0 +1,27 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "location": "design \u00a7B Prompt-builder / Project selection UI",
+      "problem": "The prompt-builder takes role: UserRole but the design never states the one-line binding that the dashboard page derives role from persona.role (verified personas.Persona.role is UserRole, so it lines up).",
+      "fix": "In \u00a7B Call shape, add: the page computes buildDashboardPrompt({ role: persona.role, selectedProjectKeys: selected }) where persona.role is the UserRole from personas.ts and selected is the PM checkbox state (empty for dev/exec)."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "location": "design \u00a7B Prompt-builder behavior + Project selection UI",
+      "problem": "The builder defensively ignores selectedProjectKeys for dev/exec and there is a test for it, but the design does not state that the page passes no keys for non-PM personas nor that selection resets on persona change.",
+      "fix": "In \u00a7B Project selection UI add: selection state resets when persona changes (useState default []), and for Developer/Executive the page passes no keys, so the builder's ignore-keys branch is belt-and-braces."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "location": "design \u00a7C connections.ts + Testability test 2",
+      "problem": "ServiceInfo adds free-form description strings not traceable to any source, and the connections test asserts only key/length, so a typo in label/description ships silently.",
+      "fix": "Optionally extend connections.test.ts to assert each service has a non-empty label and description (SERVICES.forEach(s => { expect(s.label).toBeTruthy(); expect(s.description).toBeTruthy(); })) without a DOM."
+    }
+  ],
+  "reviewDoc": "docs/.agents/tasks/task7d-design-review.md"
+}
