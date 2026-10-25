@@ -82,8 +82,8 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
 
 ## Plan / progress
 
-- [~] STEP 1 — Open SG on 3000; user tests the URL. If blocked by network →
-      HTTPS/443 fallback (CloudFront/ALB).
+- [x] STEP 1 — Reachability SOLVED. (EIP + CloudFront HTTPS/443.) Browser URL:
+      https://d3ec76atxiij9a.cloudfront.net/  — PENDING final user browser login test.
       PROGRESS:
       - Added SG ingress rule sgr-050c093493d6c81b3 (tcp/3000 from 0.0.0.0/0) to
         SG sg-04c06aeba215f7b94. User tested — STILL timed out.
@@ -131,4 +131,11 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
 
 ## Live-state notes (update as we go)
 
-- (nothing executed yet beyond investigation)
+- 2026-10-25 STEP 1 reachability SOLVED via CloudFront (workflow wf_80b05ca619730b03, APPROVED, commit f38cd66):
+  - Browser HTTPS URL: https://d3ec76atxiij9a.cloudfront.net/ (login mahalo_admin / password in SSM /mahalo/gitea/admin-password).
+  - CloudFront dist E2KKG6SJXJ4K1M, Deployed. Origin = EIP host (ec2-32-193-103-5.compute-1.amazonaws.com) HTTP:3000, caching disabled, ALLOW_ALL methods, AllViewerExceptHostHeader, redirect-to-https.
+  - Gitea ROOT_URL set to the CloudFront URL via SSM; HTTP_PORT=3000 + 0.0.0.0 bind unchanged so the internal Lambda path is intact.
+  - CDK change committed to gitea_stack.py (out-of-band note; NOT cdk-deployed) + GiteaCloudFrontUrl output + synth test (8/8 pass).
+  - Server-side verified (dist Deployed, origin /api/healthz pass, ROOT_URL/HTTP_PORT confirmed). Browser login is the USER'S check (workflow is behind the same 443-only proxy).
+  - EIP 32.193.103.5 retained as the CloudFront origin + stable address.
+  - Report: docs/.agents/tasks/gitea-cloudfront.md.
