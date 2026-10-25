@@ -223,15 +223,23 @@ sequenceDiagram
 
 The GitHub Lambda has two modes:
 
-- **mock (default, currently active):** git operations are simulated against
-  DynamoDB seed data. The approval gate and the whole agent flow work end to end
-  without touching Gitea. This is what the live demo uses today.
-- **real (optional):** the Lambda talks to the deployed Gitea host using the
-  adapter token from SSM, so branches/commits/PRs land in a real git repo you
-  can browse at the Gitea URL. Enabled by deploying the GitHub mock stack with
-  `-c giteaMode=real` and the Gitea env wired in (`app.py` already carries the
-  non-secret references). This is a deliberate, separate wiring step — it is NOT
-  on by default.
+- **real (CURRENTLY ACTIVE for the demo):** the GitHub Lambda
+  (`MahaloMockGithubStack`, deployed with `-c giteaMode=real`) talks to the
+  deployed Gitea over HTTPS (`GITEA_URL` = the CloudFront URL) using the adapter
+  token from SSM, so reads and writes (branches/commits/PRs, behind the approval
+  gate) hit a real git server. The agent reads the 5 real repos
+  (payment/cart/auth/product/order-service) with feature branches + open PRs, all
+  owned by `mahalo_admin` and labeled per persona in commit/PR text. An approved
+  write appears in Gitea immediately. See `docs/DEMO-LOGINS.md` for the run guide.
+- **mock (fallback):** git operations are simulated against DynamoDB seed data
+  with no Gitea dependency. Re-enable by deploying `MahaloMockGithubStack`
+  WITHOUT `-c giteaMode=real` (default `GITHUB_MODE=mock`). Useful if Gitea is
+  torn down.
+
+> Cross-service model: Jira, Confluence, and ServiceNow stay mock
+> (Lambda + DynamoDB); only GitHub is backed by real Gitea. All four share the
+> same developers (dev-1..dev-6) and projects (PAY/CART/AUTH/PROD/ORD), so the
+> agent's cross-service answers line up.
 
 ---
 

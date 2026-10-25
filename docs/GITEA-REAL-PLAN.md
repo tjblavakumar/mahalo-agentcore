@@ -151,7 +151,19 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
 - [x] STEP 4 — Verify E2E: reads return the 5 real repos + labeled PRs; a HITL
       approve created a real branch (confirmed in Gitea, HTTP 200); a HITL reject
       wrote nothing (HTTP 404). DONE 2026-10-25 (see live-state note below).
-- [ ] STEP 5 — Deliver the demo login sheet (3 Mahalo personas + 1 Gitea admin).
+- [x] STEP 5 — DONE 2026-10-25. Demo login sheet + run guide written to
+      docs/DEMO-LOGINS.md (3 Mahalo personas pm/dev/exec + the single Gitea admin
+      mahalo_admin / <GITEA_ADMIN_PASSWORD> at https://d3ec76atxiij9a.cloudfront.net/,
+      the 4-system table, and a suggested demo script). Consolidated docs/DEMO.md
+      updated: §7 now states real Gitea mode is the ACTIVE path.
+
+## ALL STEPS COMPLETE (2026-10-25)
+
+The demo is live and end-to-end: log into Mahalo as any persona → the agent
+answers across mock Jira/Confluence/ServiceNow + REAL Gitea; HITL writes land in
+Gitea (visible at the CloudFront URL as mahalo_admin). Reachability solved
+(EIP + CloudFront HTTPS + CloudFront-prefix-list SG rule). PR/commit links are
+browser-clickable (publicize fix). See docs/DEMO-LOGINS.md to run the demo.
 
 ## Live-state notes (update as we go)
 
@@ -212,10 +224,24 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
     * HITL REJECT "feature/demo-reject" → /chat/approve {approved:false} → "The
       branch creation was rejected." Gitea GET of that branch → HTTP 404 (nothing
       written).
-  - NOTE (cosmetic): agent-echoed PR urls render the EIP host
-    (ec2-32-193-103-5...) not the CloudFront domain (Gitea html_url host vs the
-    adapter _publicize rewrite). Reads/writes unaffected; browser demo uses the
-    CloudFront URL directly. Left as-is (out of scope).
+  - PR-URL HOST MISMATCH — FIXED (follow-up, 2026-10-25, commit 2a28259 +
+    github Lambda redeploy): agent-echoed PR urls previously rendered the EIP/
+    localhost host (Gitea stamps html_url from the request host, which _publicize
+    only rewrote when it exactly matched base_url). Rewrote
+    GiteaBackend._publicize to swap the ENTIRE scheme+host[:port] origin of any
+    absolute Gitea URL for GITEA_PUBLIC_URL (the CloudFront URL), so links are
+    always browser-clickable regardless of which internal host Gitea used. Added
+    regression test test_real_publicizes_url_from_any_internal_host (github
+    handler suite 26 passed). Redeployed MahaloMockGithubStack -c giteaMode=real
+    (UPDATE_COMPLETE). VERIFIED LIVE through the agent: "show open PRs for
+    payment-service" now returns links like
+    https://d3ec76atxiij9a.cloudfront.net/mahalo_admin/payment-service/pulls/3.
+  - REMAINING cosmetic (not fixed, inherent to single-user decision #1): the
+    agent appends "(dev-6)" to every PR author because the single-user backend
+    maps the Gitea owner -> DEMO_DEVELOPER_ID=dev-6. The real author NAME in the
+    PR title is correct (Marcus Chen / Raj Patel / David Kim); only the trailing
+    dev-id tag is uniform. Accepted (consequence of "everything owned by one
+    user").
   - Committed: infra-cdk/app.py + tools-lambdas/github/gitea_backend.py (httpx
     vendor shim) + tools-lambdas/github/_vendor/ on a new branch. Seeder/verifier
     helper scripts saved under gitea/.
