@@ -50,9 +50,32 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
    what's actually in Gitea. Same STORY (repos, features, PRs, personas), a few
    METRICS differ. Accepted for the demo.
 
-5. **Reachability:** open the SG on port 3000 first and have the user test the
-   URL. If the user's network blocks non-443 (browser got ERR_CONNECTION_TIMED_OUT),
-   front Gitea with HTTPS on 443 (CloudFront or ALB). Decide after the test.
+5. **Reachability:** SOLVED via EIP + CloudFront HTTPS/443. See the critical
+   account-policy finding below.
+
+6. **CRITICAL ACCOUNT POLICY — 0.0.0.0/0 ingress on non-standard ports is
+   auto-removed.** This account has a drift-remediation / config-enforcement
+   mechanism that STRIPS any security-group ingress rule opening a non-standard
+   port (e.g. 3000) to `0.0.0.0/0` — within SECONDS. This is why every attempt to
+   "open 3000 to the world" failed (original CDK deploy's rule never persisted;
+   two manual 0.0.0.0/0 adds vanished immediately) and caused the CloudFront 504
+   (origin unreachable). FIX: scope the 3000 ingress to the AWS-managed CloudFront
+   origin-facing prefix list `pl-3b927c52`
+   (com.amazonaws.global.cloudfront.origin-facing). A prefix-list-scoped rule
+   SURVIVES (verified 45s+). Live rule: sgr-0ad28d2ad42ca22dc (tcp/3000 <-
+   pl-3b927c52) on SG sg-04c06aeba215f7b94.
+   IMPLICATION for the GitHub Lambda real-mode path: a non-VPC Lambda has no fixed
+   egress IP and we CANNOT open 3000 to 0.0.0.0/0 (auto-removed). So the Lambda
+   must NOT reach Gitea directly over the public EIP:3000. Instead, point the
+   Lambda's GITEA_URL at the CloudFront HTTPS endpoint
+   (https://d3ec76atxiij9a.cloudfront.net) so its REST calls go through 443 (the
+   distribution already forwards all methods / no caching). This replaces the
+   earlier "Lambda hits http://<eip>:3000 internally" assumption. Confirm during
+   STEP 3 wiring.
+   NOTE: the committed gitea_stack.py still defines the 3000 ingress as
+   `GiteaIngressCidr` default 0.0.0.0/0 — that default will be auto-stripped if
+   ever redeployed; update it to the CloudFront prefix list in the CDK too (later
+   hardening, not blocking the demo).
 
 6. **Deliverable:** a demo login sheet — the 3 Mahalo persona logins + the single
    Gitea admin login — so the user can switch personas during the demo.
@@ -82,8 +105,9 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
 
 ## Plan / progress
 
-- [x] STEP 1 — Reachability SOLVED. (EIP + CloudFront HTTPS/443.) Browser URL:
-      https://d3ec76atxiij9a.cloudfront.net/  — PENDING final user browser login test.
+- [x] STEP 1 — Reachability SOLVED + USER-CONFIRMED (2026-10-25). Browser URL:
+      https://d3ec76atxiij9a.cloudfront.net/ loads the Gitea login; user logged in
+      as mahalo_admin. (EIP + CloudFront HTTPS/443 + CloudFront-prefix-list SG rule.)
       PROGRESS:
       - Added SG ingress rule sgr-050c093493d6c81b3 (tcp/3000 from 0.0.0.0/0) to
         SG sg-04c06aeba215f7b94. User tested — STILL timed out.
