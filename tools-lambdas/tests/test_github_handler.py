@@ -330,6 +330,33 @@ def test_real_non_owner_author_passthrough(monkeypatch):
     assert pr["status"] == "merged"  # merged=true -> "merged"
 
 
+def test_real_publicizes_url_from_any_internal_host(monkeypatch):
+    # REGRESSION: Gitea stamps html_url from the REQUEST host, which in the live
+    # deploy is NOT base_url (CloudFront) but the origin host Gitea actually served
+    # (localhost:3000 via the box, or the EIP host:3000 via CloudFront's origin
+    # fetch). _publicize must rewrite the whole origin to the public URL regardless
+    # of which internal host appears, so browser-clickable links always resolve.
+    pr_payload = [
+        {
+            "number": 9,
+            "title": "Internal-host link",
+            "user": {"login": OWNER},
+            "state": "open",
+            "head": {"ref": "feature/x"},
+            "base": {"ref": "main"},
+            # A host that differs from base_url (GITEA_BASE) entirely:
+            "html_url": f"http://ec2-32-193-103-5.compute-1.amazonaws.com:3000/{OWNER}/payment-service/pulls/9",
+        }
+    ]
+    routes_map = {
+        ("GET", f"/api/v1/repos/{OWNER}/payment-service/pulls"): (200, pr_payload),
+    }
+    backend = _make_backend(monkeypatch, routes_map)
+    pr = backend.list_pulls("payment-service")["pull_requests"][0]
+    # Despite the EIP host in the raw html_url, the returned url is publicized.
+    assert pr["url"] == f"{GITEA_PUBLIC}/{OWNER}/payment-service/pulls/9"
+
+
 def test_real_create_branch_duplicate_409(monkeypatch):
     from github.backend_base import BackendError
 

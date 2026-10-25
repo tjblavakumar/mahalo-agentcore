@@ -80,17 +80,35 @@ class GiteaBackend(GithubBackend):
             "DEMO_DEVELOPER_ID", "dev-6"
         )
         # Gitea derives html_url from the request Host, so links returned to the
-        # adapter come back as the in-stack base (http://gitea:3000/...), which a
-        # browser can't reach. Rewrite them to the browser-facing public URL.
+        # adapter come back as whatever origin served the request
+        # (http://localhost:3000/..., http://<eip-host>:3000/..., or the in-stack
+        # http://gitea:3000/...), none of which a corporate browser can reach.
+        # Rewrite them to the browser-facing public URL (the CloudFront HTTPS URL).
         self.public_url = (
             public_url or os.environ.get("GITEA_PUBLIC_URL", "http://localhost:3001")
         ).rstrip("/")
 
     def _publicize(self, url: Optional[str]) -> Optional[str]:
-        """Rewrite an in-stack Gitea URL to the browser-reachable public URL."""
+        """Rewrite an in-stack Gitea URL to the browser-reachable public URL.
+
+        Gitea stamps ``html_url`` from the REQUEST host, which — depending on who
+        called the API — can be the CloudFront origin host, the EIP host, the
+        in-stack ``gitea`` host, or ``localhost``, all on :3000. Rather than match
+        only ``self.base_url`` (which misses every other internal host), swap the
+        entire scheme+host[:port] ORIGIN of any absolute Gitea URL for
+        ``self.public_url``. Relative or empty values pass through unchanged.
+        """
         if not url:
             return url
-        return url.replace(self.base_url, self.public_url)
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(url)
+        if not parts.scheme or not parts.netloc:
+            # Not an absolute URL (nothing to rewrite); best-effort legacy swap.
+            return url.replace(self.base_url, self.public_url)
+        # Everything after the origin (path + query + fragment).
+        rest = url[len(f"{parts.scheme}://{parts.netloc}"):]
+        return f"{self.public_url}{rest}"
 
     def _map_author_id(self, login: Optional[str]) -> str:
         """Map a Gitea login to the reported author_id.
