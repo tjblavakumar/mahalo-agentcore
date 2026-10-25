@@ -4,6 +4,46 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-10-25 UPDATE — AWS-NATIVE GITEA DEPLOYED (Option B) ===
+> `MahaloGiteaStack` is DEPLOYED and fully bootstrapped (account <AWS_ACCOUNT_ID>,
+> us-east-1). This is the SEPARATE, AWS-native Gitea (Option B) — mahalo-agentcore
+> stays fully self-contained; it does NOT point at mahalo-dock's dockerized Gitea.
+>   - Instance: i-06d65fadd3fbd211b (EC2 t3.small AL2023, running gitea/gitea:1.27.3).
+>   - URL: http://ec2-100-61-181-17.compute-1.amazonaws.com:3000 (plain HTTP:3000;
+>     DNS/IP stable across reboot, changes on stop/start).
+>   - Admin: mahalo_admin / password in SSM /mahalo/gitea/admin-password.
+>   - Adapter token minted + stored in SSM /mahalo/gitea/adapter-token.
+>   - Seed repo mahalo_admin/payment-service created (auto-init README).
+>   - VERIFIED via SSM: token-auth repo list, admin whoami (is_admin=true), repo present.
+>   All 11 Mahalo* stacks are now live.
+>
+> GOTCHAS HIT + FIXED while deploying (bake into any re-deploy):
+>   1. The gitea stack's instance role had NO SSM permissions, so SSM Run Command
+>      couldn't reach it. Fixed out-of-band: attached AmazonSSMManagedInstanceCore +
+>      an inline ssm:PutParameter on /mahalo/gitea/* to role
+>      MahaloGiteaStack-GiteaInstanceInstanceRole*, then REBOOTED the instance to
+>      force SSM agent registration. (Proper fix = add ssm_session_permissions=True
+>      + the PutParameter grant in gitea_stack.py; not yet done.)
+>   2. A fresh gitea/gitea container writes app.ini with INSTALL_LOCK=false + empty
+>      secrets, so the gitea CLI refuses ("MustInstalled"). Must complete install:
+>      generate SECRET_KEY + INTERNAL_TOKEN, patch app.ini, restart. CRITICAL: keep
+>      app.ini owned by uid 1000 (git) — if root-owned, gitea can't persist its
+>      OAUTH2_JWT_SECRET on boot and CRASH-LOOPS with "permission denied".
+>   The working host-side bootstrap is saved at gitea/aws-host-bootstrap.sh (the
+>   SSM-host variant; distinct from gitea/bootstrap.sh which assumed a one-shot
+>   container). SSM params /mahalo/gitea/admin-password + /mahalo/gitea/adapter-token
+>   are pre-created.
+>
+> NOT YET DONE (optional, needs user OK): flip the deployed GitHub mock Lambda to
+> giteaMode=real so agent git writes land in the real Gitea. Default stays mock;
+> the live demo currently uses the mock path. app.py already carries the non-secret
+> Gitea env refs for -c giteaMode=real.
+>
+> CONSOLIDATED DEMO DOC written: docs/DEMO.md (architecture mermaid, all URLs,
+> persona + Gitea access, read + HITL-write workflow diagrams, stacks, teardown).
+> ====================================================================
+
+
 > For a one-page "where are we / what's left" snapshot, read `docs/STATUS.md`
 > first. As of 2026-10-18: Tasks 0-7 DONE; live deploy is a deferred operator step;
 > nothing of ours is deployed. **Task 7b (EC2 Docker-builder deploy path) is DONE
