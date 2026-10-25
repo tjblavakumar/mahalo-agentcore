@@ -81,6 +81,15 @@ def test_outputs_public_url_and_token_param():
     assert "GiteaAdapterTokenParam" in outputs
 
 
+def test_cloudfront_distribution_present():
+    tmpl = _template()
+    # A single CloudFront distribution fronts Gitea over HTTPS/443.
+    tmpl.resource_count_is("AWS::CloudFront::Distribution", 1)
+    # The HTTPS front-door URL is exported for the browser.
+    outputs = tmpl.find_outputs("*")
+    assert "GiteaCloudFrontUrl" in outputs
+
+
 def test_retain_gitea_data_parameter():
     tmpl = _template()
     params = tmpl.to_json().get("Parameters", {})

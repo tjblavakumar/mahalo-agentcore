@@ -33,6 +33,8 @@ from aws_cdk import (
     RemovalPolicy,
     Stack,
 )
+from aws_cdk import aws_cloudfront as cloudfront
+from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_ec2 as ec2
 from constructs import Construct
 
@@ -41,6 +43,13 @@ from constructs import Construct
 _GITEA_IMAGE = "gitea/gitea:1.27.3"
 _GITEA_PORT = 3000
 _DATA_DEVICE = "/dev/sdf"
+
+# Stable EIP-backed public DNS of the live Gitea host — the CloudFront origin.
+# The EIP (eipalloc-0d582218ab8434359) survives reboots/stop-start, so this DNS
+# name is a durable origin. Pinned as a string because the EIP + its association
+# were created out-of-band (not owned by this stack), so there is no construct
+# attribute to read it from.
+_GITEA_ORIGIN_DNS = "ec2-32-193-103-5.compute-1.amazonaws.com"
 
 
 class MahaloGiteaStack(Stack):
@@ -228,9 +237,53 @@ class MahaloGiteaStack(Stack):
         self.instance = instance
         self.vpc = vpc
 
+        # --- (5) CloudFront HTTPS front door (443) for the browser UI + REST API. ---
+        # The office network blocks all non-443 outbound ports, so the browser
+        # cannot reach the origin's HTTP:3000 directly. CloudFront terminates HTTPS
+        # on 443 (allowed) and forwards to the Gitea origin over AWS's own network,
+        # so the origin stays plain HTTP:3000. The github Lambda's write path does
+        # NOT go through CloudFront (it talks to http://<eip>:3000 internally), so
+        # this distribution only serves the interactive UI + REST API to the browser.
+        #
+        # NOTE (out-of-band): the LIVE distribution was created out-of-band via
+        # `aws cloudfront create-distribution` against the running stack (the stack
+        # owns a live, stateful instance + EBS + an out-of-band EIP association, so a
+        # `cdk deploy` was deemed too risky this task). This CDK block mirrors that
+        # live distribution so the IaC stays truthful for a future clean redeploy; it
+        # was NOT deployed via `cdk deploy` in the task that added it.
+        distribution = cloudfront.Distribution(
+            self,
+            "GiteaDistribution",
+            comment="HTTPS/443 front door for the Gitea web UI + REST API.",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.HttpOrigin(
+                    _GITEA_ORIGIN_DNS,
+                    protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+                    http_port=_GITEA_PORT,
+                ),
+                # 443 works: HTTP viewers are redirected to HTTPS.
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                # Gitea login + REST writes need POST/PUT/PATCH/DELETE.
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                # Gitea is fully dynamic + authenticated — never cache.
+                cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                # Forward all viewer headers (except Host, which stays the origin
+                # host), all cookies, all query strings — Gitea sessions depend on
+                # cookies + the right headers.
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            ),
+        )
+        self.distribution = distribution
+
         public_url = f"http://{instance.instance_public_dns_name}:{_GITEA_PORT}"
         CfnOutput(self, "GiteaPublicUrl", value=public_url,
                   description="Browser/Lambda-facing Gitea base URL (HTTP).")
+        CfnOutput(
+            self,
+            "GiteaCloudFrontUrl",
+            value=f"https://{distribution.distribution_domain_name}",
+            description="HTTPS/443 CloudFront front door for the Gitea web UI + REST API.",
+        )
         CfnOutput(self, "GiteaInstanceId", value=instance.instance_id)
         CfnOutput(
             self,

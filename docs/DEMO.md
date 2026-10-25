@@ -91,15 +91,20 @@ flowchart TB
 | **Frontend (demo UI)** | https://dw28e5je2s7b9.cloudfront.net |
 | **Thin API (Function URL)** | https://dkgwvy2h42xkejgmjc3tsvi4ku0qcyuz.lambda-url.us-east-1.on.aws/ |
 | **AgentCore Gateway (MCP)** | https://mahalo-gateway-bex2gwexvv.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp |
-| **Gitea (git UI + API)** | http://ec2-100-61-181-17.compute-1.amazonaws.com:3000 |
+| **Gitea (git UI + API — HTTPS/443, use this)** | https://d3ec76atxiij9a.cloudfront.net/ |
+| **Gitea (internal HTTP:3000 — Lambda path only)** | http://ec2-32-193-103-5.compute-1.amazonaws.com:3000 |
 
 Notes:
-- The Gitea URL is plain **HTTP on port 3000**. Reaching it from the browser
-  requires your network to allow outbound TCP 3000 (some corporate networks only
-  allow 443). The agent/Lambda path does not depend on your browser reaching it.
-- The Gitea public DNS/IP is stable across reboots but WILL change if the EC2
-  instance is stopped and started. Re-check with
-  `aws ec2 describe-instances --instance-ids i-06d65fadd3fbd211b --query "Reservations[0].Instances[0].PublicDnsName"`.
+- **Use the HTTPS/443 CloudFront URL from the browser**:
+  https://d3ec76atxiij9a.cloudfront.net/ (distribution `E2KKG6SJXJ4K1M`). It
+  terminates HTTPS on 443 and forwards to the Gitea origin over AWS's network, so
+  a corporate network that only allows outbound 443 can reach the UI + REST API.
+  Gitea's `ROOT_URL` is set to this domain so links/redirects render correctly.
+- The plain **HTTP:3000** URL is the internal path the GitHub Lambda uses; it does
+  NOT go through CloudFront and requires outbound TCP 3000, which many corporate
+  networks block. Prefer the HTTPS URL from the browser.
+- The Gitea origin is EIP-backed (`32.193.103.5`), stable across reboots; it only
+  changes if the EIP is disassociated. The CloudFront domain is permanent.
 
 ---
 
@@ -120,7 +125,8 @@ API maps it to the agent's user context.
 
 | Field | Value |
 |---|---|
-| URL | http://ec2-100-61-181-17.compute-1.amazonaws.com:3000 |
+| URL (browser, HTTPS/443) | https://d3ec76atxiij9a.cloudfront.net/ |
+| URL (internal, Lambda HTTP:3000) | http://ec2-32-193-103-5.compute-1.amazonaws.com:3000 |
 | Admin user | `mahalo_admin` |
 | Admin password | stored in SSM SecureString `/mahalo/gitea/admin-password` |
 | Adapter API token | stored in SSM SecureString `/mahalo/gitea/adapter-token` (minted by bootstrap) |

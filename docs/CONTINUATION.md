@@ -4,6 +4,23 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-10-25 UPDATE — GITEA NOW HTTPS/443 VIA CLOUDFRONT ===
+> The office network blocks non-443 outbound, so http://32.193.103.5:3000 times
+> out from the browser. Fixed by fronting Gitea with CloudFront on 443:
+>   - Distribution E2KKG6SJXJ4K1M, domain d3ec76atxiij9a.cloudfront.net (Deployed).
+>   - BROWSER URL (give to user): https://d3ec76atxiij9a.cloudfront.net/
+>     (login mahalo_admin / password in SSM /mahalo/gitea/admin-password).
+>   - Origin = EIP host on HTTP:3000 (http-only), caching disabled, all methods,
+>     AllViewerExceptHostHeader, viewer redirect-to-https.
+>   - Gitea ROOT_URL set to the CloudFront URL via SSM; HTTP_PORT still 3000, the
+>     0.0.0.0 bind unchanged, so the internal Lambda path is untouched.
+>   - Created OUT-OF-BAND (aws cloudfront create-distribution); the equivalent CDK
+>     change is committed in gitea_stack.py but NOT cdk-deployed (live stack owns
+>     stateful instance/EBS + out-of-band EIP assoc — deploy deemed too risky).
+>   - Edge curl not runnable from the VDI (same 443-only proxy) — final browser
+>     check is the user's. Full report: docs/.agents/tasks/gitea-cloudfront.md.
+> ====================================================================
+>
 > === 2026-10-25 UPDATE — AWS-NATIVE GITEA DEPLOYED (Option B) ===
 > `MahaloGiteaStack` is DEPLOYED and fully bootstrapped (account <AWS_ACCOUNT_ID>,
 > us-east-1). This is the SEPARATE, AWS-native Gitea (Option B) — mahalo-agentcore
