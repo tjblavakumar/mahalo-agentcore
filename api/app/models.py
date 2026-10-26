@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
@@ -49,3 +49,65 @@ class ActionResult(BaseModel):
     success: bool
     message: str
     session_id: str
+
+
+# --- Custom dashboard persistence models (design §3.3) -----------------------
+
+# Allowed VizSpec types (design §1.2); the structural guard keys off this set.
+_VIZ_CHART_TYPES = {"line", "area", "bar"}
+_VIZ_TYPES = _VIZ_CHART_TYPES | {"table"}
+
+
+class WidgetLayout(BaseModel):
+    """The single stored ``lg`` (12-col) grid layout for one widget (§1.4)."""
+
+    x: int = Field(ge=0, le=48)
+    y: int = Field(ge=0, le=48)
+    w: int = Field(ge=1, le=48)
+    h: int = Field(ge=1, le=48)
+
+
+class SavedWidget(BaseModel):
+    """One persisted widget: a client id + an opaque VizSpec + its layout."""
+
+    id: str = Field(min_length=1, max_length=64)
+    spec: dict  # opaque VizSpec; structurally guarded by the PUT route (§3.3).
+    layout: WidgetLayout
+
+
+class DashboardWidgets(BaseModel):
+    """A persona's full dashboard widget set (overwrite-save, §3.2)."""
+
+    widgets: list[SavedWidget] = Field(min_length=0, max_length=24)
+
+
+def spec_is_structurally_valid(spec: object) -> bool:
+    """Minimal server-side structural guard on a stored ``spec`` (design §3.3).
+
+    Not the full frontend validator — just enough that a hand-crafted PUT to the
+    ``AuthType=NONE`` Function URL can't poison a dashboard with junk that later
+    crashes the renderer. Checks ``spec`` is a dict with an allowed ``type`` and
+    the type-appropriate keys present (charts: ``xKey``/``series``/``data``;
+    table: ``columns``/``rows``).
+    """
+    if not isinstance(spec, dict):
+        return False
+    spec_type = spec.get("type")
+    if spec_type not in _VIZ_TYPES:
+        return False
+    if not isinstance(spec.get("title"), str) or not spec["title"].strip():
+        return False
+    if spec_type in _VIZ_CHART_TYPES:
+        if not isinstance(spec.get("xKey"), str) or not spec["xKey"].strip():
+            return False
+        if not isinstance(spec.get("series"), list) or not spec["series"]:
+            return False
+        if not isinstance(spec.get("data"), list):
+            return False
+        return True
+    # table
+    if not isinstance(spec.get("columns"), list) or not spec["columns"]:
+        return False
+    if not isinstance(spec.get("rows"), list):
+        return False
+    return True

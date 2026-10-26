@@ -11,9 +11,11 @@ from fastapi import FastAPI
 from mangum import Mangum
 
 from app.routers.chat import router as chat_router
+from app.routers.dashboard import router as dashboard_router
 
 app = FastAPI(title="mahalo thin API", version="1.0.0")
 app.include_router(chat_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/healthz")

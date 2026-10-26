@@ -1,14 +1,16 @@
-"""App-level synth assertion (Task 7b): the full app produces exactly 11 stacks.
+"""App-level synth assertion: the full app produces exactly 12 stacks.
 
-After wiring MahaloBuilderStack, ``cdk synth --all`` must emit 11 templates: the
-4 mock stacks + Gateway + MemoryIdentity + Runtime + Api + Gitea + Frontend +
-Builder. This guards the stale 'stays 10' count from regressing.
+After wiring MahaloBuilderStack and MahaloDashboardStack, ``cdk synth --all``
+must emit 12 templates: the 4 mock stacks + Gateway + MemoryIdentity + Runtime +
+Dashboard + Api + Gitea + Frontend + Builder. This guards the count from
+regressing.
 """
 
 import aws_cdk as cdk
 
 from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.builder_stack import MahaloBuilderStack
+from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.frontend_stack import MahaloFrontendStack
 from mahalo_infra.gateway_stack import MahaloGatewayStack
 from mahalo_infra.gitea_stack import MahaloGiteaStack
@@ -20,7 +22,7 @@ _ENV = cdk.Environment(account="123456789012", region="us-east-1")
 _SERVICES = ("jira", "confluence", "github", "servicenow")
 
 
-def test_app_synthesizes_eleven_stacks():
+def test_app_synthesizes_twelve_stacks():
     app = cdk.App()
     mock_stacks = {
         service: MockServiceStack(
@@ -38,11 +40,16 @@ def test_app_synthesizes_eleven_stacks():
     runtime_stack = MahaloRuntimeStack(
         app, "MahaloRuntimeStack", memory_stack=memory_identity, env=_ENV
     )
+    dashboard_stack = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
     api_stack = MahaloApiStack(
-        app, "MahaloApiStack", runtime_stack=runtime_stack, env=_ENV
+        app,
+        "MahaloApiStack",
+        runtime_stack=runtime_stack,
+        dashboard_stack=dashboard_stack,
+        env=_ENV,
     )
     MahaloGiteaStack(app, "MahaloGiteaStack", env=_ENV)
     MahaloFrontendStack(app, "MahaloFrontendStack", env=_ENV)
     MahaloBuilderStack(app, "MahaloBuilderStack", env=_ENV)
 
-    assert len(app.synth().stacks) == 11
+    assert len(app.synth().stacks) == 12

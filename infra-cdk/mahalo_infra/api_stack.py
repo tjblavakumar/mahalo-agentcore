@@ -60,12 +60,14 @@ class MahaloApiStack(Stack):
         construct_id: str,
         *,
         runtime_stack: "Stack",
+        dashboard_stack: "Stack",
         identity_enabled: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         runtime = runtime_stack.runtime
+        dashboard_table = dashboard_stack.table
 
         build_image = bool(self.node.try_get_context("buildImage")) or (
             os.environ.get("MAHALO_BUILD_IMAGE") == "1"
@@ -114,11 +116,14 @@ class MahaloApiStack(Stack):
                 # is read by api/app/config.py; it must not be set here (reserved).
                 "MAHALO_RUNTIME_ARN": runtime.agent_runtime_arn,
                 "MAHALO_IDENTITY_ENABLED": "true" if identity_enabled else "false",
+                "MAHALO_DASHBOARD_TABLE": dashboard_table.table_name,
             },
         )
 
         # Thin API -> Runtime: SigV4-signed InvokeAgentRuntime on the Runtime ARN.
         runtime.grant_invoke_runtime(fn)
+        # Thin API -> dashboards table: GetItem/PutItem on the one persona item.
+        dashboard_table.grant_read_write_data(fn)
         if identity_enabled:
             # Per-user invoke requires the additional IAM action (§B.5 / §D.4).
             runtime.grant_invoke_runtime_for_user(fn)
@@ -142,6 +147,8 @@ class MahaloApiStack(Stack):
                 allowed_methods=[
                     lambda_.HttpMethod.POST,
                     lambda_.HttpMethod.GET,
+                    # PUT /dashboard/widgets (custom dashboard overwrite-save).
+                    lambda_.HttpMethod.PUT,
                 ],
                 # No SigV4 headers — nothing is signed anymore. Only the content
                 # type and the persona header the browser sends.
