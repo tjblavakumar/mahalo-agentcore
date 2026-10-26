@@ -12,6 +12,7 @@ import aws_cdk as cdk
 
 from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.builder_stack import MahaloBuilderStack
+from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.frontend_stack import MahaloFrontendStack
 from mahalo_infra.gateway_stack import MahaloGatewayStack
 from mahalo_infra.gitea_stack import MahaloGiteaStack
@@ -99,10 +100,18 @@ def main() -> None:
         tool_mode="gateway",
         env=_ENV,
     )
+    # Custom dashboard persistence table (design §6). Constructed BEFORE the API
+    # stack and wired in by direct construct reference (no Fn.import_value).
+    dashboard_stack = MahaloDashboardStack(
+        app,
+        "MahaloDashboardStack",
+        env=_ENV,
+    )
     api_stack = MahaloApiStack(
         app,
         "MahaloApiStack",
         runtime_stack=runtime_stack,
+        dashboard_stack=dashboard_stack,
         env=_ENV,
     )
     # Task 7: always-on Gitea host for the real github backend, and the static

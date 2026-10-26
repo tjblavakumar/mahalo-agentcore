@@ -30,6 +30,11 @@ class Settings:
     identity_enabled: bool = field(
         default_factory=lambda: _getbool("MAHALO_IDENTITY_ENABLED")
     )
+    # DynamoDB table backing the custom dashboard (design §3.1); wired in by the
+    # CDK MahaloApiStack as MAHALO_DASHBOARD_TABLE from the dashboard stack.
+    dashboard_table: str = field(
+        default_factory=lambda: _getenv("MAHALO_DASHBOARD_TABLE", "mahalo-dashboards")
+    )
 
 
 settings = Settings()

@@ -1,0 +1,9 @@
+# Dev/test-only deps for the thin API. NOT installed into the Lambda asset
+# (api/requirements.txt stays stdlib + fastapi/mangum/boto3). Install BOTH files
+# before running the api test suite:
+#   python -m pip install -r requirements.txt -r requirements-dev.txt
+# Mirrors tools-lambdas/requirements-dev.txt (moto @mock_aws DynamoDB backend).
+pytest==8.3.4
+moto[dynamodb]==5.0.28
+# FastAPI TestClient transitively needs httpx.
+httpx==0.28.1

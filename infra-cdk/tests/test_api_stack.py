@@ -10,6 +10,7 @@ import aws_cdk as cdk
 from aws_cdk import assertions
 
 from mahalo_infra.api_stack import MahaloApiStack
+from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
@@ -20,7 +21,14 @@ def _api_template():
     app = cdk.App()
     memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack", env=_ENV)
     runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
-    api = MahaloApiStack(app, "MahaloApiStack", runtime_stack=runtime, env=_ENV)
+    dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
+    api = MahaloApiStack(
+        app,
+        "MahaloApiStack",
+        runtime_stack=runtime,
+        dashboard_stack=dashboard,
+        env=_ENV,
+    )
     return assertions.Template.from_stack(api)
 
 
@@ -50,7 +58,7 @@ def test_function_url_cors_block():
     props = url["Properties"]
     assert props["AuthType"] == "NONE"
     cors = props["Cors"]
-    assert set(cors["AllowMethods"]) == {"POST", "GET"}
+    assert set(cors["AllowMethods"]) == {"POST", "GET", "PUT"}
     for header in ("Content-Type", "X-Mahalo-Persona"):
         assert header in cors["AllowHeaders"]
     # The SigV4 headers are no longer allowed (nothing is signed).
