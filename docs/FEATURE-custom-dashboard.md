@@ -57,14 +57,31 @@ chart-based, user-customizable dashboard:
 - **Q2 (charting library): DECIDED — go with recommendation:** pick a lib
   compatible with Next.js 16 static export + React 19 (recharts the likely
   candidate; verify compat before committing).
-- **Q3 (persistence): REOPENED — discuss tomorrow.** User explicitly does NOT
-  want an empty dashboard on every visit, so saved widgets MUST persist durably.
-  This RULES OUT localStorage-only (my earlier recommendation) — localStorage is
-  per-browser and can be cleared. User suggested "json or sqlite db or some other
-  format." Direction = SERVER-SIDE / durable persistence. Options to weigh
-  tomorrow (see the expanded Q3 below).
-- **Q4 (layout) and Q5 (strict-output enforcement): still open** — decide
-  tomorrow.
+- **Q3 (persistence): DECIDED — DynamoDB per persona + 2 thin-API routes +
+  seeded default dashboard.** Durable server-side store (never empty): a
+  DynamoDB table keyed by personaId holds each persona's saved widgets (chart
+  spec JSON + grid x/y/w/h). Two new thin-API routes: GET /dashboard/widgets
+  (load on open) and PUT /dashboard/widgets (save on add/delete/move/resize).
+  Seed a role-appropriate DEFAULT dashboard per persona so a first-time login is
+  already populated; once the user customizes, their saved set replaces the
+  default. Default starters (user approved "your assumption is good"):
+    - PM (Marcus Chen): story points by sprint (bar); open PRs by project (bar).
+    - Dev (Lava Dev): my open PRs (table); my stories by status (bar).
+    - Exec (David Kim): delivery health by project (bar/line).
+  Rejected: localStorage (per-browser, clearable); SQLite on the Gitea box
+  (needs an API anyway + stateful store on a Gitea host); S3-JSON (viable but
+  DynamoDB fits the existing stack better).
+- **Q4 (layout): DECIDED — draggable + resizable grid** (use react-grid-layout,
+  the same lib mahalo-dock uses; verify Next.js 16 static-export + React 19
+  compat). Each widget is a card with a delete control; positions/sizes persist
+  as part of the saved dashboard (so layout survives re-login too).
+- **Q5 (strict-output enforcement): DECIDED.** If the user's dashboard request
+  cannot be answered as a chart or table, the dashboard does NOT render prose —
+  it shows a short message telling the user to use the main Chat for generic/
+  text answers. The dashboard chatbox is EXPLICITLY scoped to
+  creating/customizing charts & tables, and the UI must make clear that saved
+  charts persist and are there on next login. (Add helper/placeholder text in the
+  dashboard chatbox to set this expectation.)
 
 ## Key design decisions to make NEXT SESSION (confirm with user)
 
