@@ -21,14 +21,39 @@ from app.config import settings
 
 _client = None
 
+# A cold agent pass on AgentCore Runtime can take ~64s, which exceeds botocore's
+# DEFAULT read_timeout of 60s. With the default retry policy that read timeout is
+# retried, SILENTLY re-invoking the SAME runtime session — so one /chat call runs
+# the agent two or three times (the measured "~2 minute" response), and because
+# the retried pass sees the earlier pass's answer in per-session Memory it replies
+# with déjà-vu phrasing on a user's FIRST ask. The same retry on /chat/approve
+# could re-run a slow approve and DOUBLE-APPLY a write. Both paths go through this
+# single client, so an explicit Config fixes both:
+#   - read_timeout=300 matches the agent's model read_timeout so a single cold
+#     pass never times out,
+#   - connect_timeout=10 bounds connection setup,
+#   - retries max_attempts=1 (botocore counts the TOTAL attempts, so 1 = the
+#     initial call only, NO retries) guarantees EXACTLY ONE invocation.
+_RUNTIME_READ_TIMEOUT = 300
+_RUNTIME_CONNECT_TIMEOUT = 10
+_RUNTIME_MAX_ATTEMPTS = 1
+
 
 def _get_client():
     """Build the boto3 ``bedrock-agentcore`` client once, on first use (not import)."""
     global _client
     if _client is None:
         import boto3
+        from botocore.config import Config
 
-        _client = boto3.client("bedrock-agentcore", region_name=settings.region)
+        config = Config(
+            read_timeout=_RUNTIME_READ_TIMEOUT,
+            connect_timeout=_RUNTIME_CONNECT_TIMEOUT,
+            retries={"max_attempts": _RUNTIME_MAX_ATTEMPTS, "mode": "standard"},
+        )
+        _client = boto3.client(
+            "bedrock-agentcore", region_name=settings.region, config=config
+        )
     return _client
 
 

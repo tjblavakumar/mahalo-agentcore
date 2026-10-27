@@ -121,6 +121,37 @@ def test_invoke_runtime_sets_user_id_when_provided(monkeypatch):
     assert captured["runtimeUserId"] == "dev-6"
 
 
+def test_get_client_builds_with_no_retry_config(monkeypatch):
+    """The ``bedrock-agentcore`` client MUST be built with an explicit botocore
+    Config that disables read-timeout retries (the retry storm root cause): a
+    long read_timeout so a single cold agent pass never times out, and
+    max_attempts=1 so EXACTLY ONE invocation happens (botocore counts total
+    attempts, so 1 = the initial call only). Covers both /chat and /chat/approve,
+    which share this single client.
+    """
+    import app.runtime_client as rc
+
+    captured = {}
+
+    def _fake_boto3_client(service, region_name=None, config=None):
+        captured["service"] = service
+        captured["config"] = config
+        return object()
+
+    import boto3
+
+    monkeypatch.setattr(rc, "_client", None)
+    monkeypatch.setattr(boto3, "client", _fake_boto3_client)
+
+    rc._get_client()
+
+    assert captured["service"] == "bedrock-agentcore"
+    cfg = captured["config"]
+    assert cfg.read_timeout == 300
+    assert cfg.connect_timeout == 10
+    assert cfg.retries["max_attempts"] == 1
+
+
 # --------------------------------------------------------------------------- #
 # routers (item 9)
 # --------------------------------------------------------------------------- #
