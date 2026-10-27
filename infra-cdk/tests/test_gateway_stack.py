@@ -97,7 +97,7 @@ def test_all_25_tools_present_across_targets():
         ]
         all_names |= {t["Name"] for t in tools}
     assert all_names == set(tool_schemas.BY_NAME)
-    assert len(all_names) == 25
+    assert len(all_names) == 27
 
 
 def test_gateway_role_invokes_exactly_four_lambda_arns():

@@ -261,6 +261,46 @@ def jira_list_projects() -> str:
     return output
 
 
+@tool
+def jira_portfolio_sprint_status() -> str:
+    """Get sprint info (velocity, points) AND the current sprint board (stories
+    grouped by status) for EVERY project in one call. Use this for a
+    delivery/portfolio/sprint overview across projects instead of calling
+    jira_get_sprint_info and jira_get_board once per project."""
+    projects_data = _jira_request(endpoint="/projects")
+    if isinstance(projects_data, dict) and "error" in projects_data:
+        return f"Error: {projects_data['error']}"
+    projects = projects_data.get("projects", []) if isinstance(projects_data, dict) else []
+    if not projects:
+        return "No projects found."
+
+    output = "Portfolio sprint status:\n"
+    for proj in projects:
+        project_id = proj["id"]
+        output += f"\n=== {project_id}: {proj.get('name', project_id)} ===\n"
+
+        sprint_data = _jira_request(endpoint=f"/sprints/{project_id}")
+        sprints = sprint_data.get("sprints", []) if isinstance(sprint_data, dict) else []
+        if not sprints:
+            output += "  (no sprints)\n"
+        for sprint in sprints:
+            output += f"  **{sprint['name']}** ({sprint['status']})\n"
+            output += f"    Period: {sprint['start_date']} to {sprint['end_date']}\n"
+            if sprint.get("velocity"):
+                output += f"    Velocity: {sprint['velocity']} points\n"
+            if sprint.get("completed_points") is not None:
+                output += f"    Completed: {sprint['completed_points']}/{sprint['total_points']} points\n"
+
+        board = _jira_request(endpoint=f"/projects/{project_id}/board")
+        if isinstance(board, dict) and board.get("sprint"):
+            columns = board.get("columns", {})
+            counts = " | ".join(f"{col}: {len(stories)}" for col, stories in columns.items())
+            output += f"  Board ({board['sprint']['name']}): {counts}\n"
+        else:
+            output += "  Board: no active sprint\n"
+    return output
+
+
 JIRA_TOOLS = [
     jira_list_projects,
     jira_list_developers,
@@ -269,4 +309,5 @@ JIRA_TOOLS = [
     jira_get_story,
     jira_get_sprint_info,
     jira_get_board,
+    jira_portfolio_sprint_status,
 ]

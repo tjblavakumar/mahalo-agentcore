@@ -1,4 +1,4 @@
-"""Single source of truth for the 25 Gateway MCP tools (Task 4).
+"""Single source of truth for the 27 Gateway MCP tools (Task 4).
 
 One descriptor per agent operation, consumed by BOTH:
 
@@ -44,12 +44,12 @@ def _obj(properties: Dict[str, Any], required: List[str] | None = None) -> Dict[
 
 
 # --------------------------------------------------------------------------- #
-# The 25 tool descriptors. Grouped by service for readability; ``service`` tags
+# The 27 tool descriptors. Grouped by service for readability; ``service`` tags
 # which Gateway target (and Lambda) each belongs to.
 # --------------------------------------------------------------------------- #
 
 TOOLS: List[Dict[str, Any]] = [
-    # ----- Jira (9: 7 read + 2 write) -----
+    # ----- Jira (10: 8 read + 2 write) -----
     {
         "name": "jira_list_projects",
         "service": "jira",
@@ -153,6 +153,18 @@ TOOLS: List[Dict[str, Any]] = [
         "arg_mapping": {"project_id": {"in": "path", "name": "project_id"}},
     },
     {
+        "name": "jira_portfolio_sprint_status",
+        "service": "jira",
+        "description": (
+            "Sprint info (velocity, points) AND the current sprint board (stories "
+            "grouped by status) for EVERY project in one call. Use this for a "
+            "delivery/portfolio/sprint overview across projects instead of calling "
+            "jira_get_sprint_info and jira_get_board once per project."
+        ),
+        "input_schema": _obj({}),
+        "composite": "jira.composites.portfolio_sprint_status",
+    },
+    {
         "name": "jira_create_story",
         "service": "jira",
         "description": (
@@ -219,7 +231,7 @@ TOOLS: List[Dict[str, Any]] = [
             "sprint_id": {"in": "body", "name": "sprint_id"},
         },
     },
-    # ----- GitHub (7: 4 read + 3 write) -----
+    # ----- GitHub (8: 5 read + 3 write) -----
     {
         "name": "github_list_repos",
         "service": "github",
@@ -251,6 +263,17 @@ TOOLS: List[Dict[str, Any]] = [
             "status": {"in": "query", "name": "status"},
             "author_id": {"in": "query", "name": "author_id"},
         },
+    },
+    {
+        "name": "github_pull_requests_all_repos",
+        "service": "github",
+        "description": (
+            "Open pull requests across EVERY repository, grouped by repo, in one "
+            "call. Use this for a delivery/portfolio overview instead of calling "
+            "github_get_pull_requests once per repo."
+        ),
+        "input_schema": _obj({}),
+        "composite": "github.composites.pull_requests_all_repos",
     },
     {
         "name": "github_get_commits",

@@ -110,3 +110,36 @@ def search_stories(store, router, token, args: Dict[str, Any]) -> Dict[str, Any]
             results.extend(s for s in stories if _matches_keyword(s))
 
     return {"stories": results, "total": len(results)}
+
+
+def portfolio_sprint_status(store, router, token, args: Dict[str, Any]) -> Dict[str, Any]:
+    """Reproduce the per-project ``jira_get_sprint_info`` + ``jira_get_board`` fan-out.
+
+    One call returns, per project, the sprint info and the current sprint board the
+    delivery overview needs — collapsing the model's ``jira_get_sprint_info`` ×N +
+    ``jira_get_board`` ×N loop server-side. Ignores ``args`` (no inputs).
+
+    For each project in ``/projects`` order it issues the same two GETs the granular
+    tools do and nests the sub-bodies VERBATIM so the data is field-for-field
+    equivalent with DIRECT mode:
+
+    * ``sprints`` — the ``"sprints"`` value of ``GET /sprints/{project_id}`` (the
+      active sprint carries the route-computed ``completed_points``/``total_points``);
+    * ``board`` — the whole body of ``GET /projects/{project_id}/board`` (``{"sprint":
+      ..., "columns": ...}``; an inactive-sprint project yields ``columns: {}``,
+      nested as-is — the composite never normalizes it).
+    """
+    projects: List[Dict[str, Any]] = []
+    for project_id in _project_ids(router, token):
+        sprint_data = get_json(router, token, f"/sprints/{project_id}")
+        sprints = sprint_data.get("sprints", []) if isinstance(sprint_data, dict) else []
+        board = get_json(router, token, f"/projects/{project_id}/board")
+        projects.append(
+            {
+                "project_id": project_id,
+                "sprints": sprints,
+                "board": board,
+            }
+        )
+
+    return {"projects": projects, "total_projects": len(projects)}

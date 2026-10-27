@@ -113,9 +113,41 @@ def github_get_repo_stats(repo_id: str) -> str:
     return output
 
 
+@tool
+def github_pull_requests_all_repos() -> str:
+    """Get open pull requests across EVERY repository, grouped by repo, in one
+    call. Use this for a delivery/portfolio overview instead of calling
+    github_get_pull_requests once per repo."""
+    repos_data = _github_request(endpoint="/repos")
+    if "error" in repos_data:
+        return f"Error: {repos_data['error']}"
+    repos = repos_data.get("repos", [])
+    if not repos:
+        return "No repositories found."
+
+    output = "Pull requests across all repositories:\n"
+    for repo in repos:
+        # Key off the stored seed id; the mock filters PRs by repo_id, so the
+        # repo NAME would return an empty list.
+        repo_id = repo["id"]
+        repo_name = repo.get("name", repo_id)
+        data = _github_request(endpoint=f"/repos/{repo_id}/pulls")
+        prs = data.get("pull_requests", []) if isinstance(data, dict) else []
+        output += f"\n=== {repo_name} ({len(prs)} PRs) ===\n"
+        if not prs:
+            output += "  (no pull requests)\n"
+        for pr in prs:
+            output += f"  🔀 PR #{pr['number']}: {pr['title']}\n"
+            output += f"     Author: {pr['author']} | Status: {pr['status']} | Branch: {pr['branch']}\n"
+            if pr.get("linked_story"):
+                output += f"     Linked story: {pr['linked_story']}\n"
+    return output
+
+
 GITHUB_TOOLS = [
     github_list_repos,
     github_get_pull_requests,
     github_get_commits,
     github_get_repo_stats,
+    github_pull_requests_all_repos,
 ]

@@ -1,6 +1,6 @@
 """Structure parity tests for the single-source-of-truth tool registry (Task 4).
 
-Asserts the 25 descriptors in ``common.tool_schemas``: the right count, the
+Asserts the 27 descriptors in ``common.tool_schemas``: the right count, the
 write-name set equal to the HITL set, each schema a top-level ``object``, exactly
 one of ``method``/``composite`` per tool, and that no tool/write name contains the
 Gateway ``___`` delimiter (the HITL strip invariant). The EXACT bidirectional
@@ -29,8 +29,8 @@ _EXPECTED_WRITES = {
 
 
 def test_twenty_five_tools():
-    assert len(TOOLS) == 25
-    assert len(BY_NAME) == 25
+    assert len(TOOLS) == 27
+    assert len(BY_NAME) == 27
 
 
 def test_write_name_set_matches():

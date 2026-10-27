@@ -112,3 +112,123 @@ def test_servicenow_composite_matches_agent_aggregation(dynamo_table, monkeypatc
         assert got["count"] == exp["count"]
         assert got["status_counts"] == exp["status_counts"]
         assert got["latest"]["id"] == exp["latest_id"]
+
+
+# --------------------------------------------------------------------------- #
+# Jira portfolio composite data parity with the per-project granular fan-out.
+# --------------------------------------------------------------------------- #
+
+_JIRA_TOKEN = "mock-jira-token-12345"
+
+
+def _jira_router(dynamo_table, monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("TABLE_NAME", dynamo_table)
+    monkeypatch.setenv("MOCK_JIRA_TOKEN", _JIRA_TOKEN)
+    import jira.handler as h
+
+    importlib.reload(h)
+    h._store = None
+    h._router = None
+    store, router = h._get_router()
+    store.ensure_seeded()
+    return store, router
+
+
+def test_jira_portfolio_composite_matches_per_project_fanout(dynamo_table, monkeypatch):
+    from common.gateway_dispatch import get_json
+    from jira.composites import portfolio_sprint_status
+
+    store, router = _jira_router(dynamo_table, monkeypatch)
+
+    composite = portfolio_sprint_status(store, router, _JIRA_TOKEN, {})
+
+    project_ids = [p["id"] for p in get_json(router, _JIRA_TOKEN, "/projects")["projects"]]
+    assert composite["total_projects"] == len(project_ids)
+    assert [p["project_id"] for p in composite["projects"]] == project_ids
+
+    for i, project_id in enumerate(project_ids):
+        entry = composite["projects"][i]
+        # Byte-for-byte parity against the live granular route bodies.
+        live_sprints = get_json(router, _JIRA_TOKEN, f"/sprints/{project_id}")["sprints"]
+        live_board = get_json(router, _JIRA_TOKEN, f"/projects/{project_id}/board")
+        assert entry["sprints"] == live_sprints
+        assert entry["board"] == live_board
+        # The active sprint's route-computed points ride through verbatim.
+        for sprint in entry["sprints"]:
+            if sprint["status"] == "active":
+                assert "completed_points" in sprint
+                assert "total_points" in sprint
+
+
+# --------------------------------------------------------------------------- #
+# GitHub all-repos PR composite: parity, count invariant, adapter reachability.
+# --------------------------------------------------------------------------- #
+
+_GITHUB_TOKEN = "mock-github-token-12345"
+
+
+def _github_router(dynamo_table, monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("TABLE_NAME", dynamo_table)
+    monkeypatch.setenv("MOCK_GITHUB_TOKEN", _GITHUB_TOKEN)
+    monkeypatch.setenv("GITHUB_MODE", "mock")
+    import github.handler as h
+
+    importlib.reload(h)
+    h._store = None
+    h._router = None
+    store, router = h._get_router()
+    store.ensure_seeded()
+    return store, router
+
+
+def test_github_all_repos_composite_matches_per_repo_fanout(dynamo_table, monkeypatch):
+    from common.gateway_dispatch import get_json
+    from github.composites import pull_requests_all_repos
+
+    store, router = _github_router(dynamo_table, monkeypatch)
+
+    composite = pull_requests_all_repos(store, router, _GITHUB_TOKEN, {})
+
+    repos = get_json(router, _GITHUB_TOKEN, "/repos")["repos"]
+    assert [r["repo_id"] for r in composite["repos"]] == [r["id"] for r in repos]
+
+    for i, repo in enumerate(repos):
+        entry = composite["repos"][i]
+        live = get_json(router, _GITHUB_TOKEN, f"/repos/{repo['id']}/pulls")
+        assert entry["pull_requests"] == live["pull_requests"]
+        assert entry["total"] == live["total"]
+        assert entry["repo_name"] == repo["name"]
+
+    # Seed-pinned sanity: fails loudly if the seed drifts.
+    by_id = {r["repo_id"]: r for r in composite["repos"]}
+    assert by_id["repo-1"]["total"] == 3
+    assert composite["total_pull_requests"] == 9
+
+
+def test_github_all_repos_composite_total_is_sum_of_rows(dynamo_table, monkeypatch):
+    # MEDIUM-1 invariant: top-level count equals the sum of the composite's OWN
+    # per-repo totals, so a future status filter cannot silently drift it.
+    from github.composites import pull_requests_all_repos
+
+    store, router = _github_router(dynamo_table, monkeypatch)
+    composite = pull_requests_all_repos(store, router, _GITHUB_TOKEN, {})
+    assert composite["total_pull_requests"] == sum(r["total"] for r in composite["repos"])
+
+
+def test_github_all_repos_composite_reachable_via_adapter(dynamo_table, monkeypatch):
+    # MEDIUM-2 reachability: the adapter swallows ImportError, so a wrong dotted
+    # path would fail SILENTLY. Dispatch THROUGH the adapter and assert real data
+    # comes back, proving github.composites.pull_requests_all_repos resolves.
+    from common import gateway_adapter
+
+    store, router = _github_router(dynamo_table, monkeypatch)
+    result = gateway_adapter.handle(
+        "mock-github___github_pull_requests_all_repos", store, router, {}, _GITHUB_TOKEN
+    )
+    assert "error" not in result
+    assert "repos" in result and result["repos"]
+    assert result["total_pull_requests"] == sum(r["total"] for r in result["repos"])
