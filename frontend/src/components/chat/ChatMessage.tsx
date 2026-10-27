@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -24,7 +25,35 @@ export default function ChatMessage({ role, content, systemsQueried }: ChatMessa
           <p className="text-sm whitespace-pre-wrap">{content}</p>
         ) : (
           <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-li:text-gray-700">
-            <ReactMarkdown>{content}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // `node` is injected by react-markdown; drop it so it is not
+                // spread onto the DOM element.
+                table: ({ node, ...props }) => (
+                  <div className="overflow-x-auto">
+                    <table
+                      className="border-collapse border border-gray-300"
+                      {...props}
+                    />
+                  </div>
+                ),
+                th: ({ node, ...props }) => (
+                  <th
+                    className="border border-gray-300 px-3 py-1.5 text-left font-semibold"
+                    {...props}
+                  />
+                ),
+                td: ({ node, ...props }) => (
+                  <td
+                    className="border border-gray-300 px-3 py-1.5"
+                    {...props}
+                  />
+                ),
+              }}
+            >
+              {content}
+            </ReactMarkdown>
           </div>
         )}
 
