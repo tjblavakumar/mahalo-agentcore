@@ -29,10 +29,22 @@ export default function ConnectionsPage() {
                 <p className="text-sm text-gray-500">{service.description}</p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium">
-              <span className="w-2 h-2 bg-green-500 rounded-full" />
-              Connected
-            </span>
+            <div className="flex items-center gap-3">
+              {service.url && (
+                <a
+                  href={service.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  Open ↗
+                </a>
+              )}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium">
+                <span className="w-2 h-2 bg-green-500 rounded-full" />
+                Connected
+              </span>
+            </div>
           </div>
         ))}
       </div>

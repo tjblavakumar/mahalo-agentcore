@@ -14,4 +14,9 @@ describe("SERVICES", () => {
       expect(s.description.length).toBeGreaterThan(0);
     }
   });
+
+  it("exposes the live Gitea URL on the github service for click-through", () => {
+    const github = SERVICES.find((s) => s.key === "github");
+    expect(github?.url).toBe("https://d3ec76atxiij9a.cloudfront.net/");
+  });
 });

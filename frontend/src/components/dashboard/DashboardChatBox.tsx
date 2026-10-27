@@ -36,9 +36,12 @@ export default function DashboardChatBox({
   onSessionId,
   onAdd,
 }: DashboardChatBoxProps) {
-  const isPM = persona.role === "product_manager";
   const [text, setText] = useState("");
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  // Default to every seed project selected, for every persona (design: all five
+  // projects — PAY, CART, AUTH, PROD, ORD — scoped in on first load).
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(() =>
+    SEED_PROJECTS.map((p) => p.key)
+  );
   const [isSending, setIsSending] = useState(false);
   const [preview, setPreview] = useState<VizSpec | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -60,7 +63,7 @@ export default function DashboardChatBox({
     const result = await api.post<ChatResponse>(
       "/chat",
       {
-        message: buildVizPrompt(request, persona, isPM ? selectedKeys : undefined),
+        message: buildVizPrompt(request, persona, selectedKeys),
         session_id: sessionId,
         project_id: null,
       },
@@ -98,31 +101,29 @@ export default function DashboardChatBox({
 
   return (
     <div className="rounded-lg bg-white shadow border border-gray-200 p-4">
-      {isPM && (
-        <div className="mb-3">
-          <p className="text-xs font-medium text-gray-600 mb-1.5">Scope to projects (optional)</p>
-          <div className="flex flex-wrap gap-1.5">
-            {SEED_PROJECTS.map((project) => {
-              const isSelected = selectedKeys.includes(project.key);
-              return (
-                <button
-                  key={project.key}
-                  type="button"
-                  onClick={() => toggleKey(project.key)}
-                  aria-pressed={isSelected}
-                  className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                    isSelected
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
-                  }`}
-                >
-                  {project.key}
-                </button>
-              );
-            })}
-          </div>
+      <div className="mb-3">
+        <p className="text-xs font-medium text-gray-600 mb-1.5">Scope to projects (optional)</p>
+        <div className="flex flex-wrap gap-1.5">
+          {SEED_PROJECTS.map((project) => {
+            const isSelected = selectedKeys.includes(project.key);
+            return (
+              <button
+                key={project.key}
+                type="button"
+                onClick={() => toggleKey(project.key)}
+                aria-pressed={isSelected}
+                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                  isSelected
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                {project.key}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       <div className="flex items-start gap-2">
         <textarea
