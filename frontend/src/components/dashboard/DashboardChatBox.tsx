@@ -8,13 +8,8 @@ import type { VizSpec } from "@/types/viz";
 import { parseVizEnvelope } from "@/lib/vizEnvelope";
 import { buildVizPrompt } from "@/lib/vizPrompt";
 import { SEED_PROJECTS } from "@/lib/projects";
+import { Q5_MESSAGE } from "@/lib/q5Message";
 import VizWidget from "@/components/dashboard/charts/VizWidget";
-
-/** Fixed Q5 message shown for any unrenderable reply or /chat error (design §5.1). */
-const Q5_MESSAGE =
-  "I can only build charts and tables here. I couldn't turn that into a line, area, or bar " +
-  "chart or a table. For general or text answers, use the Chat screen. Try asking for a metric " +
-  "over a dimension, e.g. 'story points by sprint for PAY' or 'open PRs by project'.";
 
 interface DashboardChatBoxProps {
   persona: Persona;
@@ -23,6 +18,10 @@ interface DashboardChatBoxProps {
   onSessionId: (id: string) => void;
   /** Add a validated spec to the dashboard (append + immediate save). */
   onAdd: (spec: VizSpec) => void;
+  /** Selected seed-project keys (lifted to CustomDashboard so the strip agrees on scope). */
+  selectedKeys: string[];
+  /** Report a change to the selected keys back up to CustomDashboard. */
+  onSelectedKeysChange: (keys: string[]) => void;
 }
 
 /**
@@ -35,20 +34,19 @@ export default function DashboardChatBox({
   sessionId,
   onSessionId,
   onAdd,
+  selectedKeys,
+  onSelectedKeysChange,
 }: DashboardChatBoxProps) {
   const [text, setText] = useState("");
-  // Default to every seed project selected, for every persona (design: all five
-  // projects — PAY, CART, AUTH, PROD, ORD — scoped in on first load).
-  const [selectedKeys, setSelectedKeys] = useState<string[]>(() =>
-    SEED_PROJECTS.map((p) => p.key)
-  );
   const [isSending, setIsSending] = useState(false);
   const [preview, setPreview] = useState<VizSpec | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   function toggleKey(key: string) {
-    setSelectedKeys((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    onSelectedKeysChange(
+      selectedKeys.includes(key)
+        ? selectedKeys.filter((k) => k !== key)
+        : [...selectedKeys, key]
     );
   }
 

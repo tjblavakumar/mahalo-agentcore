@@ -15,6 +15,7 @@ import type {
   VizRow,
   VizValue,
 } from "@/types/viz";
+import { stripFence } from "@/lib/stripFence";
 
 export type VizRejectReason =
   | "not-json"
@@ -37,21 +38,6 @@ const MAX_SERIES = 6;
 const MAX_DATA_ROWS = 100;
 const MAX_COLUMNS = 12;
 const MAX_TABLE_ROWS = 200;
-
-/** Strip at most one surrounding ```/```json code fence, then trim. */
-function stripFence(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith("```")) {
-    return trimmed;
-  }
-  // Drop the first line (``` or ```json) and a trailing ``` line if present.
-  const lines = trimmed.split("\n");
-  lines.shift(); // opening fence line
-  if (lines.length > 0 && lines[lines.length - 1].trim().startsWith("```")) {
-    lines.pop();
-  }
-  return lines.join("\n").trim();
-}
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;

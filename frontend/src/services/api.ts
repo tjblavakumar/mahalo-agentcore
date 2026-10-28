@@ -67,6 +67,7 @@ async function request<T>(
       method: options.method,
       headers,
       body: options.body,
+      signal: options.signal,
     });
 
     if (!response.ok) {
@@ -95,8 +96,8 @@ async function request<T>(
 export const api = {
   get: <T>(endpoint: string, personaId?: PersonaId) =>
     request<T>(endpoint, { method: "GET" }, personaId),
-  post: <T>(endpoint: string, body: unknown, personaId?: PersonaId) =>
-    request<T>(endpoint, { method: "POST", body: JSON.stringify(body) }, personaId),
+  post: <T>(endpoint: string, body: unknown, personaId?: PersonaId, signal?: AbortSignal) =>
+    request<T>(endpoint, { method: "POST", body: JSON.stringify(body), signal }, personaId),
   put: <T>(endpoint: string, body: unknown, personaId?: PersonaId) =>
     request<T>(endpoint, { method: "PUT", body: JSON.stringify(body) }, personaId),
   delete: <T>(endpoint: string, personaId?: PersonaId) =>

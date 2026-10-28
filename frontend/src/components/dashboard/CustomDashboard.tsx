@@ -5,14 +5,24 @@ import type { Layout } from "react-grid-layout";
 import { api } from "@/services/api";
 import type { Persona } from "@/lib/personas";
 import type { SavedWidget, VizSpec } from "@/types/viz";
+import type { ChartIdea } from "@/types/idea";
+import type { ChatResponse } from "@/types";
 import {
   appendWidget,
   removeWidget,
   applyLayoutChange,
   isLgLayoutUnchanged,
 } from "@/lib/dashboardWidgets";
+import { SEED_PROJECTS } from "@/lib/projects";
+import { buildVizPrompt } from "@/lib/vizPrompt";
+import { parseVizEnvelope } from "@/lib/vizEnvelope";
+import { buildIdeaRequestText } from "@/lib/ideaRequest";
+import { Q5_MESSAGE } from "@/lib/q5Message";
 import DashboardGrid from "@/components/dashboard/DashboardGrid";
 import DashboardChatBox from "@/components/dashboard/DashboardChatBox";
+import SuggestionStrip, {
+  type BuildIdeaResult,
+} from "@/components/dashboard/SuggestionStrip";
 
 interface WidgetsResponse {
   widgets: SavedWidget[];
@@ -38,6 +48,11 @@ export default function CustomDashboard({ persona }: CustomDashboardProps) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveFailed, setSaveFailed] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // Lifted here (from DashboardChatBox) so the chat box and the suggestion strip
+  // agree on the same project scope (design §11). Defaults to all five seeds.
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(() =>
+    SEED_PROJECTS.map((p) => p.key)
+  );
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLoad = useRef(false);
@@ -89,6 +104,44 @@ export default function CustomDashboard({ persona }: CustomDashboardProps) {
       });
     },
     [persist]
+  );
+
+  // Single click-to-build routine shared by the suggestion strip (design §6/D1).
+  // Reuses the EXISTING viz path (buildVizPrompt -> /chat -> parseVizEnvelope ->
+  // handleAdd); introduces no second envelope/validator/persistence path.
+  // Resolves a result object and never rejects.
+  const onBuildIdea = useCallback(
+    async (idea: ChartIdea): Promise<BuildIdeaResult> => {
+      // One scope used for BOTH the prose request and the structured viz arg.
+      const effectiveKeys = idea.projects.length > 0 ? idea.projects : selectedKeys;
+      const request = buildIdeaRequestText(idea, effectiveKeys);
+      const message = buildVizPrompt(request, persona, effectiveKeys);
+
+      const result = await api.post<ChatResponse>(
+        "/chat",
+        { message, session_id: sessionId, project_id: null },
+        persona.personaId
+      );
+
+      if (!result.data) {
+        console.warn("Idea build /chat error:", result.error);
+        return { ok: false, error: Q5_MESSAGE };
+      }
+
+      if (!sessionId || result.data.session_id !== sessionId) {
+        setSessionId(result.data.session_id);
+      }
+
+      const parsed = parseVizEnvelope(result.data.response ?? "");
+      if (!parsed.ok) {
+        console.warn("Idea build viz rejected:", parsed.reason);
+        return { ok: false, error: Q5_MESSAGE };
+      }
+
+      handleAdd(parsed.spec);
+      return { ok: true };
+    },
+    [persona, selectedKeys, sessionId, handleAdd]
   );
 
   const handleDelete = useCallback(
@@ -148,6 +201,16 @@ export default function CustomDashboard({ persona }: CustomDashboardProps) {
           sessionId={sessionId}
           onSessionId={setSessionId}
           onAdd={handleAdd}
+          selectedKeys={selectedKeys}
+          onSelectedKeysChange={setSelectedKeys}
+        />
+      </div>
+
+      <div className="mt-6">
+        <SuggestionStrip
+          persona={persona}
+          selectedKeys={selectedKeys}
+          onBuildIdea={onBuildIdea}
         />
       </div>
 
