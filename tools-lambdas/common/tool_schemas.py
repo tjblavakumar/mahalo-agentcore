@@ -63,10 +63,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "jira_list_developers",
         "service": "jira",
         "description": (
-            "List all developers (team members) in Jira with their IDs, names, "
-            "and emails. Use this to resolve a person's name (e.g. 'Raj') to "
-            "their developer ID (e.g. dev-3) before filtering stories, PRs, or "
-            "commits by assignee/author."
+            "List Jira developers with IDs, names, emails. Use to resolve a "
+            "name (e.g. 'Raj') to a developer ID (e.g. dev-3) before filtering "
+            "stories, PRs, or commits by assignee/author."
         ),
         "input_schema": _obj({}),
         "method": "GET",
@@ -77,14 +76,11 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "jira_search_stories",
         "service": "jira",
         "description": (
-            "Search for stories in Jira. Can filter by project_id, status "
-            "(todo/in_progress/in_review/done), and assignee. query: optional "
-            "keyword matched against story title/description. Omit it to list "
-            "all stories matching the filters. assignee: a developer ID "
-            "(dev-1..dev-5) OR a person's name (e.g. 'Raj') which will be "
-            "resolved automatically. If filtering by a person, prefer "
-            "jira_get_stories_by_assignee. If project_id is not specified, "
-            "searches across all projects."
+            "Search Jira stories. Filters: project_id (omit for all projects), "
+            "status (todo/in_progress/in_review/done), assignee. query: optional "
+            "keyword matched on title/description; omit to list all matches. "
+            "assignee: a developer ID (dev-1..dev-5) OR a name (e.g. 'Raj'), "
+            "auto-resolved. For a person, prefer jira_get_stories_by_assignee."
         ),
         "input_schema": _obj(
             {
@@ -100,10 +96,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "jira_get_stories_by_assignee",
         "service": "jira",
         "description": (
-            "Get all Jira stories assigned to a specific person across all "
-            "projects (or one project). assignee: a developer ID (dev-1..dev-5) "
-            "OR a person's name/first name (e.g. 'Raj', 'Raj Patel'). Names are "
-            "automatically resolved to developer IDs. Optional filters: status "
+            "Get Jira stories assigned to one person, across all projects or "
+            "one. assignee: a developer ID (dev-1..dev-5) OR a name (e.g. 'Raj', "
+            "'Raj Patel'), auto-resolved to a dev-ID. Optional filters: status "
             "(todo/in_progress/in_review/done), project_id."
         ),
         "input_schema": _obj(
@@ -119,10 +114,7 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "jira_get_story",
         "service": "jira",
-        "description": (
-            "Get detailed information about a specific Jira story by its ID "
-            "(e.g., PAY-105)."
-        ),
+        "description": "Get full details of a Jira story by ID (e.g. PAY-105).",
         "input_schema": _obj({"story_id": _STR}, required=["story_id"]),
         "method": "GET",
         "path_template": "/stories/{story_id}",
@@ -132,8 +124,8 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "jira_get_sprint_info",
         "service": "jira",
         "description": (
-            "Get sprint information and velocity data for a project. Use project "
-            "IDs like PAY, CART, AUTH, PROD, ORD."
+            "Sprint info and velocity for one project. project_id: PAY, CART, "
+            "AUTH, PROD, or ORD."
         ),
         "input_schema": _obj({"project_id": _STR}, required=["project_id"]),
         "method": "GET",
@@ -143,10 +135,7 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "jira_get_board",
         "service": "jira",
-        "description": (
-            "Get the current sprint board showing stories grouped by status for "
-            "a project."
-        ),
+        "description": "Current sprint board for a project: stories grouped by status.",
         "input_schema": _obj({"project_id": _STR}, required=["project_id"]),
         "method": "GET",
         "path_template": "/projects/{project_id}/board",
@@ -156,10 +145,10 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "jira_portfolio_sprint_status",
         "service": "jira",
         "description": (
-            "Sprint info (velocity, points) AND the current sprint board (stories "
-            "grouped by status) for EVERY project in one call. Use this for a "
-            "delivery/portfolio/sprint overview across projects instead of calling "
-            "jira_get_sprint_info and jira_get_board once per project."
+            "Sprint info (velocity, points) AND the sprint board (stories by "
+            "status) for EVERY project in one call. Use for a "
+            "delivery/portfolio/sprint overview across projects instead of "
+            "jira_get_sprint_info and jira_get_board per project in a loop."
         ),
         "input_schema": _obj({}),
         "composite": "jira.composites.portfolio_sprint_status",
@@ -168,11 +157,11 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "jira_create_story",
         "service": "jira",
         "description": (
-            "Create a new story in a Jira project. [WRITE ACTION - REQUIRES "
-            "APPROVAL] project_id: the project key (e.g. PAY, CART, AUTH, PROD, "
-            "ORD). title/description: required. priority: critical | high | "
-            "medium | low (default medium). story_points: integer estimate "
-            "(default 0). assignee: a developer ID (dev-1..dev-6) or None."
+            "Create a Jira story. [WRITE ACTION - REQUIRES APPROVAL] "
+            "project_id: PAY, CART, AUTH, PROD, or ORD. title/description: "
+            "required. priority: critical | high | medium | low (default "
+            "medium). story_points: integer (default 0). assignee: a developer "
+            "ID (dev-1..dev-6) or None."
         ),
         "input_schema": _obj(
             {
@@ -201,11 +190,10 @@ TOOLS: List[Dict[str, Any]] = [
         "service": "jira",
         "description": (
             "Update an existing Jira story. [WRITE ACTION - REQUIRES APPROVAL] "
-            "story_id: the story key (e.g. PAY-105) — must already exist. "
-            "Provide ONLY the fields to change: status "
-            "(todo/in_progress/in_review/done), assignee (a developer ID "
-            "dev-1..dev-6 or a person's name, resolved to a dev-ID), priority, "
-            "story_points, sprint_id."
+            "story_id: the story key (e.g. PAY-105), must already exist. Provide "
+            "ONLY the fields to change: status (todo/in_progress/in_review/done), "
+            "assignee (a developer ID dev-1..dev-6 or a name, resolved to a "
+            "dev-ID), priority, story_points, sprint_id."
         ),
         "input_schema": _obj(
             {
@@ -245,12 +233,10 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "github_get_pull_requests",
         "service": "github",
         "description": (
-            "Get pull requests for a repository. repo_id MUST be a real "
-            "repository NAME as returned by github_list_repos (e.g. "
-            '"payment-service"). Do NOT invent ids like "repo-1"/"repo-4" — '
-            "call github_list_repos first and use a name from that list. "
-            "Optional filters: status (open/draft/merged/closed), author_id "
-            "(dev-1 through dev-6)."
+            "Pull requests for a repository. repo_id: a real name from "
+            "github_list_repos (e.g. \"payment-service\") — never invent ids like "
+            "\"repo-1\". Optional filters: status (open/draft/merged/closed), "
+            "author_id (dev-1..dev-6)."
         ),
         "input_schema": _obj(
             {"repo_id": _STR, "status": _STR, "author_id": _STR},
@@ -269,8 +255,8 @@ TOOLS: List[Dict[str, Any]] = [
         "service": "github",
         "description": (
             "Open pull requests across EVERY repository, grouped by repo, in one "
-            "call. Use this for a delivery/portfolio overview instead of calling "
-            "github_get_pull_requests once per repo."
+            "call. Use for a delivery/portfolio overview instead of "
+            "github_get_pull_requests per repo in a loop."
         ),
         "input_schema": _obj({}),
         "composite": "github.composites.pull_requests_all_repos",
@@ -279,10 +265,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "github_get_commits",
         "service": "github",
         "description": (
-            "Get recent commits for a repository. Can filter by branch name or "
-            "author (name or dev-ID). repo_id MUST be a real repository NAME "
-            'from github_list_repos (e.g. "payment-service"). Do NOT invent ids '
-            'like "repo-1".'
+            "Recent commits for a repository. Optional filters: branch, author "
+            "(name or dev-ID). repo_id: a real name from github_list_repos — "
+            "never invent ids like \"repo-1\"."
         ),
         "input_schema": _obj(
             {"repo_id": _STR, "branch": _STR, "author": _STR},
@@ -301,10 +286,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "github_get_repo_stats",
         "service": "github",
         "description": (
-            "Get repository statistics including contributor activity, total "
-            "commits, and branch info. repo_id MUST be a real repository NAME "
-            'from github_list_repos (e.g. "payment-service"). Do NOT invent ids '
-            'like "repo-1".'
+            "Repo statistics (contributor activity, total commits, branches). "
+            "repo_id: a real name from github_list_repos — never invent ids like "
+            "\"repo-1\"."
         ),
         "input_schema": _obj({"repo_id": _STR}, required=["repo_id"]),
         "method": "GET",
@@ -315,12 +299,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "github_create_branch",
         "service": "github",
         "description": (
-            "Create a new branch in a repository. [WRITE ACTION - REQUIRES "
-            "APPROVAL] repo_id MUST be a real repository NAME from "
-            'github_list_repos (e.g. "payment-service"). Do NOT invent ids like '
-            '"repo-1"/"repo-4" — call github_list_repos first and use a name '
-            "from that list. from_branch: the branch to fork from "
-            '(default "main").'
+            "Create a branch in a repository. [WRITE ACTION - REQUIRES APPROVAL] "
+            "repo_id: a real name from github_list_repos — never invent ids like "
+            "\"repo-1\". from_branch: branch to fork from (default \"main\")."
         ),
         "input_schema": _obj(
             {"repo_id": _STR, "branch_name": _STR, "from_branch": _STR},
@@ -340,10 +321,9 @@ TOOLS: List[Dict[str, Any]] = [
         "service": "github",
         "description": (
             "Commit one or more files to a branch. [WRITE ACTION - REQUIRES "
-            "APPROVAL] repo_id MUST be a real repository NAME from "
-            'github_list_repos (e.g. "payment-service"). Do NOT invent ids like '
-            '"repo-1". files: a list of {"path", "content"} objects. Each '
-            '"content" MUST be the COMPLETE file text, never a diff.'
+            "APPROVAL] repo_id: a real name from github_list_repos — never "
+            "invent ids like \"repo-1\". files: a list of {\"path\", \"content\"} "
+            "objects; each \"content\" MUST be the COMPLETE file text, never a diff."
         ),
         "input_schema": _obj(
             {
@@ -372,10 +352,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "github_open_pull_request",
         "service": "github",
         "description": (
-            "Open a pull request. [WRITE ACTION - REQUIRES APPROVAL] repo_id "
-            'MUST be a real repository NAME from github_list_repos (e.g. '
-            '"payment-service"). Do NOT invent ids like "repo-1". head: the '
-            'source branch; base: the target branch (default "main"). title '
+            "Open a pull request. [WRITE ACTION - REQUIRES APPROVAL] repo_id: a "
+            "real name from github_list_repos — never invent ids like \"repo-1\". "
+            "head: source branch; base: target branch (default \"main\"). title "
             "defaults to the head branch name if omitted."
         ),
         "input_schema": _obj(
@@ -397,9 +376,9 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "confluence_search",
         "service": "confluence",
         "description": (
-            "Search Confluence documentation by keyword. Optionally filter by "
-            "space_id (ENG, SEC, PROD, API). Use this to find architecture docs, "
-            "security guidelines, API specs, requirements, and retrospectives."
+            "Search Confluence docs by keyword. Optional space_id (ENG, SEC, "
+            "PROD, API). Finds architecture docs, security guidelines, API specs, "
+            "requirements, retrospectives."
         ),
         "input_schema": _obj({"query": _STR, "space_id": _STR}, required=["query"]),
         "method": "GET",
@@ -414,9 +393,8 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "confluence_get_page",
         "service": "confluence",
         "description": (
-            "Get the full content of a Confluence page by its ID (e.g., ENG-001, "
-            "SEC-001, PROD-001, API-001). Use this after searching to read the "
-            "full document content."
+            "Get full content of a Confluence page by ID (e.g. ENG-001, SEC-001, "
+            "PROD-001, API-001). Use after searching to read the document."
         ),
         "input_schema": _obj({"page_id": _STR}, required=["page_id"]),
         "method": "GET",
@@ -437,7 +415,7 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "servicenow_list_deployments",
         "service": "servicenow",
         "description": (
-            "List deployments tracked in ServiceNow. service: payment-service, "
+            "List ServiceNow deployments. service: payment-service, "
             "cart-service, auth-service, product-service, or order-service. "
             "environment: staging | production. status: success | failed | "
             "rolled_back | in_progress."
@@ -465,14 +443,12 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "servicenow_list_incidents",
         "service": "servicenow",
         "description": (
-            "List incidents tracked in ServiceNow. By default (no filters) "
-            "returns ALL incidents regardless of status. Only pass a status "
-            'filter if the user explicitly asks for a specific status. Do NOT '
-            'assume "open". Incidents actively worked on include BOTH open AND '
-            "investigating; resolved incidents are closed. severity: P1 "
-            "(critical) | P2 (high) | P3 (medium) | P4 (low). status: open | "
-            "investigating | resolved (omit to get all). service: filter by "
-            "affected service (e.g. auth-service)."
+            "List ServiceNow incidents. No filter = ALL incidents regardless of "
+            "status; pass a status only if the user explicitly asks, do NOT "
+            "assume \"open\". Actively-worked = BOTH open AND investigating; "
+            "resolved means closed. severity: P1 (critical) | P2 (high) | P3 "
+            "(medium) | P4 (low). status: open | investigating | resolved (omit "
+            "for all). service: filter by affected service (e.g. auth-service)."
         ),
         "input_schema": _obj({"severity": _STR, "status": _STR, "service": _STR}),
         "method": "GET",
@@ -497,10 +473,7 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "servicenow_get_stats",
         "service": "servicenow",
-        "description": (
-            "Get a portfolio-level deployment and incident health summary (good "
-            "for executives)."
-        ),
+        "description": "Portfolio-level deployment and incident health summary (good for executives).",
         "input_schema": _obj({}),
         "method": "GET",
         "path_template": "/stats",
@@ -510,12 +483,12 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "servicenow_create_incident",
         "service": "servicenow",
         "description": (
-            "Open a new incident in ServiceNow. [WRITE ACTION - REQUIRES "
-            "APPROVAL] affected_service: payment-service, cart-service, "
-            "auth-service, product-service, or order-service. severity: P1 "
-            "(critical) | P2 (high) | P3 (medium) | P4 (low), default P3. "
-            "description: optional detail. assignee: optional developer ID. "
-            "linked_deployment: optional deployment ID this incident relates to."
+            "Open a ServiceNow incident. [WRITE ACTION - REQUIRES APPROVAL] "
+            "affected_service: payment-service, cart-service, auth-service, "
+            "product-service, or order-service. severity: P1 (critical) | P2 "
+            "(high) | P3 (medium) | P4 (low), default P3. description: optional. "
+            "assignee: optional developer ID. linked_deployment: optional "
+            "related deployment ID."
         ),
         "input_schema": _obj(
             {
