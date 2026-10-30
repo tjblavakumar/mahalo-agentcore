@@ -153,7 +153,7 @@ Jira + mock Confluence + mock ServiceNow + Gitea-as-GitHub seamlessly.
       wrote nothing (HTTP 404). DONE 2026-10-25 (see live-state note below).
 - [x] STEP 5 — DONE 2026-10-25. Demo login sheet + run guide written to
       docs/DEMO-LOGINS.md (3 Mahalo personas pm/dev/exec + the single Gitea admin
-      mahalo_admin / <GITEA_ADMIN_PASSWORD> at https://d3ec76atxiij9a.cloudfront.net/,
+      mahalo_admin / (password in SSM /mahalo/gitea/admin-password) at https://d3ec76atxiij9a.cloudfront.net/,
       the 4-system table, and a suggested demo script). Consolidated docs/DEMO.md
       updated: §7 now states real Gitea mode is the ACTIVE path.
 

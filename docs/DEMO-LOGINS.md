@@ -27,7 +27,10 @@ agent's writes are landing in a real git server.
 |---|---|
 | Gitea URL | https://d3ec76atxiij9a.cloudfront.net/ |
 | Username | `mahalo_admin` |
-| Password | `<GITEA_ADMIN_PASSWORD>` |
+| Password | stored in SSM SecureString `/mahalo/gitea/admin-password` (not written here) |
+
+To read it (needs AWS credentials for the account):
+`aws ssm get-parameter --name /mahalo/gitea/admin-password --with-decryption --query Parameter.Value --output text`
 
 Seeded repos (match the 5 Jira projects): `payment-service`, `cart-service`,
 `auth-service`, `product-service`, `order-service` — each with feature branches

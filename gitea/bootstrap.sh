@@ -36,7 +36,7 @@ set -euo pipefail
 GITEA_URL="${GITEA_URL:-http://localhost:3000}"
 GITEA_PUBLIC_URL="${GITEA_PUBLIC_URL:-${GITEA_URL}}"
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-mahalo_admin}"
-GITEA_ADMIN_PASSWORD="${GITEA_ADMIN_PASSWORD:-<GITEA_ADMIN_PASSWORD>}"
+GITEA_ADMIN_PASSWORD="${GITEA_ADMIN_PASSWORD:?set GITEA_ADMIN_PASSWORD (no default; on AWS read it from SSM /mahalo/gitea/admin-password)}"
 GITEA_ADMIN_EMAIL="${GITEA_ADMIN_EMAIL:-admin@mahalo.local}"
 GITEA_TOKEN_NAME="${GITEA_TOKEN_NAME:-mahalo-adapter}"
 GITEA_SEED_REPO="${GITEA_SEED_REPO:-payment-service}"

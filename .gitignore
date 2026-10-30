@@ -23,5 +23,8 @@ cdk.context.json
 # OS
 .DS_Store
 
-# Workflow scratch artifacts (keep .agents/tasks reports, drop throwaway scratch)
+# Workflow scratch artifacts (keep docs/.agents/tasks reports, drop throwaway scratch)
 .agents/scratch/
+# Workflow runs write plan/review scratch to a repo-root .agents/ (accidentally
+# committed once, purged from history). Ignore the root one; docs/.agents stays tracked.
+/.agents/

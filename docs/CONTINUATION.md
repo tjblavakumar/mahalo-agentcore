@@ -4,44 +4,57 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
-> === 2026-10-27 END-OF-DAY — RESUME HERE (supersedes older "PAUSED" notes) ===
-> main = origin/main = 536ee8b (clean, pushed). Nothing in flight on main.
+> === 2026-10-27 (LATE) — EVERYTHING SHIPPED; GIT HISTORY PURGED — RESUME HERE ===
+> main = origin/main (clean, nothing in flight, no open workflows/worktrees).
+> IMPORTANT: a history rewrite happened (see PURGE below). EVERY commit hash
+> quoted in the older notes further down predates it and no longer exists —
+> navigate with `git log` / commit messages, not those hashes.
 >
-> LATENCY #3 KEEP-WARM — CODED + REVIEW APPROVED, NOT MERGED, NOT DEPLOYED.
->   Workflow wf_f27886fe7b46578a is PAUSED in its `merge` step. Verified from the
->   .git refs after the pause: main + origin/main still 536ee8b, no MERGE_HEAD /
->   rebase in progress, so the merge step had changed nothing yet.
->   Branch feat/runtime-keepwarm @ 42a7ef4, already rebased onto 536ee8b (one
->   commit on top of main => the ff-only merge should be trivial). Worktree:
->   .worktrees/runtime-keepwarm (only untracked file: its docs/.agents/tasks/
->   runtime-keepwarm/ review artifacts — fine to discard).
->   What it adds: new MahaloKeepWarmStack (13th stack) = EventBridge rule
->   cron(0/10 13-22 ? * MON-FRI *) -> inline python Lambda (128 MB, 60 s) ->
->   InvokeAgentRuntime with a one-word no-tools ping on a daily-rotating >=33-char
->   throwaway session id (passed as the runtimeSessionId kwarg). Wired inside
->   app.py main(); builder-deploy.sh runtime-api phase deploys it. pytest 83
->   passed/1 skipped; cdk synth 13 templates. Code review APPROVED, no blockers.
->   RESUME: update_workflow wf_f27886fe7b46578a status=running -> merge -> deploy
->   (runtime-api phase via builder i-01cc3571c99412f28) -> verify-live.
->   WATCH ITEM for verify-live: the "ping uses no tools" is model behavior, not
->   enforced — confirm in CloudWatch the ping is cheap (no tool loop). If it runs
->   the full loop, STOP and ask the user before keeping it deployed.
->   If the paused session can't resume cleanly: relaunch a small workflow to
->   ff-merge feat/runtime-keepwarm, push, deploy runtime-api, verify-live.
+> KEEP-WARM (latency #3) — DONE, DEPLOYED, LIVE-VERIFIED.
+>   MahaloKeepWarmStack (13th stack, deployed via the builder runtime-api phase):
+>   EventBridge rule ENABLED cron(0/10 13-22 ? * MON-FRI *) -> inline Lambda
+>   (128 MB, 60 s) -> InvokeAgentRuntime one-word no-tools ping on a daily-rotating
+>   throwaway session id. Verified: pings fire on cadence, ~3 s Runtime-side with
+>   no tool loop (vs 44.8 s for a real pass); a fresh-session tool-heavy /chat took
+>   45.8 s (warm range; cold ~64 s+). CAVEAT: one sample, no no-keepwarm control.
+>   Results: docs/.agents/tasks/runtime-keepwarm/verification.md. Cost: small
+>   steady trickle in the window; on a personal account lower the cadence or drop
+>   the stack (see docs/aws-personal-cloud-deployment.md section 9).
 >
-> DONE TODAY (all live): B1 dashboard idea strip (db16bda), latency #4 trim
->   (5f91325, warm overview 39.4s, no regression). Docx report for IT committed
->   + pushed: docs/Corporate-AWS-Deployment-Findings-and-Requests.docx (536ee8b;
->   user will download from GitHub and fill the 2 placeholders).
+> GIT HISTORY PURGE — DONE (user-approved; git filter-repo + lease-protected
+>   force-push). All 64 commits rewritten. Removed from history AND current tree:
+>   AWS account id -> <AWS_ACCOUNT_ID>; live Gitea admin password and the weak
+>   bootstrap default -> gone; workstation paths d:\<user>\... -> <WORKSPACE_ROOT> /
+>   <FALLBACK_ROOT> / <USER>; the 5 accidentally committed repo-root .agents/tasks/*
+>   workflow files deleted from history (root /.agents/ is now gitignored;
+>   docs/.agents stays tracked). VERIFIED on the rewritten history: 0 hits for all
+>   of these across file contents (case-insensitive), commit messages and every
+>   revision; the IT docx blob is byte-identical; only 20 files differed from the
+>   pre-purge main (5 deleted, 15 doc/script edits), no source-code changes.
+>   - gitea/bootstrap.sh now REQUIRES GITEA_ADMIN_PASSWORD (no default).
+>     docs/DEMO-LOGINS.md says to read it from SSM /mahalo/gitea/admin-password.
+>   - The Gitea admin password was NOT rotated (user's decision). It WAS readable
+>     on GitHub before the purge.
+>   - GitHub caveat: old commits can stay reachable by SHA on GitHub until it
+>     garbage-collects them (full removal needs a GitHub support request);
+>     existing forks keep their copies.
+>   - Safety backup of the PRE-purge repo (contains the old values) sits at
+>     $env:TEMP\mahalo-backup.git on the user's workstation. Delete it once happy:
+>     Remove-Item -Recurse -Force "$env:TEMP\mahalo-backup.git"
+>   - The EC2 builder's clone self-heals: every deploy runs git fetch + reset --hard.
+>   - Local branches feat/runtime-keepwarm + gitea-real-mode-flip and the
+>     .worktrees were deleted (both fully merged).
+>
+> ALL LIVE TODAY: B1 dashboard idea strip, latency #4 trim (warm overview 39.4 s),
+>   keep-warm. IT report docx is on GitHub (docs/Corporate-AWS-Deployment-
+>   Findings-and-Requests.docx); user fills the 2 placeholders.
 > USER'S PENDING CHECKS: B1 strip in the browser (speed + click-to-build).
-> NOT YET COMMITTED (decide w/ user): this CONTINUATION.md edit,
->   docs/aws-personal-cloud-deployment.md, docs/.agents/tasks/
->   chat-latency-investigation.md.
 > PARKED: B2 (customizable charts), B3 (agent thought-process panel), the
->   personal-AWS migration (plan in docs/aws-personal-cloud-deployment.md).
-> TOOLING NOTE: the PowerShell tool wedged late in the session (echoed input,
->   timed out). Git state above was read directly from .git refs. If it recurs,
->   a fresh terminal/session fixes it.
+>   personal-AWS migration (docs/aws-personal-cloud-deployment.md).
+> TOOLING NOTES: (1) `python` on PATH in this shell resolves to the infra-cdk
+>   .venv; use C:\Program Files\Python313\python.exe for git_filter_repo.
+>   (2) The PowerShell tool sometimes truncates or wedges output; re-run in
+>   smaller pieces.
 >
 > === 2026-10-26 END-OF-SESSION HANDOFF — RESUME HERE TOMORROW ===
 > Session goal was: verify the deployed app + do two quick UI fixes. Everything
