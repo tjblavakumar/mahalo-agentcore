@@ -4,6 +4,268 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-10-27 END-OF-DAY — RESUME HERE (supersedes older "PAUSED" notes) ===
+> main = origin/main = 536ee8b (clean, pushed). Nothing in flight on main.
+>
+> LATENCY #3 KEEP-WARM — CODED + REVIEW APPROVED, NOT MERGED, NOT DEPLOYED.
+>   Workflow wf_f27886fe7b46578a is PAUSED in its `merge` step. Verified from the
+>   .git refs after the pause: main + origin/main still 536ee8b, no MERGE_HEAD /
+>   rebase in progress, so the merge step had changed nothing yet.
+>   Branch feat/runtime-keepwarm @ 42a7ef4, already rebased onto 536ee8b (one
+>   commit on top of main => the ff-only merge should be trivial). Worktree:
+>   .worktrees/runtime-keepwarm (only untracked file: its docs/.agents/tasks/
+>   runtime-keepwarm/ review artifacts — fine to discard).
+>   What it adds: new MahaloKeepWarmStack (13th stack) = EventBridge rule
+>   cron(0/10 13-22 ? * MON-FRI *) -> inline python Lambda (128 MB, 60 s) ->
+>   InvokeAgentRuntime with a one-word no-tools ping on a daily-rotating >=33-char
+>   throwaway session id (passed as the runtimeSessionId kwarg). Wired inside
+>   app.py main(); builder-deploy.sh runtime-api phase deploys it. pytest 83
+>   passed/1 skipped; cdk synth 13 templates. Code review APPROVED, no blockers.
+>   RESUME: update_workflow wf_f27886fe7b46578a status=running -> merge -> deploy
+>   (runtime-api phase via builder i-01cc3571c99412f28) -> verify-live.
+>   WATCH ITEM for verify-live: the "ping uses no tools" is model behavior, not
+>   enforced — confirm in CloudWatch the ping is cheap (no tool loop). If it runs
+>   the full loop, STOP and ask the user before keeping it deployed.
+>   If the paused session can't resume cleanly: relaunch a small workflow to
+>   ff-merge feat/runtime-keepwarm, push, deploy runtime-api, verify-live.
+>
+> DONE TODAY (all live): B1 dashboard idea strip (db16bda), latency #4 trim
+>   (5f91325, warm overview 39.4s, no regression). Docx report for IT committed
+>   + pushed: docs/Corporate-AWS-Deployment-Findings-and-Requests.docx (536ee8b;
+>   user will download from GitHub and fill the 2 placeholders).
+> USER'S PENDING CHECKS: B1 strip in the browser (speed + click-to-build).
+> NOT YET COMMITTED (decide w/ user): this CONTINUATION.md edit,
+>   docs/aws-personal-cloud-deployment.md, docs/.agents/tasks/
+>   chat-latency-investigation.md.
+> PARKED: B2 (customizable charts), B3 (agent thought-process panel), the
+>   personal-AWS migration (plan in docs/aws-personal-cloud-deployment.md).
+> TOOLING NOTE: the PowerShell tool wedged late in the session (echoed input,
+>   timed out). Git state above was read directly from .git refs. If it recurs,
+>   a fresh terminal/session fixes it.
+>
+> === 2026-10-26 END-OF-SESSION HANDOFF — RESUME HERE TOMORROW ===
+> Session goal was: verify the deployed app + do two quick UI fixes. Everything
+> below is on branch `main`, account <AWS_ACCOUNT_ID> / us-east-1, SSO profile `lava`.
+> Frontend URL: https://dw28e5je2s7b9.cloudfront.net (logins pm/pm123, dev/dev123,
+> exec/exec123). Thin API: https://dkgwvy2h42xkejgmjc3tsvi4ku0qcyuz.lambda-url.us-east-1.on.aws/
+> Live Gitea (browser): https://d3ec76atxiij9a.cloudfront.net/
+>
+> DEPLOYMENT VERIFIED LIVE (2026-10-26): all 12 Mahalo* CFN stacks healthy; /chat
+> as pm returns a real cross-service answer (200); dashboard GET/PUT
+> /dashboard/widgets work (DynamoDB table mahalo-dashboards, seeded default per
+> persona, save/delete persists — note: once a persona saves ANY set incl. empty,
+> that replaces the default; default only seeds a never-before-seen persona);
+> frontend + Gitea serve 200.
+>
+> === 2026-10-27 (LATER) — B1 + latency #4 LIVE + VERIFIED; #3 still building ===
+> main now at 5f91325 (652387f -> bc827ab -> 419e869 -> 5d6cb9d -> ef970a8 ->
+> db16bda -> 5f91325), pushed + in sync. Finished worktrees/branches cleaned up;
+> only `main`, the active `.worktrees/runtime-keepwarm` (feat/runtime-keepwarm,
+> workflow #3 still building), and unrelated `gitea-real-mode-flip` remain.
+>
+> B1 (db16bda) DONE + DEPLOYED (wf_eb47fb2814eb5f1a): agent-generated, persona +
+> selected-project aware "Suggested for you" chart-idea strip on the dashboard,
+> refreshed EVERY login (ephemeral, not persisted). Frontend-only, reuses /chat
+> with a lightweight ideas prompt; async + non-blocking (12s AbortController, quiet
+> empty/Refresh on fail); clicking an idea builds a real widget via the existing
+> viz-envelope path (buildVizPrompt->parseVizEnvelope->handleAdd->PUT). Offline gate
+> green (lint, vitest 102, next build). Frontend redeployed via builder; CloudFront
+> invalidation IAEJVY23AAGCQ6F2HFLRPQ17Q1. ACCEPTED TRADEOFF (design HIGH-2): the
+> "fast ideas / no tool fan-out" is enforced ONLY by prompt-steering (the Runtime
+> binds all tools, no per-message tools-off switch); a client timeout stops the
+> WAIT not server tool calls. Automated deploy check passed; the USER's in-browser
+> check of (a) strip speed and (b) click-to-build is the final confirmation. If the
+> strip is slow in practice, revisit (may need a small backend route).
+>
+> LATENCY #4 (5f91325) DONE + DEPLOYED + LIVE-VERIFIED (wf_82eb722afd9f5a44):
+> CONSERVATIVE token-only trim — tightened the 27 tool `description` strings
+> (tools-lambdas/common/tool_schemas.py) + BASE_PROMPT prose (agent/prompts.py).
+> Tool SET UNCHANGED (all 27 reachable; every input_schema/method/composite/
+> arg_mapping/WRITE_TOOL_NAMES byte-for-byte unchanged); lever-2 (reduce the set)
+> was REJECTED as unsafe. Preserved: 8 IMPORTANT RULES, HITL write-gate, branch->
+> commit->PR breadcrumbs, "prefer composites" steer, people/repo-ID + ServiceNow
+> rules, persona styles. Deployed Runtime + Gateway + 4 Mock* stacks via builder.
+> LIVE-VERIFIED: warm overview 39.4s (vs ~43-53s baseline; modest, no regression),
+> overview COMPLETE (5 projects/9 PRs/incidents/deploys, no dropped project/no
+> fabricated IDs), dev queries correct, HITL write gate STILL FIRES (create-story
+> -> pending_approval, did not execute). No answer regressed, no tool broke.
+>
+> CUMULATIVE LATENCY ARC: cold ~150s -> ~56s (#1 retry fix); warm ~53s -> ~43.6s
+> (#2 composites) -> ~39.4s (#4 trim). #1 was the big win; #2/#4 incremental, each
+> verified non-breaking.
+>
+> >> PAUSED FOR BREAK (2026-10-27): latency #3 Runtime keep-warm
+> >> (wf_f27886fe7b46578a) was PAUSED by the user mid-build. Design APPROVED (in
+> >> substance) with 2 MEDIUM fixes baked into the plan: (1) wire the KeepWarmStack
+> >> INSIDE app.py's main() (not module scope, or NameError); (2) pass the daily-
+> >> stable keep-warm session id as the runtimeSessionId BOTO3 KWARG (not a JSON
+> >> body field), mirroring api/app/runtime_client.py. Design = Option A: an
+> >> EventBridge cron (~every 10 min, demo window) -> tiny python3.13 inline Lambda
+> >> shim -> direct InvokeAgentRuntime with a trivial no-op ping prompt, daily-
+> >> rotating >=33-char throwaway session id; new infra-cdk/mahalo_infra/
+> >> keepwarm_stack.py; deploy via the phase_runtime_api phase ONLY. Option B
+> >> rejected (L2 construct has no provisioned/always-warm knob).
+> >> STATE AT PAUSE: node tree was in build-loop#0 -> `code` step running
+> >> (code-review/merge/deploy/verify-live pending); worktree
+> >> .worktrees/runtime-keepwarm on branch feat/runtime-keepwarm @ ef970a8, NOT yet
+> >> merged. NOTHING of #3 is on main or deployed yet.
+> >> ON RESUME: resume wf_f27886fe7b46578a (update_workflow status=running). If it
+> >> can't resume cleanly (e.g. interrupted mid-code with partial/no commit),
+> >> relaunch a workflow to IMPLEMENT the approved plan.md with the 2 fixes above.
+> >> IMPORTANT: #3's merge step must `git fetch` + rebase onto the LATEST origin/main
+> >> (which is now 5f91325, moved past its ef970a8 base — B1 + #4 merged while #3
+> >> ran); it touches infra-cdk/ (app.py, new keepwarm_stack.py, tests) which is
+> >> disjoint from those frontend/agent/tools changes, so rebase should be clean.
+> >> After it completes: live-verify (a would-be-cold /chat lands near warm time;
+> >> ping confirmed cheap + isolated on CloudWatch) then clean up the worktree +
+> >> feat/runtime-keepwarm branch. NOTE: on a personal/cost-sensitive account the
+> >> keep-warm ping adds a small steady token+Runtime trickle — see the cost note
+> >> in docs/aws-personal-cloud-deployment.md §9.
+>
+> NEW DOC (analysis only, no code change): docs/aws-personal-cloud-deployment.md —
+> how to deploy mahalo-agentcore to the user's OWN unrestricted AWS account as a
+> scripted clone-and-run demo. Bottom line: SMALL-MEDIUM (~3-5 days); account/region
+> already env-clean, only 3 real hardcodes (Gitea URL/EIP-DNS + builder repo URL),
+> drop the EC2 builder for Docker-local deploy, the Gitea CloudFront-on-443 hack is
+> corporate-only and collapses. Biggest risk = AgentCore + Bedrock model
+> availability in the user's region (not code). Section 9 = DAILY COST estimate for
+> an 8h/day run: ~$3-8/day light, <~$30 heavy; dominant cost is Bedrock Sonnet 4.5
+> tokens, not infra; mock path drops standing cost to near-zero.
+>
+> STILL OPEN BACKLOG (not started): B2 (customizable/interactive charts), B3 (agent
+> thought-process/trust panel) — see the 2026-10-27 BACKLOG block below.
+>
+> === 2026-10-27 SESSION (earlier) — five changes LIVE + VERIFIED on main @ ef970a8 ===
+> main advanced 652387f -> bc827ab -> 419e869 -> 5d6cb9d -> ef970a8, all pushed.
+> The _*.txt root scratch files AND the orphaned `.worktrees/custom-dashboard/`
+> dir were deleted; all feature worktrees + branches cleaned up. Only `main` + the
+> unrelated unmerged `gitea-real-mode-flip` branch remain (left as-is). Tree clean,
+> in sync with origin, `.worktrees/` empty.
+>
+> Latency fix #2 LIVE-VERIFIED (wf_8aa08dd7aa20c921 complete): PM delivery-overview
+> tool fan-out dropped ~21 calls/~5 turns -> 4 calls (Jira×1 via the new
+> jira_portfolio_sprint_status, GitHub×1 via github_pull_requests_all_repos,
+> ServiceNow×2) = ~5x fewer calls, both composites confirmed READY as Gateway
+> tools. WARM latency ~53s -> ~43.6s server-side (~16% faster — modest, as
+> expected: the warm pass is dominated by Claude thinking/synthesis, not tool I/O,
+> so collapsing calls helps but isn't dramatic). Answer quality intact (all
+> sprints/boards/PRs/incidents/deployments present).
+>
+> === 2026-10-27 BACKLOG — build SOON (user-requested, NOT started, needs scoping) ===
+> Five items. The 3 dashboard/trust FEATURES (user asked this session) + 2 latency
+> FOLLOW-UPS. None scoped/designed yet — confirm approach with the user before building.
+>
+> FEATURE B1 — Persona-based chart IDEAS on the Dashboard, refreshed EVERY login.
+>   On the dashboard, proactively OFFER a few chart/table ideas tailored to the
+>   persona (PM/Dev/Exec), and keep offering fresh ideas on EVERY login (not a
+>   one-time seed). User's words: "offer few chart ideas to the user based on their
+>   persona ... keep offering these ideas every login." Distinct from the existing
+>   SEEDED DEFAULT widgets (those populate a brand-new persona's dashboard once);
+>   this is recurring SUGGESTIONS the user can act on (one-click add -> becomes a
+>   saved widget). OPEN QUESTIONS to settle with user: static per-persona idea
+>   lists (cheap, deterministic) vs agent-generated each login (richer, costs a
+>   /chat call + latency)? how many? dismissable? Frontend touches the dashboard
+>   (frontend/src/components/dashboard/, DashboardChatBox/CustomDashboard); if
+>   agent-generated, reuses /chat with the strict viz-envelope contract.
+>
+> FEATURE B2 — Make dashboard charts CUSTOMIZABLE / more interactive.
+>   Today a saved widget is a fixed chart spec (type/title/xKey/series/data) in a
+>   draggable+resizable grid; the user can add/delete/move/resize but NOT edit a
+>   chart in place. User wants it "more interactive." OPEN: in-place edit (change
+>   chart type line<->bar<->area, pick which series/columns, rename, change the
+>   underlying query) via an edit affordance on WidgetCard; maybe drill-down /
+>   filter / hover detail. Persisted via the existing DynamoDB /dashboard/widgets
+>   PUT (table mahalo-dashboards). Needs a design pass — decide the edit surface and
+>   which fields are user-editable. Frontend-first; reuses existing persistence.
+>
+> FEATURE B3 — Show the agent's THOUGHT PROCESS / decisions on screen (TRUST).
+>   User wants to surface how the agent reached an answer (suggested: a panel at the
+>   bottom) to build trust. ORCHESTRATOR RECOMMENDATION: best honesty/effort tradeoff
+>   is a "How I got this" AGENT-ACTIVITY PANEL showing the REAL tool calls / systems
+>   queried (grounded in what actually happened), collapsible under the answer.
+>   Options, ranked by trust:
+>     (a) STREAM the real reasoning + tool trace live — highest trust, but the
+>         current thin API does a single BLOCKING invoke_agent_runtime and returns
+>         one payload (no streaming), and the Runtime emits only a summary line (no
+>         per-tool breadcrumbs to the client). True streaming = a real architectural
+>         change (streaming transport end-to-end). The frontend ALREADY shows a
+>         `systems_queried` chip row on assistant messages (ChatMessage.tsx) = a foothold.
+>     (b) "How I got this" panel = the actual tool-call list / systems queried,
+>         collapsible. Grounded, moderate effort, reuses the two-call structure.
+>         RECOMMENDED sweet spot.
+>     (c) Ask the model for a "reasoning summary" string — easiest but WEAKEST for
+>         trust (model describing its reasoning can diverge from what it did).
+>         Don't rely on this alone.
+>   Decide a/b/c scope with the user when picked up.
+>
+> FOLLOW-UP #3 (latency) — Runtime KEEP-WARM: reduce first-call cold-start pain
+>   (idle_runtime_session_timeout=15min already helps within a session). Light
+>   periodic cheap invoke, or provisioned capacity if supported. LOW-MED effort,
+>   small always-on cost. Matters less now that latency #1 removed the retry
+>   amplification of a cold pass.
+>
+> FOLLOW-UP #4 (latency) — TRIM per-turn prompt/tool-schema payload: 27 tool schemas
+>   (~22KB) + BASE_PROMPT (~5KB) sent to the model EVERY turn. Expose a smaller
+>   task-relevant tool set and/or tighten tool_schemas.py descriptions + prompts.py.
+>   MED effort, MED risk (changing tool availability/prompt can alter agent behavior;
+>   re-verify agent tests + answer quality). Full budget + ranking:
+>   docs/.agents/tasks/chat-latency-investigation.md. Do NOT raise Lambda memory for
+>   latency (measured: not a bottleneck). X-Ray is OFF on the Runtime.
+>
+> DONE + DEPLOYED THIS SESSION:
+>   1. (bc827ab) Dashboard project-scope chips DEFAULT TO ALL FIVE projects
+>      (PAY/CART/AUTH/PROD/ORD) for ALL personas; old PM-only/PAY gate removed
+>      (DashboardChatBox). Frontend deploy via builder + CloudFront invalidation.
+>   2. (bc827ab) Connections: GitHub/Gitea card has an "Open ↗" link to
+>      https://d3ec76atxiij9a.cloudfront.net/ (new tab, rel=noopener).
+>   3. (5d6cb9d) CHAT MARKDOWN TABLES FIXED: added remark-gfm 4.0.1 + wired
+>      remarkPlugins={[remarkGfm]} into ChatMessage.tsx assistant render, with
+>      table/th/td borders + overflow-x-auto for wide tables. Was: GFM tables
+>      printed as one run-on `| ... |` line (react-markdown w/o remark-gfm =
+>      CommonMark, no table support). Frontend deployed; CloudFront invalidated.
+>   4. (419e869) THIN-API RETRY STORM FIXED (latency fix #1): api/app/runtime_client.py
+>      now builds the bedrock-agentcore client with explicit botocore Config
+>      read_timeout=300, connect_timeout=10, retries max_attempts=1 (=no retries).
+>      Deployed via builder --phase runtime-api (RuntimeStack + ApiStack).
+>      ROOT CAUSE (measured, see docs/.agents/tasks/chat-latency-investigation.md):
+>      default boto read_timeout=60s auto-retried a cold ~64s agent pass -> THREE
+>      full passes (~150s) behind one /chat. Fix => ONE pass. LIVE-VERIFIED:
+>      cold /chat ~56s (was ~150s), CloudWatch shows exactly ONE Runtime
+>      invocation per session. ALSO fixed the user-reported "I've already provided
+>      you with a detailed analysis..." déjà-vu reply on a FIRST ask — it was the
+>      retry re-invoking the SAME Memory session so the agent saw its own prior
+>      answer; gone on a fresh-session first ask now. ALSO closes a write-double-
+>      apply risk on /chat/approve (now single-attempt).
+>
+> LATENCY FIX #2 — DONE + DEPLOYED (ef970a8), live-verify pending (see PENDING box
+> above). Added two READ-ONLY coarse composites, GATEWAY/MCP-ONLY (matching the
+> ServiceNow composite; the design briefly added direct Function-URL shim routes
+> but the USER EXPLICITLY ACCEPTED NARROWING to Gateway-only, so those were
+> dropped): jira_portfolio_sprint_status (sprint+board for all projects in one
+> call) and github_pull_requests_all_repos (open PRs grouped by repo, keyed off
+> seed repo id so it works on the mock path + stays consistent with real Gitea).
+> Registered in tools-lambdas/common/tool_schemas.py (25->27; data-driven into the
+> gateway toolSchema, NO gateway_stack.py edit), with two matching no-arg agent
+> @tool wrappers (required so agent/tests/test_gateway_mode.py name-set parity
+> passes), and additive BASE_PROMPT + PM-role steering to PREFER the roll-ups
+> (granular tools kept). Both design-review MEDIUMs fixed in code: a GitHub
+> PR-count invariant test + an adapter-reachability test for github.composites.
+> Offline gate green: tools-lambdas 108 passed, infra-cdk 77 passed/1 skipped,
+> cdk synth --all OK (mock-jira advertises 10 tools incl. the new composite,
+> mock-github 8), agent 99 passed/1 skipped. Code review APPROVED.
+> EXPECTED EFFECT: PM "delivery status overview" fan-out drops from ~21 calls/~5
+> turns toward ~4 calls/~2 turns -> lower WARM latency than the ~53s baseline
+> (actual number = the pending live-verify result).
+>
+> LATENCY FOLLOW-UPS STILL OPEN (lower priority, not started): #3 Runtime
+> keep-warm (first-call cold-start experience); #4 trim per-turn prompt/tool-schema
+> payload (25->27 tool schemas + system prompt sent every turn). Full ranked list +
+> measured per-stage budget in docs/.agents/tasks/chat-latency-investigation.md.
+> Do NOT raise Lambda memory for latency (measured: not a bottleneck). X-Ray OFF.
+>
+> NOTE: do NOT raise Lambda memory for latency — MEASURED not a bottleneck
+> (thin-API 127-133MB/512; mocks 91MB/256). X-Ray is OFF on the Runtime.
+>
 > === 2026-10-25 RESUME-NEXT — custom chart-based dashboard (NEXT FEATURE) ===
 > The user's next ask (to resume "tomorrow"): replace the TEXT-only agent
 > dashboard with a CUSTOM CHART-BASED dashboard. A chat textbox on the Dashboard
@@ -17,7 +279,7 @@ bottom before doing anything.
 >
 > === 2026-10-25 UPDATE — REAL GITEA DEMO COMPLETE ===
 > The agent reads/writes REAL Gitea end-to-end (giteaMode=real). Browser URL
-> https://d3ec76atxiij9a.cloudfront.net/ (admin mahalo_admin / <GITEA_ADMIN_PASSWORD>).
+> https://d3ec76atxiij9a.cloudfront.net/ (admin mahalo_admin / password in SSM /mahalo/gitea/admin-password).
 > 5 repos + branches + persona-labeled PRs seeded. Demo login sheet + run guide:
 > docs/DEMO-LOGINS.md. Full record: docs/GITEA-REAL-PLAN.md. Gotcha baked in: this
 > account AUTO-STRIPS 0.0.0.0/0 SG ingress on non-standard ports within seconds —
