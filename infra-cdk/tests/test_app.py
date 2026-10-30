@@ -1,9 +1,9 @@
-"""App-level synth assertion: the full app produces exactly 12 stacks.
+"""App-level synth assertion: the full app produces exactly 13 stacks.
 
-After wiring MahaloBuilderStack and MahaloDashboardStack, ``cdk synth --all``
-must emit 12 templates: the 4 mock stacks + Gateway + MemoryIdentity + Runtime +
-Dashboard + Api + Gitea + Frontend + Builder. This guards the count from
-regressing.
+After wiring MahaloKeepWarmStack (latency follow-up #3), ``cdk synth --all`` must
+emit 13 templates: the 4 mock stacks + Gateway + MemoryIdentity + Runtime +
+Dashboard + Api + KeepWarm + Gitea + Frontend + Builder. This guards the count
+from regressing.
 """
 
 import aws_cdk as cdk
@@ -14,6 +14,7 @@ from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.frontend_stack import MahaloFrontendStack
 from mahalo_infra.gateway_stack import MahaloGatewayStack
 from mahalo_infra.gitea_stack import MahaloGiteaStack
+from mahalo_infra.keepwarm_stack import MahaloKeepWarmStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
@@ -22,7 +23,7 @@ _ENV = cdk.Environment(account="123456789012", region="us-east-1")
 _SERVICES = ("jira", "confluence", "github", "servicenow")
 
 
-def test_app_synthesizes_twelve_stacks():
+def test_app_synthesizes_thirteen_stacks():
     app = cdk.App()
     mock_stacks = {
         service: MockServiceStack(
@@ -48,8 +49,11 @@ def test_app_synthesizes_twelve_stacks():
         dashboard_stack=dashboard_stack,
         env=_ENV,
     )
+    MahaloKeepWarmStack(
+        app, "MahaloKeepWarmStack", runtime_stack=runtime_stack, env=_ENV
+    )
     MahaloGiteaStack(app, "MahaloGiteaStack", env=_ENV)
     MahaloFrontendStack(app, "MahaloFrontendStack", env=_ENV)
     MahaloBuilderStack(app, "MahaloBuilderStack", env=_ENV)
 
-    assert len(app.synth().stacks) == 12
+    assert len(app.synth().stacks) == 13

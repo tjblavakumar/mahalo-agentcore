@@ -286,14 +286,18 @@ phase_backend() {
 # Phase: runtime-api (BOTH need Docker — the reason the builder exists).
 # ---------------------------------------------------------------------------
 phase_runtime_api() {
-  log "phase runtime-api: MahaloRuntimeStack + MahaloApiStack (Docker)"
+  log "phase runtime-api: MahaloRuntimeStack + MahaloApiStack + MahaloKeepWarmStack (Docker)"
   enter_infra_cdk
   require_instance_role
   require_docker
 
   # MAHALO_BUILD_IMAGE=1 already exported (top of script): Runtime builds+pushes
   # the ARM64 agent image natively on Graviton; Api bundles its Lambda deps.
-  cdk deploy MahaloRuntimeStack MahaloApiStack \
+  # MahaloKeepWarmStack (latency follow-up #3) is itself Docker-free (inline
+  # Lambda), but takes runtime_stack by direct construct reference, so it belongs
+  # in this phase — phase_backend lacks MAHALO_BUILD_IMAGE=1 and would synth the
+  # Runtime on its placeholder-image offline branch.
+  cdk deploy MahaloRuntimeStack MahaloApiStack MahaloKeepWarmStack \
     --require-approval never --outputs-file "$RTAPI_OUTPUTS"
 
   # Capture RuntimeArn, RuntimeApiUrl.

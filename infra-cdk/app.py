@@ -16,6 +16,7 @@ from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.frontend_stack import MahaloFrontendStack
 from mahalo_infra.gateway_stack import MahaloGatewayStack
 from mahalo_infra.gitea_stack import MahaloGiteaStack
+from mahalo_infra.keepwarm_stack import MahaloKeepWarmStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
@@ -112,6 +113,16 @@ def main() -> None:
         "MahaloApiStack",
         runtime_stack=runtime_stack,
         dashboard_stack=dashboard_stack,
+        env=_ENV,
+    )
+    # Runtime keep-warm (latency follow-up #3): a scheduled trivial InvokeAgentRuntime
+    # ping that keeps the Runtime micro-VM resident during weekday demo hours. Takes
+    # runtime_stack by direct construct reference (same pattern as the API stack);
+    # must be instantiated here inside main() where runtime_stack is in scope.
+    MahaloKeepWarmStack(
+        app,
+        "MahaloKeepWarmStack",
+        runtime_stack=runtime_stack,
         env=_ENV,
     )
     # Task 7: always-on Gitea host for the real github backend, and the static
