@@ -92,8 +92,19 @@ A Lambda Function URL ends with a trailing `/`. The agent builds request paths a
 slash** (strip the trailing `/` from the CfnOutput value).
 
 Tokens default to the agent's values (`mock-<svc>-token-12345`) and are set as the
-`MOCK_<SVC>_TOKEN` env var on each function; `GITHUB_MODE` is deliberately not set
-(the GitHub handler defaults it to `mock`).
+`MOCK_<SVC>_TOKEN` env var on each function.
+
+### GitHub tool: real Gitea by default (important)
+
+`cdk.json` sets the context `giteaMode` to `real`, so every `cdk deploy` run from this
+directory gives the github Lambda `GITHUB_MODE=real` plus the Gitea settings, and the
+agent's branch / commit / PR writes land in the real Gitea server. Without it the Lambda
+silently falls back to mock mode (writes go to DynamoDB, nothing appears in Gitea); that
+has happened once. To deploy a MOCK github tool on purpose (an account with no Gitea),
+override per run: `cdk deploy ... -c giteaMode=mock`. The personal-AWS package in
+`docs/deploy-aws-personal/` does this automatically.
+
+Check a deployed Lambda: its environment must contain `GITHUB_MODE=real`.
 
 ## Teardown
 

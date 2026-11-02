@@ -54,8 +54,13 @@ _GITEA_ENV = {
 
 def main() -> None:
     app = cdk.App()
-    # Flipped on by ``-c giteaMode=real``; default off -> all four mock stacks
-    # synth byte-identical to Task 6.
+    # ``giteaMode=real`` points the github tool Lambda at the real Gitea server.
+    # The DEFAULT for `cdk` CLI runs in this directory is "real", set in cdk.json,
+    # because a deploy without it silently reverts the Lambda to mock mode (agent
+    # git writes then land in DynamoDB and never reach Gitea). Override per run with
+    # ``-c giteaMode=mock`` (the personal-AWS package does this: no Gitea there).
+    # When this file is run directly (no CDK CLI, e.g. unit tests) no context is
+    # supplied, so it still defaults to mock and the mock stacks synth unchanged.
     gitea_mode = app.node.try_get_context("giteaMode") == "real"
     mock_stacks = {}
     for service in _SERVICES:
