@@ -49,6 +49,9 @@ export function buildVizPrompt(
       `has the key named by xKey plus every series dataKey; or`,
     `(2) a table: {"type":"table","title":string,"columns":[{"key":string,"label":string}],` +
       `"rows":[{...}]}.`,
+    `A single-series bar chart MAY add "varyColors":true, but ONLY when the user asks for ` +
+      `multi-color, different colors per bar, colorful or rainbow bars; never add it otherwise. ` +
+      `Never include color values; you cannot pick specific colors.`,
     `Use the connected systems (Jira, Confluence, GitHub/Gitea, ServiceNow) to get real values ` +
       `for this persona. Keep it to at most 6 series, 100 data rows, 12 columns, 200 table rows.`,
     `If the request cannot be expressed as one of these four visualizations, reply with ONLY ` +

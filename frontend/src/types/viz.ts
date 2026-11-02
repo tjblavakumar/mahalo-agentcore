@@ -47,6 +47,8 @@ export interface BarSpec {
   xKey: string;
   series: VizSeries[];
   data: VizRow[];
+  /** Opt-in: color each bar by category. Honored only for a single-series bar. */
+  varyColors?: boolean;
 }
 
 export interface TableSpec {

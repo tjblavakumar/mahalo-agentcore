@@ -8,6 +8,7 @@ import {
   Area,
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,16 +16,7 @@ import {
   Legend,
 } from "recharts";
 import type { ChartSpec } from "@/types/viz";
-
-/** Fixed color palette (design §1.2: colors come from the frontend, not the envelope). */
-const PALETTE = [
-  "#2563eb", // blue-600
-  "#16a34a", // green-600
-  "#d97706", // amber-600
-  "#dc2626", // red-600
-  "#7c3aed", // violet-600
-  "#0891b2", // cyan-600
-];
+import { colorAt, shouldVaryColors } from "@/lib/vizColors";
 
 interface ChartRendererProps {
   spec: ChartSpec;
@@ -37,7 +29,8 @@ interface ChartRendererProps {
  */
 export default function ChartRenderer({ spec }: ChartRendererProps) {
   const showLegend = spec.series.length > 1;
-  const color = (i: number) => PALETTE[i % PALETTE.length];
+  const color = colorAt;
+  const vary = shouldVaryColors(spec);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -84,9 +77,14 @@ export default function ChartRenderer({ spec }: ChartRendererProps) {
           <XAxis dataKey={spec.xKey} tick={{ fontSize: 12 }} />
           <YAxis tick={{ fontSize: 12 }} />
           <Tooltip />
-          {showLegend && <Legend />}
+          {showLegend && !vary && <Legend />}
           {spec.series.map((s, i) => (
-            <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name} fill={color(i)} />
+            <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name} fill={color(i)}>
+              {vary &&
+                spec.data.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={colorAt(index)} />
+                ))}
+            </Bar>
           ))}
         </BarChart>
       )}

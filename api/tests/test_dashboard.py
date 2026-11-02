@@ -234,3 +234,14 @@ def test_decimalize_undecimalize_roundtrip():
     # Integers stay ints through the round-trip.
     assert _undecimalize(_decimalize({"n": 5})) == {"n": 5}
     assert isinstance(_undecimalize(Decimal("5")), int)
+
+def test_bar_spec_with_vary_colors_is_structurally_valid():
+    spec = {
+        "type": "bar",
+        "title": "Stories per project",
+        "xKey": "project",
+        "series": [{"name": "Stories", "dataKey": "count"}],
+        "data": [{"project": "PAY", "count": 3}],
+        "varyColors": True,
+    }
+    assert spec_is_structurally_valid(spec)

@@ -291,3 +291,49 @@ describe("parseVizEnvelope — boundaries", () => {
     ).toBe("too-large");
   });
 });
+
+describe("parseVizEnvelope - varyColors", () => {
+  const bar = (extra: Record<string, unknown>, type = "bar") =>
+    JSON.stringify({
+      type,
+      title: "Stories per project",
+      xKey: "project",
+      series: [{ name: "Stories", dataKey: "count" }],
+      data: [{ project: "PAY", count: 3 }],
+      ...extra,
+    });
+
+  it("keeps varyColors:true on a bar chart", () => {
+    const r = parseVizEnvelope(bar({ varyColors: true }));
+    expect(r.ok && r.spec.type === "bar" && r.spec.varyColors).toBe(true);
+  });
+  it("omits the key when false or absent", () => {
+    for (const extra of [{ varyColors: false }, {}]) {
+      const r = parseVizEnvelope(bar(extra));
+      expect(r.ok).toBe(true);
+      if (r.ok) expect("varyColors" in r.spec).toBe(false);
+    }
+  });
+  it("ignores non-boolean values without rejecting the chart", () => {
+    for (const v of ["true", 1, null, {}]) {
+      const r = parseVizEnvelope(bar({ varyColors: v }));
+      expect(r.ok).toBe(true);
+      if (r.ok) expect("varyColors" in r.spec).toBe(false);
+    }
+  });
+  it("does not carry varyColors on line/area", () => {
+    for (const t of ["line", "area"]) {
+      const r = parseVizEnvelope(bar({ varyColors: true }, t));
+      expect(r.ok).toBe(true);
+      if (r.ok) expect("varyColors" in r.spec).toBe(false);
+    }
+  });
+  it("still drops unknown extra fields", () => {
+    const r = parseVizEnvelope(bar({ varyColors: true, color: "#ff0000", foo: 1 }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect("color" in r.spec).toBe(false);
+      expect("foo" in r.spec).toBe(false);
+    }
+  });
+});

@@ -54,6 +54,14 @@ describe("buildVizPrompt", () => {
     expect(out).not.toMatch(/\nProjects:/);
   });
 
+  it("allows varyColors only on request, without agent-chosen colors, keeping the decline", () => {
+    const out = buildVizPrompt("x", pm);
+    expect(out).toContain('"varyColors":true');
+    expect(out).toMatch(/ONLY when the user asks/);
+    expect(out).toMatch(/never add it otherwise/);
+    expect(out).toMatch(/cannot pick specific colors/);
+    expect(out).toContain('{"type":"none"}');
+  });
   it("de-duplicates and drops unknown project keys", () => {
     const out = buildVizPrompt("x", pm, ["pay", "PAY", "ZZZ"]);
     expect(out).toContain("Projects: PAY");

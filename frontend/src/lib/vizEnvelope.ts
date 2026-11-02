@@ -90,13 +90,17 @@ function validateChart(obj: Record<string, unknown>, type: "line" | "area" | "ba
     if (!(s.dataKey in first)) return fail("missing-field");
   }
 
-  const spec: ChartSpec = {
-    type,
+  const base = {
     title: title as string,
     xKey: xKey as string,
     series: (series as VizSeries[]).map((s) => ({ name: s.name, dataKey: s.dataKey })),
     data: data as VizRow[],
   };
+  // varyColors is bar-only and opt-in; any non-`true` value is ignored (not a reject).
+  const spec: ChartSpec =
+    type === "bar" && obj.varyColors === true
+      ? { type, ...base, varyColors: true }
+      : { type, ...base };
   return { ok: true, spec };
 }
 
