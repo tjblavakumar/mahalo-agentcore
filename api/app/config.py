@@ -37,4 +37,19 @@ class Settings:
     )
 
 
+    # Mock-service Function URLs + API tokens, wired in by MahaloApiStack from the
+    # mock stacks. Used ONLY server-side by the read-only viewer proxy and the
+    # refresh endpoint; the tokens never reach the browser.
+    jira_url: str = field(default_factory=lambda: _getenv("MAHALO_JIRA_URL", "").rstrip("/"))
+    confluence_url: str = field(
+        default_factory=lambda: _getenv("MAHALO_CONFLUENCE_URL", "").rstrip("/")
+    )
+    servicenow_url: str = field(
+        default_factory=lambda: _getenv("MAHALO_SERVICENOW_URL", "").rstrip("/")
+    )
+    jira_token: str = field(default_factory=lambda: _getenv("MAHALO_JIRA_TOKEN", ""))
+    confluence_token: str = field(default_factory=lambda: _getenv("MAHALO_CONFLUENCE_TOKEN", ""))
+    servicenow_token: str = field(default_factory=lambda: _getenv("MAHALO_SERVICENOW_TOKEN", ""))
+
+
 settings = Settings()
