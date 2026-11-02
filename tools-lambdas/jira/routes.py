@@ -8,6 +8,7 @@ collections (``pk``):
 """
 
 from common.auth import require_token
+from common import seed_dates
 from common.responses import error, json_response
 from common.router import Router
 
@@ -21,13 +22,16 @@ PK_STORY = "STORY"
 
 def seed_items():
     """Yield the seed items for lazy table seeding (deep-copied by the store)."""
+    days = seed_dates.compute_shift_days(seed_dates.today_utc())
+    sprints = seed_dates.shift_records(seed_data.SPRINTS, days, ("start_date", "end_date"))
+    stories = seed_dates.shift_story_comments(seed_data.STORIES, days)
     for dev in seed_data.DEVELOPERS:
         yield {"pk": PK_DEVELOPER, "sk": dev["id"], "record": dev}
     for proj in seed_data.PROJECTS:
         yield {"pk": PK_PROJECT, "sk": proj["id"], "record": proj}
-    for sprint in seed_data.SPRINTS:
+    for sprint in sprints:
         yield {"pk": PK_SPRINT, "sk": sprint["id"], "record": sprint}
-    for story in seed_data.STORIES:
+    for story in stories:
         yield {"pk": PK_STORY, "sk": story["id"], "record": story}
 
 
@@ -240,5 +244,22 @@ def build_router(store, token):
         if denied:
             return denied
         return json_response(200, {"developers": store.query(PK_DEVELOPER)})
+
+    # --- Admin (not a Gateway tool; token protected) ---
+    @router.route("POST", "/admin/reset")
+    def admin_reset(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        counts = store.reset()
+        return json_response(
+            200,
+            {
+                "status": "ok",
+                "service": "jira",
+                "counts": counts,
+                "shift_days": seed_dates.compute_shift_days(seed_dates.today_utc()),
+            },
+        )
 
     return router

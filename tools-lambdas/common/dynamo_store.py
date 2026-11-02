@@ -49,9 +49,16 @@ class Store:
         if "Item" in existing:
             self._seed_checked = True
             return
+        self._seed_and_mark()
+
+    def _seed_and_mark(self) -> Dict[str, int]:
+        """Write the seed items, then set the sentinel. Returns counts per ``pk``."""
+        counts: Dict[str, int] = {}
         if self._seed_items is not None:
             items = [copy.deepcopy(item) for item in self._seed_items()]
             self._write_seed_items(items)
+            for item in items:
+                counts[item["pk"]] = counts.get(item["pk"], 0) + 1
         try:
             self._table.put_item(
                 Item={"pk": _META_PK, "sk": _SEEDED_SK},
@@ -62,6 +69,27 @@ class Store:
             if exc.response.get("Error", {}).get("Code") != "ConditionalCheckFailedException":
                 raise
         self._seed_checked = True
+        return counts
+
+    def reset(self) -> Dict[str, int]:
+        """Delete EVERY item (including the sentinel) and reseed from scratch.
+
+        Returns the number of reseeded items per collection ``pk``.
+        """
+        self._seed_checked = False
+        keys: List[Dict[str, str]] = []
+        kwargs: Dict[str, Any] = {"ProjectionExpression": "pk, sk"}
+        while True:
+            resp = self._table.scan(**kwargs)
+            keys.extend({"pk": i["pk"], "sk": i["sk"]} for i in resp.get("Items", []))
+            if "LastEvaluatedKey" not in resp:
+                break
+            kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+        # batch_writer buffers 25 items and resends unprocessed items itself.
+        with self._table.batch_writer() as batch:
+            for key in keys:
+                batch.delete_item(Key=key)
+        return self._seed_and_mark()
 
     def _write_seed_items(self, items: List[Dict[str, Any]]) -> None:
         with self._table.batch_writer() as batch:

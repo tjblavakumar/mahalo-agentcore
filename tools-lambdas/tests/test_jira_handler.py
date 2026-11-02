@@ -81,10 +81,11 @@ def test_board_active_sprint(handler):
     assert resp["statusCode"] == 200
     board = body_of(resp)
     assert board["sprint"]["id"] == "PAY-S2"
-    # PAY-S2 stories: 105 in_progress, 106 in_progress, 107 todo, 108 in_review
-    assert {s["id"] for s in board["columns"]["in_progress"]} == {"PAY-105", "PAY-106"}
+    # PAY-S2 stories: 105 in_progress, 106 done, 107 todo, 108 in_review
+    assert {s["id"] for s in board["columns"]["in_progress"]} == {"PAY-105"}
     assert {s["id"] for s in board["columns"]["todo"]} == {"PAY-107"}
     assert {s["id"] for s in board["columns"]["in_review"]} == {"PAY-108"}
+    assert {s["id"] for s in board["columns"]["done"]} == {"PAY-106"}
 
 
 def test_sprints_active_velocity(handler):
@@ -92,8 +93,8 @@ def test_sprints_active_velocity(handler):
     assert resp["statusCode"] == 200
     sprints = body_of(resp)["sprints"]
     active = next(s for s in sprints if s["status"] == "active")
-    # PAY-S2 has no done stories -> completed_points 0; total = 8+5+13+8 = 34
-    assert active["completed_points"] == 0
+    # PAY-106 (5 pts) is done; total = 8+5+13+8 = 34
+    assert active["completed_points"] == 5
     assert active["total_points"] == 34
 
 

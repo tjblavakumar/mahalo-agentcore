@@ -7,6 +7,7 @@ Collections (``pk``): SERVICE, DEPLOYMENT, INCIDENT
 from datetime import datetime, timezone
 
 from common.auth import require_token
+from common import seed_dates
 from common.responses import error, json_response
 from common.router import Router
 
@@ -18,11 +19,14 @@ PK_INCIDENT = "INCIDENT"
 
 
 def seed_items():
+    days = seed_dates.compute_shift_days(seed_dates.today_utc())
+    deployments = seed_dates.shift_records(seed_data.DEPLOYMENTS, days, ("deployed_at",))
+    incidents = seed_dates.shift_records(seed_data.INCIDENTS, days, ("opened_at", "resolved_at"))
     for svc in seed_data.SERVICES:
         yield {"pk": PK_SERVICE, "sk": svc["id"], "record": svc}
-    for dep in seed_data.DEPLOYMENTS:
+    for dep in deployments:
         yield {"pk": PK_DEPLOYMENT, "sk": dep["id"], "record": dep}
-    for inc in seed_data.INCIDENTS:
+    for inc in incidents:
         yield {"pk": PK_INCIDENT, "sk": inc["id"], "record": inc}
 
 
@@ -196,6 +200,23 @@ def build_router(store, token):
                 "total_incidents": len(incidents),
                 "open_incidents": len(open_incidents),
                 "open_incidents_by_severity": by_severity,
+            },
+        )
+
+    # --- Admin (not a Gateway tool; token protected) ---
+    @router.route("POST", "/admin/reset")
+    def admin_reset(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        counts = store.reset()
+        return json_response(
+            200,
+            {
+                "status": "ok",
+                "service": "servicenow",
+                "counts": counts,
+                "shift_days": seed_dates.compute_shift_days(seed_dates.today_utc()),
             },
         )
 

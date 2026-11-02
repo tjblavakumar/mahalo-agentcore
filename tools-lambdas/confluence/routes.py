@@ -4,6 +4,7 @@ Collections (``pk``): SPACE, PAGE (natural id under ``sk``; record under ``data`
 """
 
 from common.auth import require_token
+from common import seed_dates
 from common.responses import error, json_response
 from common.router import Router
 
@@ -14,9 +15,11 @@ PK_PAGE = "PAGE"
 
 
 def seed_items():
+    days = seed_dates.compute_shift_days(seed_dates.today_utc())
+    pages = seed_dates.shift_records(seed_data.PAGES, days, ("last_updated",))
     for space in seed_data.SPACES:
         yield {"pk": PK_SPACE, "sk": space["id"], "record": space}
-    for page in seed_data.PAGES:
+    for page in pages:
         yield {"pk": PK_PAGE, "sk": page["id"], "record": page}
 
 
@@ -177,5 +180,22 @@ def build_router(store, token):
                 )
         results.sort(key=lambda x: x["relevance"], reverse=True)
         return json_response(200, {"results": results, "total": len(results), "query": q})
+
+    # --- Admin (not a Gateway tool; token protected) ---
+    @router.route("POST", "/admin/reset")
+    def admin_reset(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        counts = store.reset()
+        return json_response(
+            200,
+            {
+                "status": "ok",
+                "service": "confluence",
+                "counts": counts,
+                "shift_days": seed_dates.compute_shift_days(seed_dates.today_utc()),
+            },
+        )
 
     return router
