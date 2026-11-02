@@ -1,5 +1,7 @@
 "use client";
 
+import { classifyParam } from "@/lib/proposalParams";
+
 interface Proposal {
   action: string;
   system: string;
@@ -63,13 +65,42 @@ export default function ProposalCard({
             <p className="text-xs text-gray-600 font-mono">
               System: {proposal.system} | Action: {proposal.action}
             </p>
-            {Object.entries(proposal.params).map(([key, value]) =>
-              value ? (
-                <p key={key} className="text-xs text-gray-600 font-mono">
-                  {key}: {String(value)}
-                </p>
-              ) : null
-            )}
+            {Object.entries(proposal.params).map(([key, value]) => {
+              if (!value) return null;
+              const view = classifyParam(value);
+              if (view.kind === "text") {
+                return (
+                  <p key={key} className="text-xs text-gray-600 font-mono">
+                    {key}: {view.text}
+                  </p>
+                );
+              }
+              if (view.kind === "json") {
+                return (
+                  <div key={key} className="mt-1">
+                    <p className="text-xs text-gray-600 font-mono">{key}:</p>
+                    <pre className="text-xs text-gray-800 font-mono bg-white rounded border border-gray-200 p-2 overflow-x-auto max-h-96 overflow-y-auto">
+                      {view.text}
+                    </pre>
+                  </div>
+                );
+              }
+              return (
+                <div key={key} className="mt-1">
+                  <p className="text-xs text-gray-600 font-mono">{key}:</p>
+                  {view.files.map((file, i) => (
+                    <details key={`${file.path}-${i}`} open className="mt-1">
+                      <summary className="text-xs text-gray-700 font-mono cursor-pointer">
+                        {file.path} ({file.lineCount} lines)
+                      </summary>
+                      <pre className="text-xs text-gray-800 font-mono bg-white rounded border border-gray-200 p-2 overflow-x-auto max-h-96 overflow-y-auto">
+                        {file.content}
+                      </pre>
+                    </details>
+                  ))}
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex gap-2 mt-3">

@@ -311,6 +311,72 @@ def test_approve_runtime_error_maps_to_success_false(monkeypatch):
     assert data["message"] == "stale id"
 
 
+def test_approve_chained_pending_approval_passes_proposal_through(monkeypatch):
+    import app.routers.chat as chat
+
+    proposal = {
+        "action": "github_commit_files", "system": "github",
+        "params": {"files": [{"path": "a.py", "content": "x"}]},
+        "description": "Commit files", "interrupt_id": "itr-2",
+    }
+    monkeypatch.setattr(
+        chat, "invoke_runtime",
+        lambda *, session_id, body, runtime_user_id=None: {
+            "status": "pending_approval", "response": "", "proposal": proposal,
+            "session_id": session_id,
+        },
+    )
+    resp = _client().post(
+        "/chat/approve",
+        json={"session_id": "S1", "interrupt_id": "itr-1", "approved": True},
+    )
+    data = resp.json()
+    assert data["success"] is True
+    assert data["status"] == "pending_approval"
+    assert data["message"] == ""
+    assert data["proposal"] == proposal
+
+
+def test_approve_complete_has_null_proposal(monkeypatch):
+    import app.routers.chat as chat
+
+    monkeypatch.setattr(
+        chat, "invoke_runtime",
+        lambda *, session_id, body, runtime_user_id=None: {
+            "status": "complete", "response": "all done", "session_id": session_id,
+        },
+    )
+    resp = _client().post(
+        "/chat/approve",
+        json={"session_id": "S1", "interrupt_id": "itr-1", "approved": True},
+    )
+    data = resp.json()
+    assert data["success"] is True
+    assert data["status"] == "complete"
+    assert data["proposal"] is None
+
+
+def test_approve_error_reports_failure_with_message(monkeypatch):
+    import app.routers.chat as chat
+
+    monkeypatch.setattr(
+        chat, "invoke_runtime",
+        lambda *, session_id, body, runtime_user_id=None: {
+            "status": "error", "response": "",
+            "error": {"type": "tool_failed", "message": "branch exists"},
+        },
+    )
+    resp = _client().post(
+        "/chat/approve",
+        json={"session_id": "S1", "interrupt_id": "itr-1", "approved": True},
+    )
+    data = resp.json()
+    assert data["success"] is False
+    assert data["status"] == "error"
+    assert data["message"] == "branch exists"
+    assert data["proposal"] is None
+
+
 def test_approve_missing_interrupt_id_is_422():
     resp = _client().post("/chat/approve", json={"session_id": "S1", "approved": True})
     assert resp.status_code == 422

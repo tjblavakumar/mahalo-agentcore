@@ -30,6 +30,15 @@ export interface ChatResponse {
   session_id: string;
 }
 
+/** Reply of POST /chat/approve. A chained write comes back as pending_approval. */
+export interface ActionResult {
+  success: boolean;
+  message: string;
+  session_id?: string;
+  status?: string;
+  proposal?: Proposal | null;
+}
+
 export interface Project {
   id: number;
   user_id: number;

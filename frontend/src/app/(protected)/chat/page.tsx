@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { buildSuggestions } from "@/lib/chatSuggestions";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Proposal, ChatResponse } from "@/types";
+import type { Proposal, ChatResponse, ActionResult } from "@/types";
 import ChatInput from "@/components/chat/ChatInput";
 import ChatMessage from "@/components/chat/ChatMessage";
 import ProposalCard from "@/components/chat/ProposalCard";
@@ -19,7 +19,7 @@ interface Message {
   proposal?: Proposal | null;
 }
 
-interface ActionResult {
+interface CardResult {
   success: boolean;
   message: string;
 }
@@ -30,7 +30,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [actionResults, setActionResults] = useState<Record<string, ActionResult>>({});
+  const [actionResults, setActionResults] = useState<Record<string, CardResult>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [contextPanel, setContextPanel] = useState<{
     isOpen: boolean;
@@ -111,7 +111,7 @@ export default function ChatPage() {
     setIsLoading(false);
   }
 
-  async function handleApprove(msg: Message) {
+  async function decide(msg: Message, approved: boolean) {
     if (!sessionId) return;
     const interruptId = msg.proposal?.interrupt_id;
     // Fail safe: a missing interrupt id would produce a 422 at the thin API, so
@@ -124,37 +124,58 @@ export default function ChatPage() {
       {
         session_id: sessionId,
         interrupt_id: interruptId,
-        approved: true,
+        approved,
       },
       persona?.personaId
     );
 
-    if (result.data) {
-      setActionResults((prev) => ({ ...prev, [msg.id]: result.data! }));
+    const data = result.data;
+    const description = msg.proposal?.description ?? "";
+    if (data && data.success !== false) {
+      const verb = approved ? "Approved" : "Rejected";
+      setActionResults((prev) => ({
+        ...prev,
+        [msg.id]: {
+          success: true,
+          message: description ? `${verb}: ${description}` : verb,
+        },
+      }));
+      const followUps: Message[] = [];
+      if (data.message) {
+        followUps.push({
+          id: nextMessageId("done"),
+          role: "assistant",
+          content: data.message,
+        });
+      }
+      if (data.proposal) {
+        followUps.push({
+          id: nextMessageId("next"),
+          role: "assistant",
+          content: "",
+          proposal: data.proposal,
+        });
+      }
+      if (followUps.length > 0) {
+        setMessages((prev) => [...prev, ...followUps]);
+      }
+    } else {
+      const text =
+        data?.message || result.error || "The action failed. Please try again.";
+      setActionResults((prev) => ({
+        ...prev,
+        [msg.id]: { success: false, message: text },
+      }));
     }
     setApprovingId(null);
   }
 
-  async function handleReject(msg: Message) {
-    if (!sessionId) return;
-    const interruptId = msg.proposal?.interrupt_id;
-    if (!interruptId) return;
-    setApprovingId(msg.id);
+  function handleApprove(msg: Message) {
+    return decide(msg, true);
+  }
 
-    const result = await api.post<ActionResult>(
-      "/chat/approve",
-      {
-        session_id: sessionId,
-        interrupt_id: interruptId,
-        approved: false,
-      },
-      persona?.personaId
-    );
-
-    if (result.data) {
-      setActionResults((prev) => ({ ...prev, [msg.id]: result.data! }));
-    }
-    setApprovingId(null);
+  function handleReject(msg: Message) {
+    return decide(msg, false);
   }
 
   return (
@@ -215,11 +236,13 @@ export default function ChatPage() {
 
           {messages.map((msg) => (
             <div key={msg.id}>
-              <ChatMessage
-                role={msg.role}
-                content={msg.content}
-                systemsQueried={msg.systemsQueried}
-              />
+              {msg.content && (
+                <ChatMessage
+                  role={msg.role}
+                  content={msg.content}
+                  systemsQueried={msg.systemsQueried}
+                />
+              )}
               {msg.proposal && (
                 <ProposalCard
                   proposal={msg.proposal}

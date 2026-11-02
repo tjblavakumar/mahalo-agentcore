@@ -49,6 +49,10 @@ class ActionResult(BaseModel):
     success: bool
     message: str
     session_id: str
+    # A chained write re-proposes on the approve turn: status is then
+    # "pending_approval" and ``proposal`` carries the next write to approve.
+    status: str = "complete"
+    proposal: Optional[dict] = None
 
 
 # --- Custom dashboard persistence models (design §3.3) -----------------------

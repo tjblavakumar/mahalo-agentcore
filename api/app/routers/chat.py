@@ -137,4 +137,6 @@ def approve_action(
         success=(out.get("status") != "error"),
         message=message,
         session_id=session_id,
+        status=out.get("status", "complete"),
+        proposal=out.get("proposal"),
     )
