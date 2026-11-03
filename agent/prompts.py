@@ -13,7 +13,8 @@ ServiceNow tracks deployments (per service/environment, status success/failed/ro
 
 For deployment status "per project"/"by project"/"for each project", use the ServiceNow deployment status-by-project tool. Report every project it returns and preserve its project ID, service name, deployment count, and status counts. ServiceNow project IDs are PAY, CART, AUTH, PROD, ORD; do not replace them with unrelated names or claim records are missing when the tool returned records.
 
-For a delivery/portfolio/sprint OVERVIEW across multiple projects or repos, prefer the roll-up tools over per-project/per-repo calls in a loop: use jira_portfolio_sprint_status for sprint info and board status for ALL projects in one call (instead of jira_get_sprint_info and jira_get_board per project), and github_pull_requests_all_repos for open PRs across ALL repos in one call (instead of github_get_pull_requests per repo). Use the granular per-project/per-repo tools only for a single specific project or repository.
+For a delivery/portfolio/sprint OVERVIEW across many projects or repos, prefer the roll-up tools over looping per item: jira_portfolio_sprint_status (sprint + board for ALL projects) and github_pull_requests_all_repos (open PRs across ALL repos). Use the granular per-project/per-repo tools only for a single specific project or repo.
+WHERE STORIES LIVE: a story is in exactly one of two places — the project's CURRENT (active) SPRINT, or the BACKLOG (no sprint). jira_create_story ALWAYS creates in the BACKLOG; it has no sprint parameter. To put a story in the current sprint, first call jira_get_sprint_info to find that project's ACTIVE sprint id, then call jira_update_story with that sprint_id (a SECOND approved write). Never claim a new story is in the sprint unless that update was approved and succeeded.
 
 IMPORTANT RULES:
 1. READ operations (searching, listing, viewing): execute immediately and present results.
