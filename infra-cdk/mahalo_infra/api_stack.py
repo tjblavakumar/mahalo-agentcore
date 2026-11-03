@@ -62,6 +62,7 @@ class MahaloApiStack(Stack):
         runtime_stack: "Stack",
         dashboard_stack: "Stack",
         identity_enabled: bool = False,
+        mock_stacks: "dict[str, Stack] | None" = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -120,6 +121,12 @@ class MahaloApiStack(Stack):
             },
         )
 
+        if mock_stacks:
+            # Read-only viewer proxy + refresh endpoint: mock Function URLs and
+            # tokens, wired by direct construct reference (same as the Gateway).
+            for svc in ("jira", "confluence", "servicenow"):
+                fn.add_environment(f"MAHALO_{svc.upper()}_URL", mock_stacks[svc].function_url.url)
+                fn.add_environment(f"MAHALO_{svc.upper()}_TOKEN", mock_stacks[svc].token)
         # Thin API -> Runtime: SigV4-signed InvokeAgentRuntime on the Runtime ARN.
         runtime.grant_invoke_runtime(fn)
         # Thin API -> dashboards table: GetItem/PutItem on the one persona item.

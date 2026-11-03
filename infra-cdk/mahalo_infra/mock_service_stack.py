@@ -161,3 +161,7 @@ class MockServiceStack(Stack):
         self.table = table
         self.function = fn
         self.function_url = fn_url
+        # Plain default-token constant, read by MahaloApiStack for the viewer proxy.
+        self.token = token
+        # Plain default-token constant, read by MahaloApiStack for the viewer proxy.
+        self.token = token

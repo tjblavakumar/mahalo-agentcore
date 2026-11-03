@@ -12,6 +12,7 @@ from aws_cdk import assertions
 from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
+from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
 _ENV = cdk.Environment(account="123456789012", region="us-east-1")
@@ -96,3 +97,39 @@ def test_lambda_role_can_invoke_runtime():
     assert "bedrock-agentcore:InvokeAgentRuntime" in actions
     # Identity off in the MVP: the per-user action is NOT granted.
     assert "bedrock-agentcore:InvokeAgentRuntimeForUser" not in actions
+
+
+def test_mock_stacks_wire_viewer_env_vars():
+    app = cdk.App()
+    memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack", env=_ENV)
+    runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
+    dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
+    mocks = {
+        svc: MockServiceStack(
+            app, f"MahaloMock{svc.capitalize()}Stack", service=svc, env=_ENV
+        )
+        for svc in ("jira", "confluence", "servicenow")
+    }
+    api = MahaloApiStack(
+        app,
+        "MahaloApiStack",
+        runtime_stack=runtime,
+        dashboard_stack=dashboard,
+        mock_stacks=mocks,
+        env=_ENV,
+    )
+    tmpl = assertions.Template.from_stack(api)
+    tmpl.resource_count_is("AWS::Lambda::Function", 1)
+    (fn,) = tmpl.find_resources("AWS::Lambda::Function").values()
+    env = fn["Properties"]["Environment"]["Variables"]
+    for svc in ("JIRA", "CONFLUENCE", "SERVICENOW"):
+        assert f"MAHALO_{svc}_URL" in env
+        assert env[f"MAHALO_{svc}_TOKEN"] == f"mock-{svc.lower()}-token-12345"
+    assert "MAHALO_RUNTIME_ARN" in env
+
+
+def test_no_viewer_env_vars_without_mock_stacks():
+    tmpl = _api_template()
+    (fn,) = tmpl.find_resources("AWS::Lambda::Function").values()
+    env = fn["Properties"]["Environment"]["Variables"]
+    assert not [k for k in env if k.startswith("MAHALO_") and k.endswith(("_URL", "_TOKEN"))]

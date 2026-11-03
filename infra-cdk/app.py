@@ -118,6 +118,7 @@ def main() -> None:
         "MahaloApiStack",
         runtime_stack=runtime_stack,
         dashboard_stack=dashboard_stack,
+        mock_stacks=mock_stacks,
         env=_ENV,
     )
     # Runtime keep-warm (latency follow-up #3): a scheduled trivial InvokeAgentRuntime
