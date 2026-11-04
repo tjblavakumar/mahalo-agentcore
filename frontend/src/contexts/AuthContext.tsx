@@ -19,11 +19,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [persona, setPersona] = useState<Persona | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore any existing persona from sessionStorage (reload-survival only;
-  // React state is the in-memory source of truth). Deferred to a microtask so
-  // the setState calls do not run synchronously in the effect body.
+  // Restore any existing persona from localStorage (shared across tabs and
+  // reload-survival; React state is the in-memory source of truth). Deferred to
+  // a microtask so the setState calls do not run synchronously in the effect body.
   const restoreSession = useCallback(() => {
-    const stored = sessionStorage.getItem(STORAGE_KEY) as PersonaId | null;
+    const stored = localStorage.getItem(STORAGE_KEY) as PersonaId | null;
     if (stored && PERSONAS[stored]) {
       setPersona(PERSONAS[stored]);
     }
@@ -41,13 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!match) {
       return "Invalid credentials";
     }
-    sessionStorage.setItem(STORAGE_KEY, match.personaId);
+    localStorage.setItem(STORAGE_KEY, match.personaId);
     setPersona(match);
     return null;
   }, []);
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
     setPersona(null);
   }, []);
 
