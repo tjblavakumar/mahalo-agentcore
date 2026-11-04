@@ -50,6 +50,33 @@ def test_distribution_single_s3_origin_no_function_url_origin():
     assert "lambda-url" not in text
 
 
+def test_extensionless_rewrite_function_present():
+    # A viewer-request CloudFront Function must exist to map extensionless deep
+    # links (/jira) to their flat .html object; otherwise the private-bucket miss
+    # (403) is remapped to the root index.html and logged-in users land on /chat.
+    tmpl = _frontend_template()
+    tmpl.resource_count_is("AWS::CloudFront::Function", 1)
+    funcs = tmpl.find_resources("AWS::CloudFront::Function")
+    (func,) = funcs.values()
+    code = func["Properties"]["FunctionCode"]
+    # The rewrite appends .html and leaves root untouched.
+    assert ".html" in code
+    assert "uri === '/'" in code
+
+
+def test_default_behavior_associates_rewrite_function():
+    # The function must be wired to the DEFAULT cache behavior as a
+    # viewer-request association.
+    tmpl = _frontend_template()
+    dists = tmpl.find_resources("AWS::CloudFront::Distribution")
+    (dist,) = dists.values()
+    default_behavior = dist["Properties"]["DistributionConfig"]["DefaultCacheBehavior"]
+    assocs = default_behavior["FunctionAssociations"]
+    assert len(assocs) == 1
+    assert assocs[0]["EventType"] == "viewer-request"
+    assert "FunctionARN" in assocs[0]
+
+
 def test_spa_error_responses():
     tmpl = _frontend_template()
     dists = tmpl.find_resources("AWS::CloudFront::Distribution")

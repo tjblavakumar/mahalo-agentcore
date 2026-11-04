@@ -62,7 +62,47 @@ class MahaloFrontendStack(Stack):
             enforce_ssl=True,
         )
 
-        # --- (2) CloudFront: SINGLE S3 origin via OAC, SPA error routing. ---
+        # --- (2a) Viewer-request function: extensionless deep links -> .html. ---
+        # The Next.js static export (output:"export", trailingSlash:false) emits
+        # FLAT files (jira.html, dashboard.html, …) keyed the same in S3 — there is
+        # no extensionless object and no jira/ folder. Without this rewrite a cold
+        # load of "/jira" misses in the private OAC bucket (403), which the SPA
+        # CustomErrorResponses below remap to the ROOT /index.html, so a logged-in
+        # user is redirected to /chat. This function maps an extensionless, non-root
+        # path to its flat ".html" object so the real page is served. Static assets
+        # under /_next/… already carry a file extension, so the has-a-dot check
+        # passes them through untouched.
+        rewrite_function = cloudfront.Function(
+            self,
+            "ExtensionlessRewriteFunction",
+            runtime=cloudfront.FunctionRuntime.JS_2_0,
+            code=cloudfront.FunctionCode.from_inline(
+                "function handler(event) {\n"
+                "    var request = event.request;\n"
+                "    var uri = request.uri;\n"
+                "    // Root is served by DefaultRootObject (index.html).\n"
+                "    if (uri === '/') {\n"
+                "        return request;\n"
+                "    }\n"
+                "    // If the last path segment already has a file extension\n"
+                "    // (e.g. .html/.js/.css/.png/.svg/.json/.woff2), leave it alone.\n"
+                "    var lastSegment = uri.substring(uri.lastIndexOf('/') + 1);\n"
+                "    if (lastSegment.indexOf('.') !== -1) {\n"
+                "        return request;\n"
+                "    }\n"
+                "    // Extensionless. Strip a trailing slash then append .html so\n"
+                "    // '/jira' and '/jira/' both map to the flat '/jira.html' object.\n"
+                "    if (uri.endsWith('/')) {\n"
+                "        uri = uri.slice(0, -1);\n"
+                "    }\n"
+                "    request.uri = uri + '.html';\n"
+                "    return request;\n"
+                "}\n"
+            ),
+            comment="Rewrite extensionless deep links to their flat .html object.",
+        )
+
+        # --- (2b) CloudFront: SINGLE S3 origin via OAC, SPA error routing. ---
         distribution = cloudfront.Distribution(
             self,
             "FrontendDistribution",
@@ -71,6 +111,12 @@ class MahaloFrontendStack(Stack):
                 origin=origins.S3BucketOrigin.with_origin_access_control(bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                function_associations=[
+                    cloudfront.FunctionAssociation(
+                        function=rewrite_function,
+                        event_type=cloudfront.FunctionEventType.VIEWER_REQUEST,
+                    )
+                ],
             ),
             error_responses=[
                 cloudfront.ErrorResponse(
