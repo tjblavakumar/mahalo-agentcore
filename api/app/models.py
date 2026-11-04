@@ -58,7 +58,9 @@ class ActionResult(BaseModel):
 # --- Custom dashboard persistence models (design §3.3) -----------------------
 
 # Allowed VizSpec types (design §1.2); the structural guard keys off this set.
-_VIZ_CHART_TYPES = {"line", "area", "bar"}
+# "pie" is a chart type with the same required keys (xKey/series/data); the
+# optional bar "orientation" field stays opaque and needs no guard change.
+_VIZ_CHART_TYPES = {"line", "area", "bar", "pie"}
 _VIZ_TYPES = _VIZ_CHART_TYPES | {"table"}
 
 

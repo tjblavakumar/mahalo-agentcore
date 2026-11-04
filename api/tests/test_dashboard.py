@@ -245,3 +245,54 @@ def test_bar_spec_with_vary_colors_is_structurally_valid():
         "varyColors": True,
     }
     assert spec_is_structurally_valid(spec)
+
+
+def test_horizontal_bar_spec_is_structurally_valid():
+    # orientation is an opaque optional field; the guard stays unchanged.
+    spec = {
+        "type": "bar",
+        "title": "Stories per project",
+        "xKey": "project",
+        "series": [{"name": "Stories", "dataKey": "count"}],
+        "data": [{"project": "PAY", "count": 3}],
+        "orientation": "horizontal",
+    }
+    assert spec_is_structurally_valid(spec)
+
+
+def test_pie_spec_is_structurally_valid():
+    # pie is a chart type: it needs the same xKey/series/data keys.
+    spec = {
+        "type": "pie",
+        "title": "Issue type composition",
+        "xKey": "type",
+        "series": [{"name": "Count", "dataKey": "count"}],
+        "data": [{"type": "Bug", "count": 7}, {"type": "Story", "count": 12}],
+    }
+    assert spec_is_structurally_valid(spec)
+
+
+def test_pie_spec_missing_chart_keys_is_invalid():
+    # A bare pie (no xKey/series/data) must still fail the guard.
+    assert not spec_is_structurally_valid({"type": "pie", "title": "Nope"})
+
+
+def test_put_accepts_pie_spec(table, client):
+    body = {
+        "widgets": [
+            {
+                "id": "w_pie",
+                "spec": {
+                    "type": "pie",
+                    "title": "Issue type composition",
+                    "xKey": "type",
+                    "series": [{"name": "Count", "dataKey": "count"}],
+                    "data": [{"type": "Bug", "count": 7}, {"type": "Story", "count": 12}],
+                },
+                "layout": {"x": 0, "y": 0, "w": 6, "h": 8},
+            }
+        ]
+    }
+    resp = client.put("/dashboard/widgets", json=body, headers=_PM)
+    assert resp.status_code == 200
+    assert resp.json()["widgets"][0]["spec"]["type"] == "pie"

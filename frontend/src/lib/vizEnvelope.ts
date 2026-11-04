@@ -9,6 +9,7 @@
 import type {
   VizSpec,
   ChartSpec,
+  PieSpec,
   TableSpec,
   VizSeries,
   VizColumn,
@@ -61,7 +62,10 @@ function fail(reason: VizRejectReason): VizParseResult {
   return { ok: false, reason };
 }
 
-function validateChart(obj: Record<string, unknown>, type: "line" | "area" | "bar"): VizParseResult {
+function validateChart(
+  obj: Record<string, unknown>,
+  type: "line" | "area" | "bar" | "pie"
+): VizParseResult {
   const { title, xKey, series, data } = obj;
 
   if (!isNonEmptyString(title)) return fail("missing-field");
@@ -70,6 +74,8 @@ function validateChart(obj: Record<string, unknown>, type: "line" | "area" | "ba
   if (!Array.isArray(series)) return fail("missing-field");
   if (series.length === 0) return fail("empty-series");
   if (series.length > MAX_SERIES) return fail("too-large");
+  // A pie shows parts-of-a-whole: exactly one series (one value per slice).
+  if (type === "pie" && series.length !== 1) return fail("missing-field");
   for (const s of series) {
     if (!isPlainObject(s) || !isNonEmptyString(s.name) || !isNonEmptyString(s.dataKey)) {
       return fail("missing-field");
@@ -96,11 +102,23 @@ function validateChart(obj: Record<string, unknown>, type: "line" | "area" | "ba
     series: (series as VizSeries[]).map((s) => ({ name: s.name, dataKey: s.dataKey })),
     data: data as VizRow[],
   };
-  // varyColors is bar-only and opt-in; any non-`true` value is ignored (not a reject).
-  const spec: ChartSpec =
-    type === "bar" && obj.varyColors === true
-      ? { type, ...base, varyColors: true }
-      : { type, ...base };
+
+  if (type === "pie") {
+    const spec: PieSpec = { type, ...base };
+    return { ok: true, spec };
+  }
+
+  if (type === "bar") {
+    // varyColors + orientation are bar-only, opt-in; non-matching values are
+    // ignored (not a reject). orientation defaults to vertical when absent.
+    const spec: ChartSpec = { type, ...base };
+    if (obj.varyColors === true) spec.varyColors = true;
+    if (obj.orientation === "horizontal") spec.orientation = "horizontal";
+    else if (obj.orientation === "vertical") spec.orientation = "vertical";
+    return { ok: true, spec };
+  }
+
+  const spec: ChartSpec = { type, ...base };
   return { ok: true, spec };
 }
 
@@ -156,7 +174,7 @@ export function parseVizEnvelope(raw: string): VizParseResult {
   if (type === "table") {
     return validateTable(parsed);
   }
-  if (type === "line" || type === "area" || type === "bar") {
+  if (type === "line" || type === "area" || type === "bar" || type === "pie") {
     return validateChart(parsed, type);
   }
   return fail("unknown-type");

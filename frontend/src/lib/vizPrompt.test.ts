@@ -23,10 +23,34 @@ describe("buildVizPrompt", () => {
 
   it("includes both the chart and table shape lines", () => {
     const out = buildVizPrompt("x", dev);
-    expect(out).toContain('"type":"line"|"area"|"bar"');
+    expect(out).toContain('"type":"line"|"area"|"bar"|"pie"');
     expect(out).toContain('"type":"table"');
     expect(out).toContain('"series":[{"name":string,"dataKey":string}]');
     expect(out).toContain('"columns":[{"key":string,"label":string}]');
+  });
+
+  it("names all four chart options (vertical bar, horizontal bar, line, pie)", () => {
+    const out = buildVizPrompt("x", dev);
+    expect(out).toMatch(/VERTICAL BAR/);
+    expect(out).toMatch(/HORIZONTAL BAR/);
+    expect(out).toMatch(/LINE chart/);
+    expect(out).toMatch(/PIE chart/);
+  });
+
+  it("describes the pie shape (one series, slice per row)", () => {
+    const out = buildVizPrompt("x", dev);
+    expect(out).toContain('"type":"pie"');
+    expect(out).toMatch(/EXACTLY ONE series/);
+    expect(out).toContain('"orientation":"horizontal"');
+  });
+
+  it("states the explicit-vs-auto chart-type selection rule", () => {
+    const out = buildVizPrompt("x", dev);
+    expect(out).toMatch(/Chart-type selection/);
+    expect(out).toMatch(/explicitly names a chart type/);
+    expect(out).toMatch(/does/);
+    expect(out).toMatch(/best fit for the data/);
+    expect(out).toMatch(/Do not assume a single fixed default/);
   });
 
   it("states the size limits", () => {

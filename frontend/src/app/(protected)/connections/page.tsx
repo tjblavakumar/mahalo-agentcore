@@ -34,6 +34,9 @@ export default function ConnectionsPage() {
               {service.href && (
                 <Link
                   href={service.href}
+                  // MahaloJira opens in a new browser tab/window.
+                  target={service.key === "jira" ? "_blank" : undefined}
+                  rel={service.key === "jira" ? "noopener noreferrer" : undefined}
                   className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                 >
                   {service.hrefLabel ?? "Open →"}

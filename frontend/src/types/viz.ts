@@ -49,6 +49,25 @@ export interface BarSpec {
   data: VizRow[];
   /** Opt-in: color each bar by category. Honored only for a single-series bar. */
   varyColors?: boolean;
+  /**
+   * Opt-in orientation. Defaults to `"vertical"` (categories on the x-axis,
+   * value up the y-axis). `"horizontal"` lays the bars out sideways (categories
+   * down the y-axis) — useful when category labels are long or numerous.
+   */
+  orientation?: "vertical" | "horizontal";
+}
+
+export interface PieSpec {
+  type: "pie";
+  title: string;
+  /** The data-row key naming each slice (reuses the chart envelope's xKey). */
+  xKey: string;
+  /**
+   * Exactly one series: its `dataKey` names the numeric value of each slice and
+   * its `name` labels the measure. Each data row is one slice.
+   */
+  series: VizSeries[];
+  data: VizRow[];
 }
 
 export interface TableSpec {
@@ -58,8 +77,8 @@ export interface TableSpec {
   rows: VizRow[];
 }
 
-/** A chart spec: line, area or bar (share the xKey/series/data shape). */
-export type ChartSpec = LineSpec | AreaSpec | BarSpec;
+/** A chart spec: line, area, bar or pie (share the xKey/series/data shape). */
+export type ChartSpec = LineSpec | AreaSpec | BarSpec | PieSpec;
 
 /** Any renderable visualization spec. */
 export type VizSpec = ChartSpec | TableSpec;

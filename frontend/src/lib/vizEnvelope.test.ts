@@ -52,6 +52,53 @@ describe("parseVizEnvelope — happy paths", () => {
     if (r.ok) expect(r.spec.type).toBe("bar");
   });
 
+  it("accepts a horizontal bar chart (orientation preserved)", () => {
+    const r = parseVizEnvelope(
+      JSON.stringify({
+        type: "bar",
+        title: "Stories per project",
+        xKey: "project",
+        series: [{ name: "Stories", dataKey: "count" }],
+        data: [{ project: "PAYMENTS", count: 12 }],
+        orientation: "horizontal",
+      })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok && r.spec.type === "bar") expect(r.spec.orientation).toBe("horizontal");
+  });
+
+  it("accepts a vertical bar chart (explicit orientation preserved)", () => {
+    const r = parseVizEnvelope(
+      JSON.stringify({
+        type: "bar",
+        title: "Stories per project",
+        xKey: "project",
+        series: [{ name: "Stories", dataKey: "count" }],
+        data: [{ project: "PAY", count: 3 }],
+        orientation: "vertical",
+      })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok && r.spec.type === "bar") expect(r.spec.orientation).toBe("vertical");
+  });
+
+  it("accepts a pie chart", () => {
+    const r = parseVizEnvelope(
+      JSON.stringify({
+        type: "pie",
+        title: "Issue type composition",
+        xKey: "type",
+        series: [{ name: "Count", dataKey: "count" }],
+        data: [
+          { type: "Bug", count: 7 },
+          { type: "Story", count: 12 },
+        ],
+      })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.spec.type).toBe("pie");
+  });
+
   it("accepts a table", () => {
     const r = parseVizEnvelope(
       JSON.stringify({
@@ -125,7 +172,24 @@ describe("parseVizEnvelope — reject reasons", () => {
   });
 
   it("unknown-type for a disallowed type", () => {
-    expect(reasonOf(JSON.stringify({ type: "pie", title: "x" }))).toBe("unknown-type");
+    expect(reasonOf(JSON.stringify({ type: "scatter", title: "x" }))).toBe("unknown-type");
+  });
+
+  it("missing-field for a pie with more than one series", () => {
+    expect(
+      reasonOf(
+        JSON.stringify({
+          type: "pie",
+          title: "Two series pie",
+          xKey: "type",
+          series: [
+            { name: "A", dataKey: "a" },
+            { name: "B", dataKey: "b" },
+          ],
+          data: [{ type: "X", a: 1, b: 2 }],
+        })
+      )
+    ).toBe("missing-field");
   });
 
   it("unknown-type for a non-object JSON value", () => {
