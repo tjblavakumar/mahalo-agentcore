@@ -190,7 +190,7 @@ def refresh_demo_data(_ident: Identity = Depends(current_identity)) -> JSONRespo
         return JSONResponse(
             status_code=429,
             content={
-                "detail": "Demo data was refreshed recently",
+                "detail": f"Demo data was refreshed recently. Try again in {wait} seconds.",
                 "retry_after_seconds": wait,
             },
             headers={"Retry-After": str(wait)},

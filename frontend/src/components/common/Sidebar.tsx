@@ -8,6 +8,7 @@ const NAVIGATION = [
   { name: "Dashboard", href: "/dashboard", icon: "📊" },
   { name: "Chat", href: "/chat", icon: "💬" },
   { name: "Connections", href: "/connections", icon: "🔗" },
+  { name: "Settings", href: "/settings", icon: "⚙️" },
 ];
 
 export default function Sidebar() {

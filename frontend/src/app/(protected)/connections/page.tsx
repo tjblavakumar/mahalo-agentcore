@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { SERVICES } from "@/lib/connections";
 
@@ -30,6 +31,14 @@ export default function ConnectionsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {service.href && (
+                <Link
+                  href={service.href}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  {service.hrefLabel ?? "Open →"}
+                </Link>
+              )}
               {service.url && (
                 <a
                   href={service.url}

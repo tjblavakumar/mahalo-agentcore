@@ -11,10 +11,19 @@ export interface ServiceInfo {
   icon: string; // emoji, ported from the mahalo-dock integration table
   description: string; // short line under the service name
   url?: string; // optional click-through to the live system (opens in a new tab)
+  href?: string; // optional INTERNAL link to a MahaloJira-style viewer (same tab)
+  hrefLabel?: string; // label for the internal link
 }
 
 export const SERVICES: ServiceInfo[] = [
-  { key: "jira", label: "Jira", icon: "📋", description: "Issues, sprints & boards" },
+  {
+    key: "jira",
+    label: "Jira",
+    icon: "📋",
+    description: "Issues, sprints & boards",
+    href: "/jira",
+    hrefLabel: "Open MahaloJira →",
+  },
   { key: "confluence", label: "Confluence", icon: "📄", description: "Docs & knowledge base" },
   {
     key: "github",
