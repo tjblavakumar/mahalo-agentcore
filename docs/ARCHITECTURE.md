@@ -21,7 +21,7 @@ see. Everything runs in **one AWS account (<AWS_ACCOUNT_ID>, us-east-1)**.
 ```mermaid
 flowchart TB
     subgraph USER["Your AWS WorkSpaces / workstation (browser)"]
-        B["Browser"]
+        B["Browser<br/>screens: /chat, /dashboard,<br/>/connections, /jira (MahaloJira<br/>viewer: Current Sprint + Backlog),<br/>/settings (refresh demo data)"]
     end
 
     subgraph EDGE["AWS edge — HTTPS/443 only (what your corporate network allows)"]
@@ -30,7 +30,7 @@ flowchart TB
     end
 
     subgraph APP["AWS — application tier"]
-        API["Thin API Lambda<br/>FastAPI + Mangum<br/>Function URL (AuthType=NONE)"]
+        API["Thin API Lambda<br/>FastAPI + Mangum<br/>Function URL (AuthType=NONE)<br/>knows mock URLs+tokens via<br/>MAHALO_{JIRA,CONFLUENCE,SERVICENOW}_{URL,TOKEN}"]
         DDB_DASH[("DynamoDB<br/>mahalo-dashboards<br/>saved dashboards per persona")]
     end
 
@@ -52,9 +52,12 @@ flowchart TB
 
     B -->|HTTPS 443| CF_FE
     B -->|HTTPS 443| CF_GITEA
-    B -->|"POST /chat, /chat/approve,<br/>GET/PUT /dashboard/widgets<br/>(X-Mahalo-Persona header)"| API
+    B -->|"POST /chat, /chat/approve,<br/>GET/PUT /dashboard/widgets,<br/>GET /view/{system}/{path} (read-only viewer),<br/>POST /admin/refresh-demo-data<br/>(X-Mahalo-Persona header)"| API
     API --> DDB_DASH
     API -->|invoke, session-id header| RT
+    API -->|"read-only viewer proxy<br/>GET /view/... (token injected<br/>server-side); refresh re-seed"| LJIRA
+    API -->|read-only viewer proxy| LCONF
+    API -->|read-only viewer proxy| LSNOW
     RT --- MEM
     RT --- ID
     RT -->|MCP over SigV4| GW
@@ -74,7 +77,7 @@ flowchart TB
 | Piece | Runs on | Why there |
 |---|---|---|
 | **Web UI** | **S3 + CloudFront** (static Next.js export) | The UI is a static site (HTML/JS/CSS) — no server needed. S3 hosts the files; CloudFront puts them behind **HTTPS on 443** with a global CDN. 443 matters: the corporate network only allows outbound 443, so anything the browser touches must be HTTPS/443. CloudFront gives that for free with a managed cert. |
-| **Thin API** | **Lambda (Function URL)**, FastAPI via Mangum | A tiny, stateless HTTP forwarder between the browser and AgentCore. Lambda = no servers to run, scales to zero, cheap. It holds no logic of its own beyond routing + the dashboard-persistence CRUD; it imports **zero** agent/LangChain code. Function URL is HTTPS/443 (browser-reachable); `AuthType=NONE` because this is a demo (persona identity rides in the `X-Mahalo-Persona` header). |
+| **Thin API** | **Lambda (Function URL)**, FastAPI via Mangum | A tiny, stateless HTTP forwarder between the browser and AgentCore. Lambda = no servers to run, scales to zero, cheap. It holds no logic of its own beyond routing + the dashboard-persistence CRUD + a read-only viewer proxy to the three mock services (`GET /view/{system}/{path}`, allow-listed, upstream token injected server-side) and a demo-data refresh (`POST /admin/refresh-demo-data`, 60 s cooldown); it imports **zero** agent/LangChain code. Function URL is HTTPS/443 (browser-reachable); `AuthType=NONE` because this is a demo (persona identity rides in the `X-Mahalo-Persona` header). |
 | **The agent** | **AgentCore Runtime** (managed) | Runtime is AWS's managed host for the agent process. We don't manage EC2/containers for it; AWS runs the Strands agent, handles sessions, scales it. The agent calls **Bedrock Claude Sonnet 4.5** for reasoning. |
 | **Session memory** | **AgentCore Memory** (managed) | Durable, session-id-keyed conversation history, so a persona's chat has continuity across turns. Replaces an in-memory dict. |
 | **Tool credentials** | **AgentCore Identity** (managed) | Brokers the API key a tool needs at call time, so secrets aren't baked into the agent. |
@@ -144,12 +147,25 @@ DynamoDB (via `GET /dashboard/widgets`); a chat box lets the user ask for a new
 chart, which the agent returns as a strict chart/table spec that the UI renders
 and can save (`PUT /dashboard/widgets`).
 
+**The MahaloJira viewer (browser → thin API → mock, no agent):** the `/jira`
+screen (Current Sprint + Backlog tabs, deep-linkable to a project/story) reads
+mock Jira data directly through the thin API's read-only proxy
+(`GET /view/jira/...`). The thin API forwards only allow-listed GET paths to the
+Jira/Confluence/ServiceNow mock Lambda Function URLs, adding the upstream
+`X-API-Token` server-side so the token never reaches the browser. This path does
+**not** go through AgentCore — it is a plain read of the same mock backends the
+agent uses via the Gateway. `/settings` triggers `POST /admin/refresh-demo-data`,
+which re-seeds the three mock services (dates re-based to today) behind a 60 s
+cooldown. GitHub is **not** part of the viewer proxy — it stays real Gitea.
+
 ## 6. How YOU access it (from your AWS WorkSpaces / workstation)
 
 Everything user-facing is a public **HTTPS/443** URL, so you reach it from the
 browser on your AWS WorkSpaces (or any machine whose network allows 443):
 
-- **Web UI** — the CloudFront site (persona login).
+- **Web UI** — the CloudFront site (persona login). Screens: `/chat`,
+  `/dashboard`, `/connections`, `/jira` (the MahaloJira read-only viewer, opened
+  from Connections in a new tab), and `/settings` (refresh demo data).
 - **Gitea** — its CloudFront HTTPS URL (admin login).
 
 You do **not** need to be "inside" the VPC to use the demo — the browser talks
