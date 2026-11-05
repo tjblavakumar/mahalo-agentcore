@@ -172,7 +172,8 @@ def _run_review(code: str, review_model_id: str, did_fallback: bool) -> tuple[li
         {
             "stage": "generate",
             "model_id": model_config.CODE_GEN_MODEL_ID,
-            "label": model_config.CODE_GEN_MODEL_LABEL,
+            "model_label": model_config.CODE_GEN_MODEL_LABEL,
+            "status": "ok",
         }
     ]
     if not code:
@@ -184,14 +185,14 @@ def _run_review(code: str, review_model_id: str, did_fallback: bool) -> tuple[li
         {
             "stage": "review",
             "model_id": review_model_id,
-            "label": model_config.label(review_model_id),
+            "model_label": model_config.label(review_model_id),
             "status": result.status,
             "fallback": did_fallback,
         }
     )
     review = {
         "model_id": review_model_id,
-        "label": model_config.label(review_model_id),
+        "model_label": model_config.label(review_model_id),
         "findings": result.findings_text,
         "status": result.status,
     }

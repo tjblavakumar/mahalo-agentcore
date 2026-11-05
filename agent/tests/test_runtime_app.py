@@ -618,6 +618,55 @@ def test_chat_interrupt_commit_files_reviews_params_files(monkeypatch):
     assert "print('b')" in seen["codes"][0]
 
 
+def _load_api_chat_response():
+    """Import the thin API's ``ChatResponse`` model to guard the cross-layer contract.
+
+    The api package is a pure-pydantic sibling (no agent-only deps), so its
+    ``app.models`` imports cleanly under the agent venv. We add ``api/`` to
+    sys.path here (there is no shared conftest) so this agent-side test can feed a
+    REAL ``_handle_chat`` payload through the model the frontend actually receives.
+    """
+    import sys
+
+    api_dir = Path(__file__).resolve().parents[2] / "api"
+    if str(api_dir) not in sys.path:
+        sys.path.insert(0, str(api_dir))
+    from app.models import ChatResponse  # noqa: E402
+
+    return ChatResponse
+
+
+def test_handle_chat_payload_roundtrips_through_api_chat_response(monkeypatch):
+    """Contract: a real _handle_chat payload keeps its labels through ChatResponse.
+
+    Guards the FR-15/AC-6 trust line end to end: the agent emits ``model_label``
+    on every stage and on the review object, so the API's ChatResponse (whose
+    StageInfo/ReviewInfo fields are optional-with-defaults) does NOT silently drop
+    them to None. A per-layer fixture can't catch a key-name drift here — this
+    feeds the actual agent output into the actual API model.
+    """
+    import agent.runtime_app as ra
+
+    _patch_review(monkeypatch)
+    response = "Here you go:\n```python\ndef f():\n    return 1\n```\nDone."
+    agent = _FakeAgent([_AgentResult(text=response, stop_reason="end_turn")])
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "write code"}, _FakeContext("S1"))
+
+    ChatResponse = _load_api_chat_response()
+    projected = ChatResponse(**out)
+
+    # Both stages carry a non-null model_label through the API model.
+    assert [s.stage for s in projected.stages] == ["generate", "review"]
+    assert projected.stages[0].model_label == _mc.CODE_GEN_MODEL_LABEL
+    assert projected.stages[0].status == "ok"
+    assert projected.stages[1].model_label == _mc.label(_mc.DEFAULT_REVIEW_MODEL_ID)
+    # The review summary's model_label survives projection (trust line target).
+    assert projected.review is not None
+    assert projected.review.model_label == _mc.label(_mc.DEFAULT_REVIEW_MODEL_ID)
+
+
 def test_chat_interrupt_create_branch_has_no_review(monkeypatch):
     import agent.runtime_app as ra
 
