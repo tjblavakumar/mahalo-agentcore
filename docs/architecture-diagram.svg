@@ -19,7 +19,7 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 </defs>
 <rect width="1640" height="1000" fill="#ffffff"/>
 <text x="30" y="46" text-anchor="start" class="h1" fill="#0f172a">MAHALO: architecture overview</text>
-<text x="30" y="70" text-anchor="start" class="h2" fill="#64748b">Multi-persona SDLC assistant on Amazon Bedrock AgentCore + Strands Agents SDK  |  AWS us-east-1  |  13 CDK stacks</text>
+<text x="30" y="70" text-anchor="start" class="h2" fill="#64748b">Multi-persona SDLC assistant on Amazon Bedrock AgentCore + Strands Agents SDK  |  AWS us-east-1  |  14 CDK stacks</text>
 <path d="M1010,36 L1050,36" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
 <text x="1058" y="40" text-anchor="start" class="s" fill="#334155">call / request</text>
 <path d="M1180,36 L1220,36" fill="none" stroke="#7C3AED" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a-7C3AED)"/>
@@ -34,7 +34,7 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <text x="44" y="122" class="zl" fill="#7C8DAE">CLIENT</text>
 <rect x="240" y="100" width="260" height="140" rx="14" fill="#FFF6E8" stroke="#D08A1E" stroke-width="1.5"/>
 <text x="254" y="122" class="zl" fill="#D08A1E">EDGE  |  HTTPS 443</text>
-<rect x="530" y="100" width="290" height="520" rx="14" fill="#EAF6EE" stroke="#3F9160" stroke-width="1.5"/>
+<rect x="530" y="100" width="290" height="610" rx="14" fill="#EAF6EE" stroke="#3F9160" stroke-width="1.5"/>
 <text x="544" y="122" class="zl" fill="#3F9160">APPLICATION TIER  |  serverless</text>
 <rect x="850" y="100" width="380" height="620" rx="14" fill="#EEEAFB" stroke="#7B66CF" stroke-width="1.5"/>
 <text x="864" y="122" class="zl" fill="#7B66CF">AMAZON BEDROCK AGENTCORE  |  managed</text>
@@ -43,12 +43,15 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <path d="M190,245 L225,245 L225,178 L260,178" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
 <path d="M190,285 L550,285" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
 <path d="M800,285 L870,285" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
-<path d="M675,365 L675,380" fill="none" stroke="#334155" stroke-width="2" marker-start="url(#a-334155)" marker-end="url(#a-334155)"/>
-<path d="M930,335 L930,590" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
-<path d="M1044,335 L1044,526" fill="none" stroke="#334155" stroke-width="2"/>
-<path d="M1044,392 L1060,392" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
-<path d="M1044,459 L1060,459" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
-<path d="M1044,526 L1060,526" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
+<path d="M675,367 L675,380" fill="none" stroke="#334155" stroke-width="2" marker-start="url(#a-334155)" marker-end="url(#a-334155)"/>
+<path d="M620,452 L620,470" fill="none" stroke="#334155" stroke-width="2" marker-start="url(#a-334155)" marker-end="url(#a-334155)"/>
+<path d="M905,335 L905,590" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
+<path d="M953,335 L953,358" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
+<path d="M1036,389 L1040,389" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#a-334155)"/>
+<path d="M1150,335 L1150,345 L1135,345 L1135,526" fill="none" stroke="#334155" stroke-width="2"/>
+<path d="M1127,345 L1127,358" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
+<path d="M1135,459 L1060,459" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
+<path d="M1135,526 L1060,526" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
 <path d="M1210,640 L1245,640 L1245,169" fill="none" stroke="#334155" stroke-width="2"/>
 <path d="M1245,169 L1290,169" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
 <path d="M1245,227 L1290,227" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#a-334155)"/>
@@ -62,8 +65,8 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <path d="M1520,473 L1520,585" fill="none" stroke="#C2410C" stroke-width="2" marker-end="url(#a-C2410C)"/>
 <path d="M1440,645 L1440,685" fill="none" stroke="#C2410C" stroke-width="2" marker-end="url(#a-C2410C)"/>
 <path d="M75,310 L75,830 L1273,830 L1273,615 L1290,615" fill="none" stroke="#C2410C" stroke-width="2" marker-end="url(#a-C2410C)"/>
-<path d="M675,525 L675,550" fill="none" stroke="#7C3AED" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a-7C3AED)"/>
-<path d="M800,575 L835,575 L835,315 L870,315" fill="none" stroke="#7C3AED" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a-7C3AED)"/>
+<path d="M675,615 L675,640" fill="none" stroke="#7C3AED" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a-7C3AED)"/>
+<path d="M800,666 L835,666 L835,315 L870,315" fill="none" stroke="#7C3AED" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a-7C3AED)"/>
 <path d="M790,215 L810,215 L810,92 L1276,92 L1276,176 L1290,176" fill="none" stroke="#0E7490" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#a-0E7490)"/>
 <path d="M1276,92 L1276,234 L1290,234" fill="none" stroke="#0E7490" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#a-0E7490)"/>
 <path d="M1276,92 L1276,292 L1290,292" fill="none" stroke="#0E7490" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#a-0E7490)"/>
@@ -82,35 +85,47 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <text x="370.0" y="165.0" text-anchor="middle" class="t">CloudFront + S3</text>
 <text x="370.0" y="182.0" text-anchor="middle" class="s">static Next.js export</text>
 <text x="370.0" y="199.0" text-anchor="middle" class="s">private bucket (OAC)</text>
-<rect x="550" y="205" width="250" height="160" rx="8" fill="#fff" stroke="#3F9160" stroke-width="1.6"/>
-<text x="675.0" y="226.5" text-anchor="middle" class="t">Thin API (Lambda, arm64)</text>
-<text x="675.0" y="243.5" text-anchor="middle" class="s">FastAPI + Mangum</text>
-<text x="675.0" y="260.5" text-anchor="middle" class="s">Function URL, AuthType NONE</text>
-<text x="675.0" y="277.5" text-anchor="middle" class="s">POST /chat, /chat/approve</text>
-<text x="675.0" y="294.5" text-anchor="middle" class="s">GET/PUT /dashboard/widgets</text>
-<text x="675.0" y="311.5" text-anchor="middle" class="s">GET /view/{system}/{path}</text>
-<text x="675.0" y="328.5" text-anchor="middle" class="s">POST /admin/refresh-demo-data</text>
-<text x="675.0" y="348.5" text-anchor="middle" class="l" fill="#0E7490">knows mock URLs + tokens (env)</text>
+<rect x="546" y="205" width="258" height="162" rx="8" fill="#fff" stroke="#3F9160" stroke-width="1.6"/>
+<text x="675.0" y="223.5" text-anchor="middle" class="t">Thin API (Lambda, arm64)</text>
+<text x="675.0" y="239.5" text-anchor="middle" class="s">FastAPI + Mangum, Function URL (AuthType NONE)</text>
+<text x="675.0" y="255.5" text-anchor="middle" class="s">POST /chat, /chat/approve</text>
+<text x="675.0" y="271.5" text-anchor="middle" class="s">GET/PUT /dashboard/widgets</text>
+<text x="675.0" y="287.5" text-anchor="middle" class="s">GET/PUT /model-config (per-persona)</text>
+<text x="675.0" y="303.5" text-anchor="middle" class="s">GET /view/{system}/{path}</text>
+<text x="675.0" y="319.5" text-anchor="middle" class="s">POST /admin/refresh-demo-data</text>
+<text x="675.0" y="337.5" text-anchor="middle" class="l" fill="#0E7490">knows mock URLs + tokens (env)</text>
+<text x="675.0" y="353.5" text-anchor="middle" class="l" fill="#7B66CF">chat fwds review_model_id; reply has stages[]/review</text>
 <path d="M550,388 a125.0,8 0 0 1 250,0 v56 a125.0,8 0 0 1 -250,0 z" fill="#fff" stroke="#3F9160" stroke-width="1.6"/>
 <ellipse cx="675.0" cy="388" rx="125.0" ry="8" fill="#F1F5F9" stroke="#3F9160" stroke-width="1.6"/>
 <text x="675.0" y="407.5" text-anchor="middle" class="t">DynamoDB</text>
 <text x="675.0" y="424.5" text-anchor="middle" class="s">mahalo-dashboards</text>
 <text x="675.0" y="441.5" text-anchor="middle" class="s">saved widgets per persona</text>
-<text x="550" y="472" text-anchor="start" class="l" fill="#7C3AED">keep-warm (latency #3)</text>
-<rect x="550" y="480" width="250" height="45" rx="8" fill="#fff" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="6 4"/>
-<text x="675.0" y="498.5" text-anchor="middle" class="t">EventBridge rule</text>
-<text x="675.0" y="515.5" text-anchor="middle" class="s">every 10 min, Mon-Fri</text>
-<rect x="550" y="550" width="250" height="52" rx="8" fill="#fff" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="6 4"/>
-<text x="675.0" y="572.0" text-anchor="middle" class="t">Ping Lambda</text>
-<text x="675.0" y="589.0" text-anchor="middle" class="s">one-word no-tools ping</text>
+<path d="M550,478 a125.0,8 0 0 1 250,0 v56 a125.0,8 0 0 1 -250,0 z" fill="#fff" stroke="#3F9160" stroke-width="1.6"/>
+<ellipse cx="675.0" cy="478" rx="125.0" ry="8" fill="#F1F5F9" stroke="#3F9160" stroke-width="1.6"/>
+<text x="675.0" y="497.5" text-anchor="middle" class="t">DynamoDB</text>
+<text x="675.0" y="514.5" text-anchor="middle" class="s">mahalo-model-config</text>
+<text x="675.0" y="531.5" text-anchor="middle" class="s">per-persona model choices (review model)</text>
+<text x="550" y="562" text-anchor="start" class="l" fill="#7C3AED">keep-warm (latency #3)</text>
+<rect x="550" y="570" width="250" height="45" rx="8" fill="#fff" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="675.0" y="588.5" text-anchor="middle" class="t">EventBridge rule</text>
+<text x="675.0" y="605.5" text-anchor="middle" class="s">every 10 min, Mon-Fri</text>
+<rect x="550" y="640" width="250" height="52" rx="8" fill="#fff" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="675.0" y="662.0" text-anchor="middle" class="t">Ping Lambda</text>
+<text x="675.0" y="679.0" text-anchor="middle" class="s">one-word no-tools ping</text>
 <rect x="870" y="205" width="340" height="130" rx="8" fill="#fff" stroke="#7B66CF" stroke-width="1.6"/>
-<text x="1040.0" y="249.0" text-anchor="middle" class="t">AgentCore Runtime</text>
-<text x="1040.0" y="266.0" text-anchor="middle" class="s">Strands agent (linux/arm64 container)</text>
-<text x="1040.0" y="283.0" text-anchor="middle" class="s">write actions: propose, then approve</text>
-<text x="1040.0" y="300.0" text-anchor="middle" class="s">idle timeout 15 min</text>
-<rect x="1060" y="365" width="150" height="55" rx="8" fill="#fff" stroke="#7B66CF" stroke-width="1.6"/>
-<text x="1135.0" y="388.5" text-anchor="middle" class="t">Amazon Bedrock</text>
-<text x="1135.0" y="405.5" text-anchor="middle" class="s">Claude Sonnet 4.5</text>
+<text x="1040.0" y="243.0" text-anchor="middle" class="t">AgentCore Runtime</text>
+<text x="1040.0" y="260.0" text-anchor="middle" class="s">Strands agents (linux/arm64 container)</text>
+<text x="1040.0" y="277.0" text-anchor="middle" class="s">main agent + independent review sub-agent</text>
+<text x="1040.0" y="294.0" text-anchor="middle" class="s">write actions: propose, then approve</text>
+<text x="1040.0" y="311.0" text-anchor="middle" class="s">idle timeout 15 min</text>
+<rect x="870" y="358" width="166" height="62" rx="8" fill="#fff" stroke="#7B66CF" stroke-width="1.6"/>
+<text x="953.0" y="378.5" text-anchor="middle" class="t">Bedrock: main agent</text>
+<text x="953.0" y="395.5" text-anchor="middle" class="s">Claude Sonnet 4.5</text>
+<text x="953.0" y="411.5" text-anchor="middle" class="s">code generation + tools</text>
+<rect x="1040" y="358" width="170" height="62" rx="8" fill="#fff" stroke="#7B66CF" stroke-width="1.6"/>
+<text x="1125.0" y="375.5" text-anchor="middle" class="t">Bedrock: review (indep.)</text>
+<text x="1125.0" y="391.5" text-anchor="middle" class="s">different model, def. Nova Lite</text>
+<text x="1125.0" y="406.5" text-anchor="middle" class="s">read-only: tools=[], no hook</text>
 <rect x="1060" y="432" width="150" height="55" rx="8" fill="#fff" stroke="#7B66CF" stroke-width="1.6"/>
 <text x="1135.0" y="455.5" text-anchor="middle" class="t">AgentCore Memory</text>
 <text x="1135.0" y="472.5" text-anchor="middle" class="s">session history</text>
@@ -121,8 +136,9 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <text x="1040.0" y="627.5" text-anchor="middle" class="t">AgentCore Gateway</text>
 <text x="1040.0" y="644.5" text-anchor="middle" class="s">MCP endpoint, AWS_IAM (SigV4)</text>
 <text x="1040.0" y="661.5" text-anchor="middle" class="s">27 tools across 4 Lambda targets</text>
-<text x="940" y="478" text-anchor="start" class="s" fill="#334155">tool calls</text>
-<text x="940" y="494" text-anchor="start" class="s" fill="#334155">MCP | SigV4</text>
+<text x="915" y="478" text-anchor="start" class="s" fill="#334155">tool calls</text>
+<text x="915" y="494" text-anchor="start" class="s" fill="#334155">MCP | SigV4</text>
+<text x="1040" y="353" text-anchor="middle" class="l" fill="#7B66CF">read-only review of generated code</text>
 <rect x="1290" y="145" width="300" height="48" rx="8" fill="#fff" stroke="#3F8FAE" stroke-width="1.6"/>
 <text x="1440.0" y="165.0" text-anchor="middle" class="t">Lambda: Jira mock</text>
 <text x="1440.0" y="182.0" text-anchor="middle" class="s">10 tools</text>
@@ -162,8 +178,8 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <text x="1228" y="644.5" text-anchor="middle" class="n">5</text>
 <circle cx="480" cy="830" r="11" fill="#C2410C"/>
 <text x="480" y="834.5" text-anchor="middle" class="n">G</text>
-<circle cx="835" cy="445" r="11" fill="#7C3AED"/>
-<text x="835" y="449.5" text-anchor="middle" class="n">K</text>
+<circle cx="835" cy="560" r="11" fill="#7C3AED"/>
+<text x="835" y="564.5" text-anchor="middle" class="n">K</text>
 <text x="500" y="821" text-anchor="start" class="s" fill="#C2410C">browse the Gitea UI (HTTPS 443, admin login)</text>
 <text x="1348" y="494" text-anchor="start" class="l" fill="#475569">read token</text>
 <text x="1368" y="407" text-anchor="start" class="l" fill="#475569">mock mode</text>
@@ -172,12 +188,12 @@ text{font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 <text x="46" y="884" text-anchor="start" class="pt" fill="#0f172a">Request flow</text>
 <text x="46" y="906" text-anchor="start" class="pl" fill="#334155">1  Browser loads the static UI from CloudFront + S3 (HTTPS 443).</text>
 <text x="46" y="924" text-anchor="start" class="pl" fill="#334155">2  Browser calls the thin API (/chat, /chat/approve, /dashboard/widgets) with the persona header.</text>
-<text x="46" y="942" text-anchor="start" class="pl" fill="#334155">3  Thin API invokes AgentCore Runtime (SigV4); the agent reasons with Claude on Bedrock, history in Memory.</text>
-<text x="46" y="960" text-anchor="start" class="pl" fill="#334155">4-5  Agent calls tools via the Gateway (MCP, SigV4), which invokes the four Lambda targets (DynamoDB or Gitea).</text>
+<text x="46" y="942" text-anchor="start" class="pl" fill="#334155">3  Thin API reads the persona's review model from mahalo-model-config, then invokes the Runtime (SigV4) with review_model_id.</text>
+<text x="46" y="960" text-anchor="start" class="pl" fill="#334155">4-5  Main agent (Sonnet 4.5) reasons with Memory + calls tools via the Gateway; an independent review model checks generated code read-only.</text>
 <text x="46" y="978" text-anchor="start" class="pl" fill="#334155">Writes are gated: first /chat returns a proposal, /chat/approve executes.  Viewer: /view proxy reads mock direct.  K = keep-warm.</text>
 <rect x="860" y="860" width="750" height="125" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.3"/>
 <text x="876" y="884" text-anchor="start" class="pt" fill="#0f172a">Deploy-time only (not in the request path)</text>
-<text x="876" y="906" text-anchor="start" class="pl" fill="#334155">CDK (Python) -&gt; CloudFormation: 13 stacks in one AWS account, us-east-1.</text>
+<text x="876" y="906" text-anchor="start" class="pl" fill="#334155">CDK (Python) -&gt; CloudFormation: 14 stacks in one AWS account, us-east-1.</text>
 <text x="876" y="924" text-anchor="start" class="pl" fill="#334155">Container images (arm64 agent, Lambda bundles) are built on an EC2 Graviton builder reached over SSM,</text>
 <text x="876" y="942" text-anchor="start" class="pl" fill="#334155">a workaround for the WorkSpaces VDI having no Docker.</text>
 <text x="876" y="960" text-anchor="start" class="pl" fill="#334155">The frontend is built with the thin-API URL baked in, synced to S3 by hand, then CloudFront is invalidated.</text>
