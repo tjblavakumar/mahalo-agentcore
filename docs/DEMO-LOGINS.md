@@ -8,11 +8,13 @@ ask so the agent shows all four systems working together with real Gitea.
 Open the demo UI and log in as any persona. The agent tailors answers to the
 persona's role and identity. Switch personas freely to show different views.
 
-| Persona | Username | Password | Who the agent acts as | Role flavor |
-|---|---|---|---|---|
-| Product Manager | `pm` | `pm123` | Marcus Chen (dev-1) | Roadmap / sprint / cross-project synthesis |
-| Developer | `dev` | `dev123` | Lava Dev (dev-6) | My work: stories, branches, PRs, incidents |
-| Executive | `exec` | `exec123` | David Kim (dev-5) | High-level status, risk, delivery health |
+| Persona | Username | Who the agent acts as | Role flavor |
+|---|---|---|---|
+| Product Manager | `pm` | Marcus Chen (dev-1) | Roadmap / sprint / cross-project synthesis |
+| Developer | `dev` | Lava Dev (dev-6) | My work: stories, branches, PRs, incidents |
+| Executive | `exec` | David Kim (dev-5) | High-level status, risk, delivery health |
+
+> Demo passwords are not stored in the repo. The operator holds them out-of-band.
 
 **Mahalo UI:** https://dw28e5je2s7b9.cloudfront.net
 
@@ -55,7 +57,7 @@ agent reasons across them in one turn.
 
 ## 4. Suggested demo script (shows all four working together)
 
-1. **Log in as Developer (`dev`/`dev123`).**
+1. **Log in as Developer (`dev`).**
    - Ask: *"What am I working on right now?"* → the agent pulls your in-progress
      Jira stories, their linked PRs in Gitea, and any related ServiceNow
      incidents — one answer spanning three systems.
@@ -65,13 +67,13 @@ agent reasons across them in one turn.
      agent proposes the write and waits. **Approve** it. Then open Gitea
      (mahalo_admin) and show the branch is really there.
 
-2. **Switch to Product Manager (`pm`/`pm123`).**
+2. **Switch to Product Manager (`pm`).**
    - Open the **Dashboard** → the agent synthesizes a cross-project view (pick
      the projects to include; defaults to PAY for a fast first render).
    - Ask: *"Give me a status summary across all my projects."* → sprint progress
      from Jira, open PRs from Gitea, open incidents from ServiceNow, blended.
 
-3. **Switch to Executive (`exec`/`exec123`).**
+3. **Switch to Executive (`exec`).**
    - Ask: *"What's the delivery risk this sprint?"* → a higher-level synthesis
      across the same systems, framed for an exec.
 
