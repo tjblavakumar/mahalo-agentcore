@@ -83,7 +83,7 @@ def _integrations_context() -> str:
     )
 
 
-def _build_bedrock_model() -> BedrockModel:
+def _build_bedrock_model(model_id: str) -> BedrockModel:
     """Construct the Bedrock model with a 300s read timeout and the lava profile.
 
     Credentials come from the AWS profile (default ``lava``) via a boto3 Session
@@ -118,7 +118,7 @@ def _build_bedrock_model() -> BedrockModel:
     # NOTE: BedrockModel rejects passing BOTH ``region_name`` and ``boto_session``
     # ("Cannot specify both"), so the region is carried by the boto3 Session only.
     return BedrockModel(
-        model_id=settings.bedrock_model_id,
+        model_id=model_id,
         boto_session=session,
         boto_client_config=boto_config,
     )
@@ -180,7 +180,7 @@ def build_agent(
     """
     mode = (tool_mode or settings.tool_mode).lower()
     use_memory = settings.memory_enabled if memory is None else memory
-    model = _build_bedrock_model()
+    model = _build_bedrock_model(settings.bedrock_model_id)
 
     system_prompt = ROLE_PROMPTS[role].format(
         integrations_context=_integrations_context(),

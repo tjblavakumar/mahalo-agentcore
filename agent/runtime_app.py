@@ -35,13 +35,16 @@ writes stay gated by ``WriteApprovalHook`` (unchanged).
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
+from agent import model_config
 from agent.config import settings
 from agent.hitl import emit_system_signal, resume_once
 from agent.prompts import ROLE_PROMPTS
+from agent.review import build_reviewer, review_code
 from agent.runtime_session import build_and_attach
 
 logger = logging.getLogger(__name__)
@@ -126,6 +129,75 @@ def _resolve_session_id(context) -> str:
     return generated
 
 
+# Multi-LLM review seam (FEAT-001). A fenced code block is ```[lang]\n...\n```.
+_FENCED_CODE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
+
+
+def _extract_fenced_code(text: str) -> str:
+    """Return the concatenation of all fenced code blocks in ``text`` (or '')."""
+    if not isinstance(text, str):
+        return ""
+    blocks = _FENCED_CODE_RE.findall(text)
+    return "\n\n".join(b.strip("\n") for b in blocks)
+
+
+def _extract_commit_files_code(proposal: dict) -> str:
+    """Return the concatenated file bodies from a commit_files proposal (or '').
+
+    The commit_files write carries ``params.files`` as a list of
+    ``{path, content}`` dicts (``agent/tools/github_write_tools.py``).
+    """
+    params = proposal.get("params") or {}
+    files = params.get("files")
+    if not isinstance(files, list):
+        return ""
+    parts = []
+    for entry in files:
+        if isinstance(entry, dict):
+            content = entry.get("content")
+            if isinstance(content, str) and content:
+                parts.append(content)
+    return "\n\n".join(parts)
+
+
+def _run_review(code: str, review_model_id: str, did_fallback: bool) -> tuple[list, dict]:
+    """Run the review stage over ``code`` and build the additive stages/review.
+
+    Always returns a ``stages`` list that starts with the ``generate`` stage. When
+    ``code`` is non-empty a ``review`` stage is appended and a ``review`` object is
+    returned; otherwise the review object is ``None`` and only ``generate`` is in
+    ``stages`` (FR-17: no code -> no review).
+    """
+    stages = [
+        {
+            "stage": "generate",
+            "model_id": model_config.CODE_GEN_MODEL_ID,
+            "label": model_config.CODE_GEN_MODEL_LABEL,
+        }
+    ]
+    if not code:
+        return stages, None
+
+    reviewer = build_reviewer(review_model_id)
+    result = review_code(reviewer, code)
+    stages.append(
+        {
+            "stage": "review",
+            "model_id": review_model_id,
+            "label": model_config.label(review_model_id),
+            "status": result.status,
+            "fallback": did_fallback,
+        }
+    )
+    review = {
+        "model_id": review_model_id,
+        "label": model_config.label(review_model_id),
+        "findings": result.findings_text,
+        "status": result.status,
+    }
+    return stages, review
+
+
 def _handle_chat(payload: dict, session_id: str) -> dict:
     """Chat leg: one agent turn; return a proposal on interrupt, else the reply."""
     prompt = payload.get("prompt")
@@ -144,6 +216,9 @@ def _handle_chat(payload: dict, session_id: str) -> dict:
 
     developer_id = _resolve_developer_id(payload.get("developer_id"))
     role = _resolve_role(payload.get("role"))
+    review_model_id, did_fallback = model_config.resolve_review_model(
+        payload.get("review_model_id")
+    )
 
     attached = build_and_attach(
         session_id, developer_id=developer_id, role=role, pending_write=False
@@ -157,20 +232,42 @@ def _handle_chat(payload: dict, session_id: str) -> dict:
     if getattr(result, "stop_reason", None) == "interrupt":
         itr = result.interrupts[0]
         proposal = {**itr.reason, "interrupt_id": itr.id}
-        return {
+        # Review ONLY the commit_files proposal's file bodies; create_branch /
+        # open_pull_request carry no code so they are not reviewed. The reviewer
+        # is tools=[] and never reaches the interrupt path, so status and the
+        # proposal dict are left byte-for-byte unchanged.
+        code = ""
+        if itr.reason.get("system") == "github" and itr.reason.get("action") == "commit_files":
+            code = _extract_commit_files_code(itr.reason)
+        stages, review = _run_review(code, review_model_id, did_fallback)
+        out = {
             "status": "pending_approval",
             "response": "",
             "proposal": proposal,
             "session_id": session_id,
             "error": None,
+            "stages": stages,
         }
-    return {
+        if review is not None:
+            out["review"] = review
+        return out
+
+    response = str(result).strip()
+    # On the complete branch review the concatenation of fenced code blocks, only
+    # when at least one is present (FR-17: a no-code turn gets no review stage).
+    code = _extract_fenced_code(response) if response else ""
+    stages, review = _run_review(code, review_model_id, did_fallback)
+    out = {
         "status": "complete",
-        "response": str(result).strip(),
+        "response": response,
         "proposal": None,
         "session_id": session_id,
         "error": None,
+        "stages": stages,
     }
+    if review is not None:
+        out["review"] = review
+    return out
 
 
 def _handle_approve(payload: dict, session_id: str) -> dict:

@@ -469,7 +469,7 @@ def test_build_bedrock_model_omits_profile_when_absent(monkeypatch):
     monkeypatch.setattr(sa.boto3, "Session", _spy_session)
     monkeypatch.setattr(sa, "BedrockModel", lambda **k: ("model", k))
 
-    sa._build_bedrock_model()
+    sa._build_bedrock_model("us.anthropic.claude-sonnet-4-5-20250929-v1:0")
     assert "profile_name" not in seen
     assert "region_name" in seen
 
@@ -494,7 +494,7 @@ def test_build_bedrock_model_passes_profile_when_present(monkeypatch):
     monkeypatch.setattr(sa.boto3, "Session", _spy_session)
     monkeypatch.setattr(sa, "BedrockModel", lambda **k: ("model", k))
 
-    sa._build_bedrock_model()
+    sa._build_bedrock_model("us.anthropic.claude-sonnet-4-5-20250929-v1:0")
     assert seen.get("profile_name") == "lava"
 
 
@@ -507,3 +507,160 @@ def test_agent_requirements_pin_harness_deps():
     text = req.read_text(encoding="utf-8")
     assert re.search(r"^bedrock-agentcore==1\.24\.1\s*$", text, re.MULTILINE)
     assert re.search(r"^strands-agents==1\.61\.1\s*$", text, re.MULTILINE)
+
+
+# --------------------------------------------------------------------------- #
+# (FEAT-001) multi-LLM review seam on _handle_chat
+# --------------------------------------------------------------------------- #
+
+from agent import model_config as _mc  # noqa: E402
+
+
+class _FakeReviewResult:
+    def __init__(self, model_id, findings_text="no blocking issues found", status="ok"):
+        self.model_id = model_id
+        self.findings_text = findings_text
+        self.status = status
+
+
+def _patch_review(monkeypatch):
+    """Stub build_reviewer/review_code so no live Bedrock call occurs; record calls."""
+    import agent.runtime_app as ra
+
+    seen = {"codes": []}
+
+    def _fake_build_reviewer(model_id):
+        seen["reviewer_model_id"] = model_id
+        return object()
+
+    def _fake_review_code(reviewer, code, context=""):
+        seen["codes"].append(code)
+        return _FakeReviewResult(seen.get("reviewer_model_id", ""))
+
+    monkeypatch.setattr(ra, "build_reviewer", _fake_build_reviewer)
+    monkeypatch.setattr(ra, "review_code", _fake_review_code)
+    return seen
+
+
+def test_chat_complete_with_fenced_block_adds_review(monkeypatch):
+    import agent.runtime_app as ra
+
+    seen = _patch_review(monkeypatch)
+    response = "Here you go:\n```python\ndef f():\n    return 1\n```\nDone."
+    agent = _FakeAgent([_AgentResult(text=response, stop_reason="end_turn")])
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "write code"}, _FakeContext("S1"))
+
+    assert out["status"] == "complete"
+    # stages: generate (code-gen id) + review (resolved default review id), distinct.
+    stage_ids = [s["model_id"] for s in out["stages"]]
+    assert stage_ids == [_mc.CODE_GEN_MODEL_ID, _mc.DEFAULT_REVIEW_MODEL_ID]
+    assert stage_ids[0] != stage_ids[1]
+    assert out["stages"][0]["stage"] == "generate"
+    assert out["stages"][1]["stage"] == "review"
+    # a review object is attached.
+    assert out["review"]["model_id"] == _mc.DEFAULT_REVIEW_MODEL_ID
+    assert out["review"]["status"] == "ok"
+    # the fenced code (not the prose) was handed to the reviewer.
+    assert "def f():" in seen["codes"][0]
+    assert "Here you go" not in seen["codes"][0]
+
+
+def test_chat_complete_no_fenced_block_has_no_review(monkeypatch):
+    import agent.runtime_app as ra
+
+    _patch_review(monkeypatch)
+    agent = _FakeAgent([_AgentResult(text="just prose, no code", stop_reason="end_turn")])
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "hi"}, _FakeContext("S1"))
+
+    assert out["status"] == "complete"
+    assert out["response"] == "just prose, no code"
+    assert [s["stage"] for s in out["stages"]] == ["generate"]
+    assert "review" not in out
+
+
+def test_chat_interrupt_commit_files_reviews_params_files(monkeypatch):
+    import agent.runtime_app as ra
+
+    seen = _patch_review(monkeypatch)
+    reason = {
+        "action": "commit_files",
+        "system": "github",
+        "params": {
+            "repo_id": "payment-service",
+            "branch": "feat/x",
+            "files": [
+                {"path": "a.py", "content": "print('a')"},
+                {"path": "b.py", "content": "print('b')"},
+            ],
+        },
+        "description": "Commit files to branch 'feat/x' in payment-service",
+    }
+    expected_proposal = {**reason, "interrupt_id": "itr-9"}
+    agent = _FakeAgent(
+        [_AgentResult(stop_reason="interrupt", interrupts=[_Interrupt("itr-9", reason)])]
+    )
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "commit it"}, _FakeContext("S1"))
+
+    # status + proposal unchanged (byte-for-byte).
+    assert out["status"] == "pending_approval"
+    assert out["proposal"] == expected_proposal
+    # review stage present, built from params.files.
+    assert [s["stage"] for s in out["stages"]] == ["generate", "review"]
+    assert out["stages"][1]["model_id"] == _mc.DEFAULT_REVIEW_MODEL_ID
+    assert out["review"]["status"] == "ok"
+    assert "print('a')" in seen["codes"][0]
+    assert "print('b')" in seen["codes"][0]
+
+
+def test_chat_interrupt_create_branch_has_no_review(monkeypatch):
+    import agent.runtime_app as ra
+
+    _patch_review(monkeypatch)
+    reason = {"action": "create_branch", "system": "github", "params": {},
+              "description": "Create branch"}
+    agent = _FakeAgent(
+        [_AgentResult(stop_reason="interrupt", interrupts=[_Interrupt("itr-1", reason)])]
+    )
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "make a branch"}, _FakeContext("S1"))
+
+    assert out["status"] == "pending_approval"
+    assert out["proposal"] == {**reason, "interrupt_id": "itr-1"}
+    assert [s["stage"] for s in out["stages"]] == ["generate"]
+    assert "review" not in out
+
+
+def test_approve_leg_output_unchanged_by_seam(monkeypatch):
+    """The approve leg attaches no stages/review keys (seam is chat-only)."""
+    import agent.runtime_app as ra
+
+    _patch_review(monkeypatch)
+    agent = _FakeAgent([_AgentResult(text="done", stop_reason="end_turn")])
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    proposal = {"action": "create_branch",
+                "params": {"branch_name": "feat/x", "repo_id": "svc"}}
+    out = ra.invoke(
+        {"action": "approve", "decision": "APPROVE", "interrupt_id": "itr-1",
+         "proposal": proposal},
+        _FakeContext("S1"),
+    )
+
+    assert out["status"] == "complete"
+    assert out["response"] == "done"
+    assert "stages" not in out
+    assert "review" not in out
+
+
+def test_resolve_review_model_passthrough_and_fallback():
+    for allowed in _mc.REVIEW_ALLOW_LIST:
+        assert _mc.resolve_review_model(allowed) == (allowed, False)
+    assert _mc.resolve_review_model("off-list-id") == (_mc.DEFAULT_REVIEW_MODEL_ID, True)
+    assert _mc.resolve_review_model(None) == (_mc.DEFAULT_REVIEW_MODEL_ID, True)
