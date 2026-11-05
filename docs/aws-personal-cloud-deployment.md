@@ -5,6 +5,12 @@ A clone-and-run migration analysis + plan. Goal: take this repo to the user's
 repeatable demo** they can deploy end-to-end and present from, **without opening
 the IDE/workspace** — a plain `git clone` + a documented command sequence.
 
+> **UPDATE:** a ready-to-use deployment package for the mock-git version now exists in
+> `docs/deploy-aws-personal/` (a cross-platform `deploy.py`, an AI-operator `RUNBOOK.md`, a
+> paste-in `PROMPT.md`, and `TROUBLESHOOTING.md`). It needed no changes to `infra-cdk/`. Start
+> with its `README.md`. The analysis below remains the background and the plan for the parts
+> that package deliberately leaves out (real Gitea).
+>
 > Status of this document: **ANALYSIS + PLAN only.** Nothing here has been
 > deployed or changed. Findings are grounded in the repo as read on the date of
 > writing; every claim is tagged **[MEASURED]** (verified from code/docs) or
