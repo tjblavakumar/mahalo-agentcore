@@ -2,15 +2,29 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { Stage, ReviewSummary } from "@/types";
+import { trustLine } from "@/lib/stageProgress";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
   systemsQueried?: string[];
+  /** Authoritative pipeline stages used to derive the who-did-what trust line. */
+  stages?: Stage[];
+  /** Review sub-agent summary (findings) for a code turn. */
+  review?: ReviewSummary;
 }
 
-export default function ChatMessage({ role, content, systemsQueried }: ChatMessageProps) {
+export default function ChatMessage({
+  role,
+  content,
+  systemsQueried,
+  stages,
+  review,
+}: ChatMessageProps) {
   const isUser = role === "user";
+  const line = isUser ? null : trustLine(stages);
+  const hasFindings = !isUser && Boolean(review?.findings);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
@@ -67,6 +81,23 @@ export default function ChatMessage({ role, content, systemsQueried }: ChatMessa
                 {sys}
               </span>
             ))}
+          </div>
+        )}
+
+        {line && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">
+              {line}
+            </span>
+          </div>
+        )}
+
+        {hasFindings && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <p className="text-xs font-medium text-gray-600">Review findings</p>
+            <p className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">
+              {review!.findings}
+            </p>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/services/api";
+import ModelConfigPanel from "./ModelConfigPanel";
 
 interface SystemResult {
   ok: boolean;
@@ -63,7 +64,9 @@ export default function SettingsPage() {
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-      <p className="mt-1 text-gray-600">Demo data controls.</p>
+      <p className="mt-1 text-gray-600">Model and demo data controls.</p>
+
+      <ModelConfigPanel personaId={persona?.personaId} />
 
       <div className="mt-6 max-w-2xl rounded-lg bg-white p-6 shadow">
         <h2 className="text-lg font-semibold text-gray-900">Refresh demo data</h2>

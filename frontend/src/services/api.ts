@@ -8,6 +8,7 @@
  */
 
 import type { PersonaId } from "@/lib/personas";
+import type { ModelConfig } from "@/types";
 
 // Default is the thin-API Lambda Function URL convention
 // (https://<id>.lambda-url.<region>.on.aws). Injected at build time via
@@ -103,6 +104,20 @@ export const api = {
   delete: <T>(endpoint: string, personaId?: PersonaId) =>
     request<T>(endpoint, { method: "DELETE" }, personaId),
 };
+
+/**
+ * Per-persona model-config helpers against the thin API's /model-config router
+ * (FEAT-002). The persona is asserted via the X-Mahalo-Persona header; the
+ * server derives the persona key and enforces the allow-list, so a GET for a
+ * persona with no stored item returns the documented defaults.
+ */
+export function getModelConfig(personaId?: PersonaId) {
+  return api.get<ModelConfig>("/model-config", personaId);
+}
+
+export function putModelConfig(config: ModelConfig, personaId?: PersonaId) {
+  return api.put<ModelConfig>("/model-config", config, personaId);
+}
 
 export type { ApiResponse };
 export { API_BASE_URL };

@@ -3,11 +3,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buildSuggestions } from "@/lib/chatSuggestions";
-import { api } from "@/services/api";
+import { api, getModelConfig } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Proposal, ChatResponse, ActionResult } from "@/types";
+import type {
+  Proposal,
+  ChatResponse,
+  ActionResult,
+  Stage,
+  ReviewSummary,
+} from "@/types";
+import {
+  CODE_GEN_OPTION,
+  DEFAULT_REVIEW_OPTION,
+  modelLabel,
+} from "@/lib/modelConfig";
 import ChatInput from "@/components/chat/ChatInput";
 import ChatMessage from "@/components/chat/ChatMessage";
+import StageProgress from "@/components/chat/StageProgress";
 import ProposalCard from "@/components/chat/ProposalCard";
 import ContextPanel from "@/components/chat/ContextPanel";
 
@@ -17,6 +29,8 @@ interface Message {
   content: string;
   systemsQueried?: string[];
   proposal?: Proposal | null;
+  stages?: Stage[];
+  review?: ReviewSummary;
 }
 
 interface CardResult {
@@ -29,6 +43,7 @@ export default function ChatPage() {
   const { persona, logout } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [reviewLabel, setReviewLabel] = useState(DEFAULT_REVIEW_OPTION.label);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [actionResults, setActionResults] = useState<Record<string, CardResult>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -67,6 +82,22 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Load the persona's configured review model so the optimistic "Reviewing
+  // with X" label matches what the server will actually use. On any error we
+  // keep the default label (the server also falls back to the default model).
+  useEffect(() => {
+    let active = true;
+    getModelConfig(persona?.personaId).then((res) => {
+      if (!active) return;
+      if (res.data?.codeReview) {
+        setReviewLabel(modelLabel(res.data.codeReview));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [persona?.personaId]);
+
   async function handleSend(message: string) {
     const userMsg: Message = {
       id: nextMessageId(),
@@ -98,6 +129,8 @@ export default function ChatPage() {
         content: result.data.response,
         systemsQueried: result.data.systems_queried,
         proposal: isPending ? result.data.proposal : null,
+        stages: result.data.stages,
+        review: result.data.review,
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } else {
@@ -241,6 +274,8 @@ export default function ChatPage() {
                   role={msg.role}
                   content={msg.content}
                   systemsQueried={msg.systemsQueried}
+                  stages={msg.stages}
+                  review={msg.review}
                 />
               )}
               {msg.proposal && (
@@ -256,15 +291,10 @@ export default function ChatPage() {
           ))}
 
           {isLoading && (
-            <div className="flex justify-start mb-4">
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.1s]" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                </div>
-              </div>
-            </div>
+            <StageProgress
+              genLabel={CODE_GEN_OPTION.label}
+              reviewLabel={reviewLabel}
+            />
           )}
 
           <div ref={messagesEndRef} />
