@@ -533,3 +533,162 @@ def test_short_client_session_id_is_normalized_before_runtime(monkeypatch):
     monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
     _client().post("/chat", json={"message": "status", "session_id": "short-id"})
     assert len(seen["session_id"]) >= 33
+
+
+# --------------------------------------------------------------------------- #
+# Multi-LLM: /chat forwards review_model_id (from the persona config, default on
+# absent) and projects the Runtime's additive stages/review onto ChatResponse,
+# while a reply WITHOUT them still validates (old-client safe, FR-19). (FEAT-002)
+# --------------------------------------------------------------------------- #
+
+def test_chat_forwards_default_review_model_when_no_config(monkeypatch):
+    """With no stored config (GetItem fails / absent), /chat forwards the default
+    review model id — the chat turn is never blocked by a config read."""
+    import app.routers.chat as chat
+    from app.models import DEFAULT_REVIEW_MODEL_ID
+    from app.routers import model_config as mc
+
+    # Force the config read to fall through to the default (no table bound).
+    monkeypatch.setattr(chat, "_review_model_id", lambda ident: mc._DEFAULTS["codeReview"])
+
+    captured = {}
+
+    def _fake_invoke(*, session_id, body, runtime_user_id=None):
+        captured.update(body)
+        return {"status": "complete", "response": "ok", "session_id": session_id}
+
+    monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
+    resp = _client().post("/chat", json={"message": "hi"})
+    assert resp.status_code == 200
+    assert captured["review_model_id"] == DEFAULT_REVIEW_MODEL_ID
+
+
+def test_chat_forwards_review_model_from_persona_config(monkeypatch):
+    """A persona with a stored review model has THAT id forwarded as
+    review_model_id (resolved server-side from the model-config table)."""
+    import boto3
+    from moto import mock_aws
+
+    import app.routers.chat as chat
+    from app.models import CODE_GEN_MODEL_ID
+    from app.routers import model_config as mc
+
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("MAHALO_MODEL_CONFIG_TABLE", "mahalo-model-config")
+
+    alt_review = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    captured = {}
+
+    def _fake_invoke(*, session_id, body, runtime_user_id=None):
+        captured.update(body)
+        return {"status": "complete", "response": "ok", "session_id": session_id}
+
+    monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
+
+    with mock_aws():
+        ddb = boto3.client("dynamodb", region_name="us-east-1")
+        ddb.create_table(
+            TableName="mahalo-model-config",
+            KeySchema=[{"AttributeName": "personaId", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "personaId", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+        ddb.get_waiter("table_exists").wait(TableName="mahalo-model-config")
+        table = boto3.resource("dynamodb", region_name="us-east-1").Table(
+            "mahalo-model-config"
+        )
+        table.put_item(
+            Item={
+                "personaId": "pm",
+                "codeGeneration": CODE_GEN_MODEL_ID,
+                "codeReview": alt_review,
+                "security": alt_review,
+            }
+        )
+        mc._table = None
+        try:
+            resp = _client().post(
+                "/chat", json={"message": "hi"}, headers={"X-Mahalo-Persona": "pm"}
+            )
+        finally:
+            mc._table = None
+
+    assert resp.status_code == 200
+    assert captured["review_model_id"] == alt_review
+
+
+def test_chat_projects_stages_and_review_onto_response(monkeypatch):
+    """A Runtime reply carrying stages/review is projected onto ChatResponse."""
+    import app.routers.chat as chat
+    from app.routers import model_config as mc
+
+    monkeypatch.setattr(chat, "_review_model_id", lambda ident: mc._DEFAULTS["codeReview"])
+
+    stages = [
+        {
+            "stage": "generate",
+            "model_id": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            "model_label": "Claude Sonnet 4.5",
+            "status": "ok",
+        },
+        {
+            "stage": "review",
+            "model_id": "us.amazon.nova-lite-v1:0",
+            "model_label": "Nova Lite",
+            "status": "ok",
+            "fallback": False,
+        },
+    ]
+    review = {
+        "model_id": "us.amazon.nova-lite-v1:0",
+        "model_label": "Nova Lite",
+        "findings": "No blocking issues found.",
+        "status": "ok",
+    }
+
+    monkeypatch.setattr(
+        chat, "invoke_runtime",
+        lambda *, session_id, body, runtime_user_id=None: {
+            "status": "complete", "response": "here", "session_id": session_id,
+            "stages": stages, "review": review,
+        },
+    )
+    resp = _client().post("/chat", json={"message": "write a function"})
+    assert resp.status_code == 200
+    data = resp.json()
+    # Stages are projected (StageInfo adds an optional fallback default, so
+    # compare the meaningful fields the Runtime sent rather than exact dicts).
+    assert data["stages"] is not None and len(data["stages"]) == 2
+    assert data["stages"][0]["stage"] == "generate"
+    assert data["stages"][0]["model_id"] == stages[0]["model_id"]
+    assert data["stages"][1]["stage"] == "review"
+    assert data["stages"][1]["model_id"] == stages[1]["model_id"]
+    assert data["stages"][1]["fallback"] is False
+    assert data["review"] == review
+
+
+def test_chat_reply_without_stages_still_validates(monkeypatch):
+    """A Runtime reply with no stages/review (old shape) yields a valid
+    ChatResponse with those fields null — old-client safe (FR-19)."""
+    import app.routers.chat as chat
+    from app.routers import model_config as mc
+
+    monkeypatch.setattr(chat, "_review_model_id", lambda ident: mc._DEFAULTS["codeReview"])
+    monkeypatch.setattr(
+        chat, "invoke_runtime",
+        lambda *, session_id, body, runtime_user_id=None: {
+            "status": "complete", "response": "hi", "session_id": session_id,
+        },
+    )
+    resp = _client().post("/chat", json={"message": "hi"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["stages"] is None
+    assert data["review"] is None
+    # The four original fields are untouched.
+    assert data["response"] == "hi"
+    assert data["status"] == "complete"

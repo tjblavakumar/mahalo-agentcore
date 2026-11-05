@@ -35,6 +35,14 @@ class Settings:
     dashboard_table: str = field(
         default_factory=lambda: _getenv("MAHALO_DASHBOARD_TABLE", "mahalo-dashboards")
     )
+    # DynamoDB table backing per-persona model configuration (design §B.1);
+    # wired in by MahaloApiStack as MAHALO_MODEL_CONFIG_TABLE, mirroring the
+    # dashboard table.
+    model_config_table: str = field(
+        default_factory=lambda: _getenv(
+            "MAHALO_MODEL_CONFIG_TABLE", "mahalo-model-config"
+        )
+    )
 
 
     # Mock-service Function URLs + API tokens, wired in by MahaloApiStack from the

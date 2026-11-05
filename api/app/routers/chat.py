@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import Identity, current_identity
 from app.config import settings
 from app.models import ActionResult, ApprovalRequest, ChatRequest, ChatResponse
+from app.routers import model_config as model_config_router
 from app.runtime_client import invoke_runtime
 
 logger = logging.getLogger(__name__)
@@ -66,12 +67,39 @@ def _runtime_user_id(ident: Identity) -> str | None:
     return ident.developer_id if settings.identity_enabled else None
 
 
+def _review_model_id(ident: Identity) -> str:
+    """Resolve the persona's configured review model id (default on absent).
+
+    Reads the persona's config from the model-config table via the same lazy
+    table + persona rule as the model-config router (single source of the
+    persona key, §B.2). A read never materializes the default: an absent or
+    malformed item yields the documented default review id. A DynamoDB error is
+    non-fatal here — the chat turn proceeds with the default and the Runtime
+    re-validates via resolve_review_model (defence in depth, §C.3).
+    """
+    persona_id = model_config_router._persona_id(ident)
+    default_id = model_config_router._DEFAULTS["codeReview"]
+    try:
+        resp = model_config_router._get_table().get_item(
+            Key={"personaId": persona_id}
+        )
+    except (BotoCoreError, ClientError):
+        logger.warning("Model-config GetItem failed on chat; using default review model")
+        return default_id
+
+    item = resp.get("Item")
+    if not item or not model_config_router._config_is_structurally_valid(item):
+        return default_id
+    return item["codeReview"]
+
+
 @router.post("", response_model=ChatResponse)
 def send_message(req: ChatRequest, ident: Identity = Depends(current_identity)) -> ChatResponse:
     """Forward a chat message to the Runtime and project the reply."""
     # Normalize to a Runtime-valid (>=33 char) session id, and echo THAT back so
     # the client reuses the same id next turn (stable Memory continuity).
     session_id = _runtime_session_id(req.session_id)
+    review_model_id = _review_model_id(ident)
     try:
         out = invoke_runtime(
             session_id=session_id,
@@ -80,6 +108,7 @@ def send_message(req: ChatRequest, ident: Identity = Depends(current_identity)) 
                 "prompt": req.message,
                 "developer_id": ident.developer_id,
                 "role": ident.role,
+                "review_model_id": review_model_id,
             },
             runtime_user_id=_runtime_user_id(ident),
         )
@@ -92,6 +121,8 @@ def send_message(req: ChatRequest, ident: Identity = Depends(current_identity)) 
         proposal=out.get("proposal"),
         session_id=out.get("session_id", session_id),
         status=out.get("status", "complete"),
+        stages=out.get("stages"),
+        review=out.get("review"),
     )
 
 
