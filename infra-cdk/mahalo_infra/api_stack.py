@@ -61,6 +61,7 @@ class MahaloApiStack(Stack):
         *,
         runtime_stack: "Stack",
         dashboard_stack: "Stack",
+        model_config_stack: "Stack",
         identity_enabled: bool = False,
         mock_stacks: "dict[str, Stack] | None" = None,
         **kwargs,
@@ -69,6 +70,7 @@ class MahaloApiStack(Stack):
 
         runtime = runtime_stack.runtime
         dashboard_table = dashboard_stack.table
+        model_config_table = model_config_stack.table
 
         build_image = bool(self.node.try_get_context("buildImage")) or (
             os.environ.get("MAHALO_BUILD_IMAGE") == "1"
@@ -118,6 +120,7 @@ class MahaloApiStack(Stack):
                 "MAHALO_RUNTIME_ARN": runtime.agent_runtime_arn,
                 "MAHALO_IDENTITY_ENABLED": "true" if identity_enabled else "false",
                 "MAHALO_DASHBOARD_TABLE": dashboard_table.table_name,
+                "MAHALO_MODEL_CONFIG_TABLE": model_config_table.table_name,
             },
         )
 
@@ -131,6 +134,8 @@ class MahaloApiStack(Stack):
         runtime.grant_invoke_runtime(fn)
         # Thin API -> dashboards table: GetItem/PutItem on the one persona item.
         dashboard_table.grant_read_write_data(fn)
+        # Thin API -> model-config table: GetItem/PutItem on the one persona item.
+        model_config_table.grant_read_write_data(fn)
         if identity_enabled:
             # Per-user invoke requires the additional IAM action (§B.5 / §D.4).
             runtime.grant_invoke_runtime_for_user(fn)

@@ -13,6 +13,7 @@ from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
+from mahalo_infra.model_config_stack import MahaloModelConfigStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
 _ENV = cdk.Environment(account="123456789012", region="us-east-1")
@@ -23,11 +24,13 @@ def _api_template():
     memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack", env=_ENV)
     runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
     dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
+    model_config = MahaloModelConfigStack(app, "MahaloModelConfigStack", env=_ENV)
     api = MahaloApiStack(
         app,
         "MahaloApiStack",
         runtime_stack=runtime,
         dashboard_stack=dashboard,
+        model_config_stack=model_config,
         env=_ENV,
     )
     return assertions.Template.from_stack(api)
@@ -104,6 +107,7 @@ def test_mock_stacks_wire_viewer_env_vars():
     memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack", env=_ENV)
     runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
     dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
+    model_config = MahaloModelConfigStack(app, "MahaloModelConfigStack", env=_ENV)
     mocks = {
         svc: MockServiceStack(
             app, f"MahaloMock{svc.capitalize()}Stack", service=svc, env=_ENV
@@ -115,6 +119,7 @@ def test_mock_stacks_wire_viewer_env_vars():
         "MahaloApiStack",
         runtime_stack=runtime,
         dashboard_stack=dashboard,
+        model_config_stack=model_config,
         mock_stacks=mocks,
         env=_ENV,
     )

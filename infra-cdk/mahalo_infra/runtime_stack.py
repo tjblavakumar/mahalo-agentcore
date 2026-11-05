@@ -194,6 +194,31 @@ class MahaloRuntimeStack(Stack):
                 ],
             )
         )
+        # Review-stage models (multi-LLM slice, NFR-5 least-privilege): each
+        # review model gets its own scoped InvokeModel grant — the regional
+        # cross-region inference-profile ARN paired with the base foundation-model
+        # ARN the profile fans out to. nova-lite, nova-micro and claude-haiku-4-5
+        # only. Opus is deliberately NOT granted.
+        runtime.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock:InvokeModel",
+                    "bedrock:InvokeModelWithResponseStream",
+                ],
+                resources=[
+                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/"
+                    "us.amazon.nova-lite-v1:0",
+                    "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
+                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/"
+                    "us.amazon.nova-micro-v1:0",
+                    "arn:aws:bedrock:*::foundation-model/amazon.nova-micro-v1:0",
+                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/"
+                    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "arn:aws:bedrock:*::foundation-model/"
+                    "anthropic.claude-haiku-4-5-20251001-v1:0",
+                ],
+            )
+        )
         # AgentCore Memory STM read/write, scoped to the CfnMemory ARN.
         runtime.add_to_role_policy(
             iam.PolicyStatement(

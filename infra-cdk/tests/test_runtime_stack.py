@@ -105,6 +105,67 @@ def test_runtime_arn_output():
     assert "RuntimeArn" in outputs
 
 
+def test_exec_role_grants_three_review_inference_profiles():
+    tmpl, _ = _template()
+    # The inference-profile ARNs template the account (self.account -> AWS::AccountId
+    # Fn::Join), so they are not plain strings; assert the id fragments appear in
+    # the serialized IAM policies, and that the InvokeModel action is granted.
+    policies = tmpl.find_resources("AWS::IAM::Policy")
+    text = json.dumps(policies)
+    for profile_id in (
+        "inference-profile/us.amazon.nova-lite-v1:0",
+        "inference-profile/us.amazon.nova-micro-v1:0",
+        "inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    ):
+        assert profile_id in text, f"missing inference-profile grant for {profile_id}"
+    for base_id in (
+        "foundation-model/amazon.nova-lite-v1:0",
+        "foundation-model/amazon.nova-micro-v1:0",
+        "foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+    ):
+        assert base_id in text, f"missing foundation-model grant for {base_id}"
+
+
+def test_exec_role_does_not_grant_opus():
+    tmpl, _ = _template()
+    text = json.dumps(tmpl.to_json()).lower()
+    assert "opus" not in text, (
+        "Opus must not be granted InvokeModel on the Runtime role"
+    )
+
+
+def test_review_model_arns_template_the_account():
+    """The review-model inference-profile ARNs template the account via
+    self.account — not a hardcoded literal.
+
+    When the stack is synthesized WITHOUT a concrete env (account is an unresolved
+    CDK token), self.account renders as a Ref to the AWS::AccountId pseudo-param
+    inside an Fn::Join. If the source had baked in a literal account id, the ARN
+    would stay a plain string instead. This is the templating guarantee; the
+    env-pinned _template() above legitimately resolves the account to the test
+    env's value, so it can't be used for this check.
+    """
+    app = cdk.App()
+    memory = MahaloMemoryIdentityStack(app, "MahaloMemoryIdentityStack")
+    stack = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory)
+    tmpl = assertions.Template.from_stack(stack)
+    profile_arns = []
+    for policy in tmpl.find_resources("AWS::IAM::Policy").values():
+        for stmt in policy["Properties"]["PolicyDocument"]["Statement"]:
+            res = stmt.get("Resource")
+            for item in res if isinstance(res, list) else [res]:
+                if isinstance(item, dict) and "inference-profile/us." in json.dumps(item):
+                    profile_arns.append(item)
+    # Sonnet + the three review profiles = four templated inference-profile ARNs.
+    assert len(profile_arns) == 4, "expected four templated inference-profile ARNs"
+    for arn_node in profile_arns:
+        assert "Fn::Join" in arn_node, (
+            "inference-profile ARN should be an Fn::Join (templated account)"
+        )
+        joined = json.dumps(arn_node)
+        assert "AWS::AccountId" in joined, "account must stay templated via Ref"
+
+
 @pytest.mark.skipif(
     shutil.which("docker") is None,
     reason="Docker unavailable; the from_asset deploy branch is operator-only.",

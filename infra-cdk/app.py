@@ -19,6 +19,7 @@ from mahalo_infra.gitea_stack import MahaloGiteaStack
 from mahalo_infra.keepwarm_stack import MahaloKeepWarmStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
+from mahalo_infra.model_config_stack import MahaloModelConfigStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
 
 # Account / region. The account is taken from the environment (CDK sets
@@ -113,11 +114,20 @@ def main() -> None:
         "MahaloDashboardStack",
         env=_ENV,
     )
+    # Per-persona model-config persistence table (multi-LLM slice). Constructed
+    # BEFORE the API stack and wired in by direct construct reference (no
+    # Fn.import_value), mirroring the dashboard table.
+    model_config_stack = MahaloModelConfigStack(
+        app,
+        "MahaloModelConfigStack",
+        env=_ENV,
+    )
     api_stack = MahaloApiStack(
         app,
         "MahaloApiStack",
         runtime_stack=runtime_stack,
         dashboard_stack=dashboard_stack,
+        model_config_stack=model_config_stack,
         mock_stacks=mock_stacks,
         env=_ENV,
     )
