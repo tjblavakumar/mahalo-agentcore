@@ -23,14 +23,20 @@
   If anything shows FAIL:
    - Frontend FAIL  -> CloudFront/S3 issue; re-check after a minute.
    - API FAIL       -> thin API Lambda; a cold call can be slow, retry once.
-   - Gitea FAIL     -> the Gitea EC2 may be auto-stopped (weekends). Start it:
-                       aws ec2 start-instances --instance-ids i-06d65fadd3fbd211b --profile lava --region us-east-1
-                       wait ~20s, then re-run this script.
+   - Gitea FAIL     -> the Gitea EC2 may have been stopped by the account weekend
+                       shutdown control (the instance is now tagged to opt out, but
+                       re-check after any redeploy). Re-run with -StartGitea to start
+                       it and wait until it answers. This needs AWS access, so run
+                       "aws sso login --profile lava" first.
+
+  Start Gitea if it is stopped, wait for it, then check everything:
+    powershell -File docs/demo-healthcheck.ps1 -StartGitea
 #>
 
 [CmdletBinding()]
 param(
-    [switch]$WarmUp
+    [switch]$WarmUp,
+    [switch]$StartGitea
 )
 
 $ErrorActionPreference = "Stop"
@@ -89,6 +95,45 @@ if ($mc) {
     }
     catch {
         Add-Result "Model config values" $false "could not parse JSON body"
+    }
+}
+
+# --- Optional: start Gitea if its EC2 instance is stopped ---
+# Needs AWS CLI access (profile lava). Only runs when -StartGitea is passed.
+if ($StartGitea) {
+    $giteaInstance = "i-06d65fadd3fbd211b"
+    $awsArgs = @("--profile", "lava", "--region", "us-east-1")
+    Write-Host ""
+    Write-Host "Checking the Gitea EC2 instance state..." -ForegroundColor Yellow
+    try {
+        $state = (& aws ec2 describe-instances --instance-ids $giteaInstance @awsArgs --query "Reservations[0].Instances[0].State.Name" --output text 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) { throw $state }
+        if ($state -eq "stopped") {
+            Write-Host "Instance is stopped. Starting it..." -ForegroundColor Yellow
+            & aws ec2 start-instances --instance-ids $giteaInstance @awsArgs --output text 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "start-instances failed" }
+        }
+        elseif ($state -ne "running" -and $state -ne "pending") {
+            Write-Host "Instance state is $state, not starting it." -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "Instance is already $state." -ForegroundColor Green
+        }
+        # Wait up to about 4 minutes for the Gitea API to answer.
+        $up = $false
+        for ($i = 1; $i -le 24; $i++) {
+            try {
+                $null = Invoke-WebRequest -Uri $GiteaVersion -TimeoutSec 10 -UseBasicParsing
+                $up = $true
+                break
+            }
+            catch { Start-Sleep -Seconds 10 }
+        }
+        if ($up) { Write-Host "Gitea is answering." -ForegroundColor Green }
+        else { Write-Host "Gitea did not answer within 4 minutes." -ForegroundColor Red }
+    }
+    catch {
+        Add-Result "Start Gitea" $false ("AWS CLI problem. Run: aws sso login --profile lava. " + $_.ToString().Trim())
     }
 }
 

@@ -96,3 +96,14 @@ def test_retain_gitea_data_parameter():
     assert "RetainGiteaData" in params
     assert "AdminCidr" in params
     assert "GiteaIngressCidr" in params
+
+
+def test_instance_opts_out_of_weekend_shutdown():
+    # The account's weekend EC2 shutdown control skips instances tagged exactly
+    # Launchpad="Do not shutdown". Gitea must stay up (agent git writes depend on it).
+    tmpl = _template()
+
+    instances = tmpl.find_resources("AWS::EC2::Instance")
+    (instance,) = instances.values()
+    tags = {t["Key"]: t["Value"] for t in instance["Properties"].get("Tags", [])}
+    assert tags.get("Launchpad") == "Do not shutdown"

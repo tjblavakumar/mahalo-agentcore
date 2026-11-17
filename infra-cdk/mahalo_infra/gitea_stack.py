@@ -32,6 +32,7 @@ from aws_cdk import (
     Fn,
     RemovalPolicy,
     Stack,
+    Tags,
 )
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
@@ -43,6 +44,10 @@ from constructs import Construct
 _GITEA_IMAGE = "gitea/gitea:1.27.3"
 _GITEA_PORT = 3000
 _DATA_DEVICE = "/dev/sdf"
+
+# Tag recognised by the account's weekend EC2 shutdown control (exact match).
+_SHUTDOWN_OPT_OUT_TAG_KEY = "Launchpad"
+_SHUTDOWN_OPT_OUT_TAG_VALUE = "Do not shutdown"
 
 # Stable EIP-backed public DNS of the live Gitea host — the CloudFront origin.
 # The EIP (eipalloc-0d582218ab8434359) survives reboots/stop-start, so this DNS
@@ -227,6 +232,13 @@ class MahaloGiteaStack(Stack):
         )
         # Keep the explicit RemovalPolicy.DESTROY default for the construct too.
         instance.apply_removal_policy(RemovalPolicy.DESTROY)
+
+        # Opt this instance out of the account's weekend EC2 shutdown control
+        # (Lambda Sparx-Shutdown-Resources-EC2-v1, Saturday 02:00 UTC), which skips
+        # instances tagged exactly Launchpad="Do not shutdown". Gitea must stay up
+        # because the agent's git writes (and the demo) depend on it. Remove this
+        # tag to return to the org default of weekend shutdown.
+        Tags.of(instance).add(_SHUTDOWN_OPT_OUT_TAG_KEY, _SHUTDOWN_OPT_OUT_TAG_VALUE)
 
         # References (not literals) to the SSM SecureString parameter names.
         self.gitea_token_param_name = gitea_token_param_name.value_as_string
