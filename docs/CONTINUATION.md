@@ -5,15 +5,15 @@ root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
 > === 2026-11-17 STATUS-6 CHAT UI BEAUTIFICATION BACKLOG + GITEA SHUTDOWN FIX (supersedes everything below where they differ) ===
-> FRONTEND PARTS OF #1 AND #2 ARE IMPLEMENTED on branch feat/chat-ui-polish (not yet merged or deployed). #2's agent/API part is NOT started. #3 is DEFERRED.
+> FRONTEND PARTS OF #1 AND #2 ARE DONE: merged and DEPLOYED LIVE 2026-11-17 (origin/main d2b03b6). #2's agent/API part is NOT started. #3 is DEFERRED.
 > Requirements agreed 2026-11-17.
-> Everything on main is deployed and healthy; origin/main == 61c59ef at the time of writing (plus this tracker edit, uncommitted).
+> Everything on main is deployed and healthy: frontend deployed from d2b03b6 (S3 sync + CloudFront /* invalidation, bundle grep-verified, live CSS/JS checked); Runtime and API unchanged since the multi-LLM deploy.
 >
 > REQUIREMENT #1 — Make chat responses look good (markdown, NOT generated HTML). [FRONTEND ONLY, no Runtime rebuild]
->  - IMPLEMENTED on feat/chat-ui-polish: @tailwindcss/typography enabled via `@plugin` in globals.css; tuned prose classes; code
+>  - IMPLEMENTED (merged + deployed): @tailwindcss/typography enabled via `@plugin` in globals.css; tuned prose classes; code
 >    blocks (CodeBlock.tsx: language label, Copy button, rehype-highlight limited to 10 languages); callout blockquotes; badges
->    (frontend/src/lib/badgeTokens.ts, only when a whole table cell / inline code / strong span is exactly a token). Remaining: merge
->    and a frontend deploy (see the deploy notes below).
+>    (frontend/src/lib/badgeTokens.ts, only when a whole table cell / inline code / strong span is exactly a token). DEPLOYED live (hard-refresh to see it). Nothing remains for #1.
+>    (Live verification: the CSS has the typography and highlight rules; the JS has the Copy / View code UI; real API URL, no placeholder.)
 >  - FINDING: the agent already replies in markdown and the chat already renders it (frontend/src/components/chat/ChatMessage.tsx
 >    uses react-markdown + remark-gfm, tables styled). It looks plain because the `prose prose-sm ...` classes need the Tailwind
 >    typography plugin, which is NOT installed (frontend/package.json has no @tailwindcss/typography; globals.css only has
@@ -26,8 +26,8 @@ bottom before doing anything.
 >    (memory: see the dashboard-URL incident above) and invalidate CloudFront /*.
 >
 > REQUIREMENT #2 — Show a file list, not the code, for generated/committed code. [MIXED: frontend + agent/Runtime]
->  - FRONTEND IMPLEMENTED on feat/chat-ui-polish: ProposalCard shows a File path | Lines | What it does table plus repo, branch and
->    commit message; code is in `<details>` CLOSED by default; "What it does" shows a dash until summaries exist. The chat page passes
+>  - FRONTEND IMPLEMENTED (merged + deployed): ProposalCard shows a File path | Lines | What it does table plus repo, branch and
+>    commit message; code is in `<details>` CLOSED by default; the "What it does" column is HIDDEN until at least one file has a review summary (commit 96fabed), then files without one show a dash. The chat page passes
 >    `review.file_summaries` to the card, matched by path (ReviewSummary.file_summaries in frontend/src/types/index.ts).
 >  - REMAINING for #2: (a) review sub-agent emits a per-file one-liner; (b) prompt rule in agent/prompts.py; (c) agent->API->frontend
 >    contract test; (d) Runtime image rebuild + API deploy (+ frontend deploy). The API ReviewInfo model and the agent emission MUST
@@ -68,6 +68,13 @@ bottom before doing anything.
 >    infra-cdk gitea_stack.py, test added, stack not redeployed) and docs/demo-healthcheck.ps1 has a -StartGitea switch (start path
 >    untested live). VERIFY after the first Friday-night run (check the health check Saturday morning). Whether the org needs to approve
 >    that tag is unverified. Memory: gitea-ec2-found-stopped-on-saturdays.
+>  - BUILDER `npm ci` FAILS (OPEN, worked around): frontend/package-lock.json is out of sync for Linux npm 11.19 / node 24 on the builder
+>    (EUSAGE: missing top-level @emnapi/core and @emnapi/runtime 1.11.3, which an optional wasm package requires). It is PRE-EXISTING, not
+>    caused by the chat UI change (that diff has no @emnapi lines); earlier builder deploys evidently never ran `npm ci`. The 2026-11-17
+>    frontend deploy used `npm install --no-audit --no-fund` on the builder (keeps pinned versions, adds the missing entries), then
+>    restored the builder lock; nothing was committed from the builder. FIX STILL TO DO: get the Linux npm's lock diff (the deploy step was
+>    asked to resend it; not received), apply it to the repo lock, commit, and verify `npm ci` on the builder. Until then a builder
+>    frontend deploy must use `npm install` instead of `npm ci`. Memory: builder-npm-ci-lockfile-out-of-sync.
 >  - PRODUCTION-ISSUES QUESTION ("which story or missing test case contributed to the incidents?"): the live agent links incidents ->
 >    deployments -> stories correctly (e.g. INC-2001 -> DEP-1003 -> PROD-403; INC-2003 -> DEP-1001 -> AUTH-304) but INVENTS the
 >    "missing test cases" and "root cause: no testing" statements, because no connected system holds test data, and it also tied
