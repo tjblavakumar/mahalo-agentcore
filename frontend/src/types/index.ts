@@ -36,6 +36,12 @@ export interface ReviewSummary {
   model_label: string;
   findings: string;
   status: string;
+  /**
+   * OPTIONAL per-file one-liners from the review sub-agent, shown in the
+   * approval card's "What it does" column. Contract key names are exactly
+   * `file_summaries[{path, summary}]` across agent, API and frontend.
+   */
+  file_summaries?: { path: string; summary: string }[];
 }
 
 export interface ChatResponse {

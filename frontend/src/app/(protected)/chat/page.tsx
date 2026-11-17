@@ -285,6 +285,7 @@ export default function ChatPage() {
                   onReject={() => handleReject(msg)}
                   isLoading={approvingId === msg.id}
                   result={actionResults[msg.id]}
+                  fileSummaries={msg.review?.file_summaries}
                 />
               )}
             </div>

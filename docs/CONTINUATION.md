@@ -5,10 +5,15 @@ root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
 > === 2026-11-17 STATUS-6 CHAT UI BEAUTIFICATION BACKLOG + GITEA SHUTDOWN FIX (supersedes everything below where they differ) ===
-> NOT STARTED, discussion done, requirements agreed 2026-11-17. Build items #1 and #2 first; #3 is DEFERRED.
+> FRONTEND PARTS OF #1 AND #2 ARE IMPLEMENTED on branch feat/chat-ui-polish (not yet merged or deployed). #2's agent/API part is NOT started. #3 is DEFERRED.
+> Requirements agreed 2026-11-17.
 > Everything on main is deployed and healthy; origin/main == 61c59ef at the time of writing (plus this tracker edit, uncommitted).
 >
 > REQUIREMENT #1 — Make chat responses look good (markdown, NOT generated HTML). [FRONTEND ONLY, no Runtime rebuild]
+>  - IMPLEMENTED on feat/chat-ui-polish: @tailwindcss/typography enabled via `@plugin` in globals.css; tuned prose classes; code
+>    blocks (CodeBlock.tsx: language label, Copy button, rehype-highlight limited to 10 languages); callout blockquotes; badges
+>    (frontend/src/lib/badgeTokens.ts, only when a whole table cell / inline code / strong span is exactly a token). Remaining: merge
+>    and a frontend deploy (see the deploy notes below).
 >  - FINDING: the agent already replies in markdown and the chat already renders it (frontend/src/components/chat/ChatMessage.tsx
 >    uses react-markdown + remark-gfm, tables styled). It looks plain because the `prose prose-sm ...` classes need the Tailwind
 >    typography plugin, which is NOT installed (frontend/package.json has no @tailwindcss/typography; globals.css only has
@@ -21,6 +26,13 @@ bottom before doing anything.
 >    (memory: see the dashboard-URL incident above) and invalidate CloudFront /*.
 >
 > REQUIREMENT #2 — Show a file list, not the code, for generated/committed code. [MIXED: frontend + agent/Runtime]
+>  - FRONTEND IMPLEMENTED on feat/chat-ui-polish: ProposalCard shows a File path | Lines | What it does table plus repo, branch and
+>    commit message; code is in `<details>` CLOSED by default; "What it does" shows a dash until summaries exist. The chat page passes
+>    `review.file_summaries` to the card, matched by path (ReviewSummary.file_summaries in frontend/src/types/index.ts).
+>  - REMAINING for #2: (a) review sub-agent emits a per-file one-liner; (b) prompt rule in agent/prompts.py; (c) agent->API->frontend
+>    contract test; (d) Runtime image rebuild + API deploy (+ frontend deploy). The API ReviewInfo model and the agent emission MUST
+>    use exactly `review.file_summaries[{path, summary}]`, the same key names across agent, API and frontend (the API model strips
+>    unknown fields, so it must declare the field).
 >  - FINDING: code appears in two places: (a) frontend/src/components/chat/ProposalCard.tsx renders every file in `<details open>`
 >    (deliberate, from the HITL approval-chain fix, so approvers could see the code), and (b) the assistant's reply text if the model
 >    pastes code. NOTE a write-proposal turn returns EMPTY reply text, so per-file descriptions must ride on the proposal/review, not prose.

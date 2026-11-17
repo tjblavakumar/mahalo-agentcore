@@ -1,7 +1,53 @@
 @import "tailwindcss";
-
+@plugin "@tailwindcss/typography";
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+}
+
+/* Minimal syntax colours for highlighted code blocks (dark surface). Only the
+   few highlight.js scopes that matter are styled, instead of shipping a theme. */
+.hljs-comment,
+.hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag {
+  color: #ff7b72;
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: #a5d6ff;
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: #79c0ff;
+}
+.hljs-title,
+.hljs-section,
+.hljs-name {
+  color: #d2a8ff;
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-type {
+  color: #ffa657;
+}
+.hljs-variable,
+.hljs-template-variable {
+  color: #ffa657;
+}
+.hljs-deletion {
+  color: #ffdcd7;
+  background: #67060c;
+}
+.hljs-meta {
+  color: #79c0ff;
 }
