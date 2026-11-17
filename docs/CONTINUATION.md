@@ -4,6 +4,65 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-11-17 STATUS-6 CHAT UI BEAUTIFICATION BACKLOG + GITEA SHUTDOWN FIX (supersedes everything below where they differ) ===
+> NOT STARTED, discussion done, requirements agreed 2026-11-17. Build items #1 and #2 first; #3 is DEFERRED.
+> Everything on main is deployed and healthy; origin/main == 61c59ef at the time of writing (plus this tracker edit, uncommitted).
+>
+> REQUIREMENT #1 — Make chat responses look good (markdown, NOT generated HTML). [FRONTEND ONLY, no Runtime rebuild]
+>  - FINDING: the agent already replies in markdown and the chat already renders it (frontend/src/components/chat/ChatMessage.tsx
+>    uses react-markdown + remark-gfm, tables styled). It looks plain because the `prose prose-sm ...` classes need the Tailwind
+>    typography plugin, which is NOT installed (frontend/package.json has no @tailwindcss/typography; globals.css only has
+>    `@import "tailwindcss"`), so headings/lists/quotes/code fall back to Tailwind's reset.
+>  - DECISION: stay with markdown; do NOT have the model generate HTML (needs sanitizing/XSS handling, inconsistent output, harder to
+>    test). Install the typography plugin and add custom react-markdown renderers: code blocks (syntax colors + copy button),
+>    callout blockquotes, colored badges for P1-P4 severity and story/deploy status, consistent heading/list spacing.
+>  - Remember: this repo's Next.js is non-standard (frontend/AGENTS.md): read frontend/node_modules/next/dist/docs/ before frontend
+>    build/config work. Static export behind CloudFront; a frontend deploy MUST set NEXT_PUBLIC_API_URL and grep-verify the bundle
+>    (memory: see the dashboard-URL incident above) and invalidate CloudFront /*.
+>
+> REQUIREMENT #2 — Show a file list, not the code, for generated/committed code. [MIXED: frontend + agent/Runtime]
+>  - FINDING: code appears in two places: (a) frontend/src/components/chat/ProposalCard.tsx renders every file in `<details open>`
+>    (deliberate, from the HITL approval-chain fix, so approvers could see the code), and (b) the assistant's reply text if the model
+>    pastes code. NOTE a write-proposal turn returns EMPTY reply text, so per-file descriptions must ride on the proposal/review, not prose.
+>  - USER DECISIONS: (1) code COLLAPSED by default, NOT removed (a "view code" expander stays). (2) YES, the independent REVIEW
+>    sub-agent supplies a one-line "what it does" per file (it already reads every file; agent/review.py + agent/runtime_app.py,
+>    surfaced through the additive stages[]/review fields; cross-layer key names must match: model_label lesson).
+>  - TARGET CARD: table of file path | lines | what it does, plus repo, branch and commit message. Code behind an expander.
+>  - Frontend-only part (no rebuild): path, line count, repo, branch, commit message are already in the proposal params
+>    (frontend/src/lib/proposalParams.ts classifyParam, ProposalCard.tsx); make the code `<details>` closed by default.
+>  - Agent part (needs Runtime image rebuild MAHALO_BUILD_IMAGE=1): review sub-agent returns per-file one-liners (watch the 32 KB
+>    reviewer-input cap and the truncation note); add a prompt rule in agent/prompts.py: "do not paste full file contents in the chat
+>    reply; summarize files and where they are committed". Add an agent->API contract test for the new field (the earlier 'label' vs
+>    'model_label' bug slipped past per-layer tests). Additive optional response fields only.
+>  - Optional later: link to the commit/branch in Gitea after approval. Needs the Gitea base URL in the frontend
+>    (NEXT_PUBLIC_GITEA_URL is still unset; the Connections page Gitea link points at the old host). Not required for #2.
+>  - TRADEOFF accepted: a collapsed card lets a user approve without reading code; mitigated by showing the independent review
+>    findings on the same card and by writes landing on a branch/PR, not main.
+>  - Suggested delivery: do the frontend-only parts of #1 and #2 first, then bundle the agent/prompt change into ONE later Runtime deploy.
+>
+> REQUIREMENT #3 — Chatbot generates a working prototype. DEFERRED ("can wait"). Decision already made for when it starts:
+>  - Start with LEVEL 1: a CLICKABLE UI MOCK. The agent writes one self-contained HTML/CSS/JS file; the chat shows it in a sandboxed
+>    iframe (srcdoc, `sandbox` attribute WITHOUT allow-same-origin, so generated code cannot read the app's localStorage persona or
+>    call the API); a "commit to Gitea" action goes through the normal HITL approval gate. Front-end only, no backend/real data.
+>  - LEVEL 2 (later): AgentCore Code Interpreter (managed sandbox that runs agent-written Python/JS/TS in an isolated microVM; Strands
+>    integration is documented) so the agent writes code + tests, runs them, and reports pass/fail; fits the generate -> independent
+>    review -> run-tests trust story. Needs a Runtime tool + IAM grant. LEVEL 3 (live deployed app per request): NOT recommended.
+>  - Limits to remember: one chat reply's length and the synchronous turn (turns already take 40-60 s; thin API Lambda limit 300 s),
+>    so multi-file apps must be built over several turns; generated code is untrusted (sandbox it).
+>
+> OTHER OPEN ITEMS (no decision yet):
+>  - GITEA WEEKEND SHUTDOWN: FIXED 2026-11-17 (commit 61c59ef). The org control Sparx-Shutdown-Resources-EC2-v1 stopped every EC2 instance
+>    each Friday 18:00 US Pacific (Sat 02:00 UTC); the Gitea instance is now tagged Launchpad="Do not shutdown" (live + in
+>    infra-cdk gitea_stack.py, test added, stack not redeployed) and docs/demo-healthcheck.ps1 has a -StartGitea switch (start path
+>    untested live). VERIFY after the first Friday-night run (check the health check Saturday morning). Whether the org needs to approve
+>    that tag is unverified. Memory: gitea-ec2-found-stopped-on-saturdays.
+>  - PRODUCTION-ISSUES QUESTION ("which story or missing test case contributed to the incidents?"): the live agent links incidents ->
+>    deployments -> stories correctly (e.g. INC-2001 -> DEP-1003 -> PROD-403; INC-2003 -> DEP-1001 -> AUTH-304) but INVENTS the
+>    "missing test cases" and "root cause: no testing" statements, because no connected system holds test data, and it also tied
+>    INC-2002 to PAY-105 although that incident has no linked deployment. Options not yet chosen: (a) prompt rule to say no test data
+>    exists and label test-gap suggestions as inferences (Runtime rebuild; could ride with the #2 prompt change), or (b) add real test
+>    data (a Jira test field or a Confluence test-plan page per project).
+>
 > === 2026-11-04 STATUS-5 MULTI-LLM SLICE 1 SHIPPED (supersedes everything below where they differ) ===
 > Multi-LLM per-activity FIRST SLICE is DESIGNED, built (design-first workflow wf_de0344129e9ceeba), merged,
 > pushed, DEPLOYED and LIVE-VERIFIED. origin/main == local == 74dac81 (37 files, +3177). Deploy workflow
