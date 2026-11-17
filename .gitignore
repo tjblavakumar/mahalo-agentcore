@@ -28,3 +28,6 @@ cdk.context.json
 # Workflow runs write plan/review scratch to a repo-root .agents/ (accidentally
 # committed once, purged from history). Ignore the root one; docs/.agents stays tracked.
 /.agents/
+
+# Local git worktrees used for isolated feature builds
+.worktrees/
