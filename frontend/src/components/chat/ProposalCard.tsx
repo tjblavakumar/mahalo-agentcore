@@ -48,6 +48,10 @@ export default function ProposalCard({
   const commitMessage = paramText("message");
   const summaryFor = (path: string) =>
     fileSummaries?.find((s) => s.path === path)?.summary || null;
+  // The "What it does" column only appears once the review has supplied at
+  // least one summary for these files; otherwise it would be a column of dashes.
+  const hasAnySummary = (files: { path: string }[]) =>
+    files.some((f) => summaryFor(f.path) !== null);
 
   if (result) {
     return (
@@ -111,6 +115,7 @@ export default function ProposalCard({
                   </div>
                 );
               }
+              const showSummary = hasAnySummary(view.files);
               return (
                 <div key={key} className="mt-2">
                   <p className="text-xs text-gray-600 font-mono">{key}:</p>
@@ -124,9 +129,11 @@ export default function ProposalCard({
                           <th className="border border-gray-200 px-2 py-1 font-semibold">
                             Lines
                           </th>
-                          <th className="border border-gray-200 px-2 py-1 font-semibold">
-                            What it does
-                          </th>
+                          {showSummary && (
+                            <th className="border border-gray-200 px-2 py-1 font-semibold">
+                              What it does
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -140,11 +147,13 @@ export default function ProposalCard({
                               <td className="border border-gray-200 px-2 py-1 text-gray-700">
                                 {file.lineCount}
                               </td>
-                              <td className="border border-gray-200 px-2 py-1 text-gray-700">
-                                {summary ?? (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
+                              {showSummary && (
+                                <td className="border border-gray-200 px-2 py-1 text-gray-700">
+                                  {summary ?? (
+                                    <span className="text-gray-400">—</span>
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           );
                         })}

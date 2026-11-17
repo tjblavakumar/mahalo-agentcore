@@ -49,9 +49,12 @@ describe("ProposalCard", () => {
       <ProposalCard proposal={commitProposal} onApprove={noop} onReject={noop} isLoading={false} />,
     );
     const heads = Array.from(container.querySelectorAll("th")).map((t) => t.textContent);
-    expect(heads).toEqual(["File path", "Lines", "What it does"]);
+    // No review summaries yet, so the "What it does" column is hidden.
+    expect(heads).toEqual(["File path", "Lines"]);
+    expect(container.textContent).not.toContain("What it does");
     const rows = container.querySelectorAll("tbody tr");
     expect(rows).toHaveLength(2);
+    expect(rows[0].querySelectorAll("td")).toHaveLength(2);
     expect(rows[0].textContent).toContain("src/cart.ts");
     expect(rows[0].querySelectorAll("td")[1].textContent).toBe("2");
     expect(container.textContent).toContain("Repo: acme/shop");
@@ -74,9 +77,26 @@ describe("ProposalCard", () => {
         fileSummaries={[{ path: "src/cart.ts", summary: "Adds the cart reducer" }]}
       />,
     );
+    const heads = Array.from(container.querySelectorAll("th")).map((t) => t.textContent);
+    expect(heads).toEqual(["File path", "Lines", "What it does"]);
     const rows = container.querySelectorAll("tbody tr");
     expect(rows[0].querySelectorAll("td")[2].textContent).toBe("Adds the cart reducer");
     expect(rows[1].querySelectorAll("td")[2].textContent).toBe("—");
+  });
+
+  it("hides the summary column when the summaries match none of the files", async () => {
+    await render(
+      <ProposalCard
+        proposal={commitProposal}
+        onApprove={noop}
+        onReject={noop}
+        isLoading={false}
+        fileSummaries={[{ path: "somewhere/else.ts", summary: "Unrelated" }]}
+      />,
+    );
+    const heads = Array.from(container.querySelectorAll("th")).map((t) => t.textContent);
+    expect(heads).toEqual(["File path", "Lines"]);
+    expect(container.textContent).not.toContain("Unrelated");
   });
 
   it("omits context lines that are absent", async () => {
