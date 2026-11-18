@@ -4,6 +4,41 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-11-18 STATUS-7 SKILLS FEATURE (design discussion, NOT STARTED; no code written) ===
+> IDEA: let users upload a SKILL.md into the chat, have the orchestrator agent understand the steps, VALIDATE whether Mahalo can do them
+> (missing connections, no PDF output, etc.), then run with the user's consent; store skills so they can be re-run from the chat box
+> by typing "/" and picking one. The user's team already uses skill files for Jira reports, production-issue research and roadmaps.
+> FORMAT: the open Agent Skills format (agentskills.io): markdown with a header that REQUIRES `name` (lowercase letters/digits/hyphens,
+> max 64) and `description`; body = steps; optional scripts/references/assets folders. Strands has its own skills plugin that loads
+> skills from DIRECTORIES; unverified whether it can be used with skills stored in a database, check before choosing.
+> USER DECISIONS (2026-11-18): (1) skills are COMMON to all personas for the demo, no hiding. (2) MARKDOWN FILES ONLY, no scripts or
+> folders, with a naming convention like JIRA_ROADMAP_SKILL.md (<SYSTEM>_<WHAT>_SKILL.md) so the purpose is obvious. (3) OUTPUT = chat
+> text only for now (no PDF). (4) the user has no real skill files; I am to AUTHOR two example skills (below).
+> EXAMPLE SKILL #1 (JIRA past-sprint report): what is done, what is pending, team velocity for a past sprint.
+> EXAMPLE SKILL #2 (JIRA roadmap): roadmap for the next 2 sprints from open Jira stories + ServiceNow incidents, with a suggested
+> developer allocation.
+> DESIGN SKETCH (agreed in discussion, not final): upload/paste + store in a small new DynamoDB table (same pattern as dashboards and
+> model-config); "/" picker in frontend/src/components/chat/ChatInput.tsx (a plain textarea today); a CHECK step where the agent compares
+> the skill to a capability list generated from the real tool definitions and returns steps, systems needed, writes involved and gaps
+> marked blocked / workable, shown as a card; user consents to the plan, then it runs under the normal rules (every write still needs
+> its own HITL approval; consent to the plan is NOT write approval); uploaded text must not be able to add tools or override safety
+> rules. Risks: one chat turn is a blocking call with a ~5 min limit and turns already take 40-60 s, so long skills need a step budget
+> and a "likely too long" warning; the API has no real auth (persona header only) so anyone with the URL can change shared skills
+> (accepted for the demo); "can this be done" is the model's judgement.
+> DATA FACTS CHECKED 2026-11-18 (matter for the two example skills): (a) each Jira project has exactly ONE completed sprint with a
+> recorded velocity (PAY 34, CART 28, AUTH 21, PROD 31, ORD 26) plus one active sprint, so a velocity TREND is impossible, only one
+> number plus current-sprint progress; (b) only PAY has a planned sprint (Sprint 25); a 2-sprint roadmap is therefore proposed by the
+> agent, not read from Jira; (c) developers have only id, name, email: NO skills, capacity or availability, so developer allocation can
+> only be inferred from current assignments and past work and must be labelled as inference (the agent's honesty rule 10 applies);
+> (d) Mahalo cannot write to Confluence, send email, browse the web, run scripts or make PDFs.
+> OPEN QUESTIONS (asked of the user): project scope per run (one project vs all five, long-run risk); what "pending" means for a past
+> sprint (carry-over vs everything still open); whether to enrich the Jira seed data (more completed sprints, developer skills/capacity)
+> so the reports look real; whether the two example skills ship PRE-LOADED from a skills/ folder in the repo; "/" command name from the
+> filename (e.g. JIRA_ROADMAP) vs the header name.
+> SUGGESTED SLICE 1: single-file skills; upload/paste; store; "/" picker; check card with consent; run; chat-text output; the two
+> example skills pre-loaded. Later: shared editing rules, versions, scheduling, scripts/folders, PDF (Code Interpreter), background jobs.
+> Deploy surface when built: new table stack + Runtime image + API + frontend (like the multi-LLM slice). Do a design pass first.
+>
 > === 2026-11-17 STATUS-6 CHAT UI BEAUTIFICATION BACKLOG + GITEA SHUTDOWN FIX (supersedes everything below where they differ) ===
 > FRONTEND PARTS OF #1 AND #2 ARE DONE: merged and DEPLOYED LIVE 2026-11-17 (origin/main d2b03b6). #2's agent/API part is ALSO DONE and DEPLOYED LIVE (origin/main c38d1be; MahaloRuntimeStack + MahaloApiStack UPDATE_COMPLETE, frontend unchanged): live check as dev returned a commit_files proposal with review.file_summaries = [{path, summary}] for both files and the trust line intact. Two prompt rules (BASE_PROMPT rules 9 and 10) are deployed but only PARTLY effective, see OTHER OPEN ITEMS. #3 is DEFERRED.
 > Requirements agreed 2026-11-17.
