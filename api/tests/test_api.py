@@ -692,3 +692,36 @@ def test_chat_reply_without_stages_still_validates(monkeypatch):
     # The four original fields are untouched.
     assert data["response"] == "hi"
     assert data["status"] == "complete"
+
+
+def test_chat_review_file_summaries_roundtrip_and_old_payloads(monkeypatch):
+    """review.file_summaries survives /chat; a review without it still validates."""
+    import app.routers.chat as chat
+    from app.routers import model_config as mc
+
+    monkeypatch.setattr(chat, "_review_model_id", lambda ident: mc._DEFAULTS["codeReview"])
+    base = {"model_id": "m", "model_label": "Nova Lite", "findings": "ok", "status": "ok"}
+    replies = iter(
+        [
+            {**base, "file_summaries": [
+                {"path": "a.py", "summary": "Does a."},
+                {"path": "b.py", "summary": "x" * 300},
+            ]},
+            base,
+        ]
+    )
+    monkeypatch.setattr(
+        chat, "invoke_runtime",
+        lambda *, session_id, body, runtime_user_id=None: {
+            "status": "pending_approval", "response": "", "session_id": session_id,
+            "proposal": {"action": "commit_files"}, "review": next(replies),
+        },
+    )
+    first = _client().post("/chat", json={"message": "commit"}).json()
+    summaries = first["review"]["file_summaries"]
+    assert summaries[0] == {"path": "a.py", "summary": "Does a."}
+    assert len(summaries[1]["summary"]) <= 140
+
+    second = _client().post("/chat", json={"message": "commit"}).json()
+    assert "file_summaries" not in second["review"]
+    assert second["review"]["model_label"] == "Nova Lite"

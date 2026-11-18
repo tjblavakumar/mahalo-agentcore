@@ -533,7 +533,7 @@ def _patch_review(monkeypatch):
         seen["reviewer_model_id"] = model_id
         return object()
 
-    def _fake_review_code(reviewer, code, context=""):
+    def _fake_review_code(reviewer, code, context="", files=None):
         seen["codes"].append(code)
         return _FakeReviewResult(seen.get("reviewer_model_id", ""))
 
@@ -713,3 +713,91 @@ def test_resolve_review_model_passthrough_and_fallback():
         assert _mc.resolve_review_model(allowed) == (allowed, False)
     assert _mc.resolve_review_model("off-list-id") == (_mc.DEFAULT_REVIEW_MODEL_ID, True)
     assert _mc.resolve_review_model(None) == (_mc.DEFAULT_REVIEW_MODEL_ID, True)
+
+
+# --------------------------------------------------------------------------- #
+# Per-file summaries on review (commit_files only) + agent -> API contract
+# --------------------------------------------------------------------------- #
+
+def _commit_reason():
+    return {
+        "action": "commit_files",
+        "system": "github",
+        "params": {
+            "repo_id": "payment-service",
+            "branch": "feat/x",
+            "files": [
+                {"path": "a.py", "content": "print('a')"},
+                {"path": "b.py", "content": "print('b')"},
+            ],
+        },
+        "description": "Commit files",
+    }
+
+
+def _patch_review_with_summaries(monkeypatch):
+    import agent.runtime_app as ra
+
+    def _fake_review_code(reviewer, code, context="", files=None):
+        res = _FakeReviewResult(_mc.DEFAULT_REVIEW_MODEL_ID)
+        res.file_summaries = (
+            [{"path": f["path"], "summary": f"Does {f['path']}."} for f in files]
+            if files
+            else None
+        )
+        return res
+
+    monkeypatch.setattr(ra, "build_reviewer", lambda model_id: object())
+    monkeypatch.setattr(ra, "review_code", _fake_review_code)
+
+
+def test_commit_files_review_carries_file_summaries(monkeypatch):
+    import agent.runtime_app as ra
+
+    _patch_review_with_summaries(monkeypatch)
+    agent = _FakeAgent(
+        [_AgentResult(stop_reason="interrupt", interrupts=[_Interrupt("itr-9", _commit_reason())])]
+    )
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "commit it"}, _FakeContext("S1"))
+
+    assert out["response"] == ""
+    assert out["review"]["file_summaries"] == [
+        {"path": "a.py", "summary": "Does a.py."},
+        {"path": "b.py", "summary": "Does b.py."},
+    ]
+
+
+def test_non_commit_turns_have_no_file_summaries(monkeypatch):
+    import agent.runtime_app as ra
+
+    _patch_review_with_summaries(monkeypatch)
+    # complete turn with a fenced block
+    agent = _FakeAgent(
+        [_AgentResult(text="```py\nx = 1\n```", stop_reason="end_turn")]
+    )
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+    out = ra.invoke({"action": "chat", "prompt": "code"}, _FakeContext("S1"))
+    assert "file_summaries" not in out["review"]
+
+
+def test_contract_file_summaries_survive_api_chat_response(monkeypatch):
+    """A REAL commit_files _handle_chat payload keeps file_summaries through the API model."""
+    import agent.runtime_app as ra
+
+    _patch_review_with_summaries(monkeypatch)
+    agent = _FakeAgent(
+        [_AgentResult(stop_reason="interrupt", interrupts=[_Interrupt("itr-9", _commit_reason())])]
+    )
+    monkeypatch.setattr(ra, "build_and_attach", lambda *a, **k: _FakeAttached(agent))
+
+    out = ra.invoke({"action": "chat", "prompt": "commit it"}, _FakeContext("S1"))
+    projected = _load_api_chat_response()(**out)
+
+    dumped = projected.model_dump()["review"]["file_summaries"]
+    assert dumped == [
+        {"path": "a.py", "summary": "Does a.py."},
+        {"path": "b.py", "summary": "Does b.py."},
+    ]
+    assert projected.review.model_label == _mc.label(_mc.DEFAULT_REVIEW_MODEL_ID)

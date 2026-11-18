@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_serializer
 
 # --- Multi-LLM model allow-list (design §A / §B.1) ---------------------------
 #
@@ -53,6 +53,19 @@ class StageInfo(BaseModel):
     fallback: Optional[bool] = None
 
 
+class FileSummary(BaseModel):
+    """One per-file plain-language summary from the reviewer (commit_files only)."""
+
+    path: str
+    summary: str
+
+    @field_validator("summary")
+    @classmethod
+    def _trim_summary(cls, value: str) -> str:
+        value = " ".join(value.split())
+        return value if len(value) <= 140 else value[:137].rstrip() + "..."
+
+
 class ReviewInfo(BaseModel):
     """The code-review stage result, present only when review ran (design §E)."""
 
@@ -60,6 +73,16 @@ class ReviewInfo(BaseModel):
     model_label: Optional[str] = None
     findings: Optional[str] = None
     status: Optional[str] = None
+    # Additive-optional; absent on old payloads and on non-commit_files reviews.
+    file_summaries: Optional[list[FileSummary]] = None
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_file_summaries(self, handler):
+        # Old payloads serialize exactly as before (no new null key).
+        data = handler(self)
+        if data.get("file_summaries") is None:
+            data.pop("file_summaries", None)
+        return data
 
 
 class ChatResponse(BaseModel):

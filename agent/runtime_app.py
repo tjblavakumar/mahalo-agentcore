@@ -160,7 +160,9 @@ def _extract_commit_files_code(proposal: dict) -> str:
     return "\n\n".join(parts)
 
 
-def _run_review(code: str, review_model_id: str, did_fallback: bool) -> tuple[list, dict]:
+def _run_review(
+    code: str, review_model_id: str, did_fallback: bool, files: list | None = None
+) -> tuple[list, dict]:
     """Run the review stage over ``code`` and build the additive stages/review.
 
     Always returns a ``stages`` list that starts with the ``generate`` stage. When
@@ -180,7 +182,10 @@ def _run_review(code: str, review_model_id: str, did_fallback: bool) -> tuple[li
         return stages, None
 
     reviewer = build_reviewer(review_model_id)
-    result = review_code(reviewer, code)
+    if files:
+        result = review_code(reviewer, code, files=files)
+    else:
+        result = review_code(reviewer, code)
     stages.append(
         {
             "stage": "review",
@@ -196,6 +201,9 @@ def _run_review(code: str, review_model_id: str, did_fallback: bool) -> tuple[li
         "findings": result.findings_text,
         "status": result.status,
     }
+    file_summaries = getattr(result, "file_summaries", None)
+    if files and file_summaries:
+        review["file_summaries"] = file_summaries
     return stages, review
 
 
@@ -238,9 +246,13 @@ def _handle_chat(payload: dict, session_id: str) -> dict:
         # is tools=[] and never reaches the interrupt path, so status and the
         # proposal dict are left byte-for-byte unchanged.
         code = ""
+        files = None
         if itr.reason.get("system") == "github" and itr.reason.get("action") == "commit_files":
             code = _extract_commit_files_code(itr.reason)
-        stages, review = _run_review(code, review_model_id, did_fallback)
+            raw_files = (itr.reason.get("params") or {}).get("files")
+            if isinstance(raw_files, list):
+                files = raw_files
+        stages, review = _run_review(code, review_model_id, did_fallback, files)
         out = {
             "status": "pending_approval",
             "response": "",
