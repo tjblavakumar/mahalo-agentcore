@@ -5,7 +5,7 @@ root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
 > === 2026-11-17 STATUS-6 CHAT UI BEAUTIFICATION BACKLOG + GITEA SHUTDOWN FIX (supersedes everything below where they differ) ===
-> FRONTEND PARTS OF #1 AND #2 ARE DONE: merged and DEPLOYED LIVE 2026-11-17 (origin/main d2b03b6). #2's agent/API part is NOT started. #3 is DEFERRED.
+> FRONTEND PARTS OF #1 AND #2 ARE DONE: merged and DEPLOYED LIVE 2026-11-17 (origin/main d2b03b6). #2's agent/API part is ALSO DONE and DEPLOYED LIVE (origin/main c38d1be; MahaloRuntimeStack + MahaloApiStack UPDATE_COMPLETE, frontend unchanged): live check as dev returned a commit_files proposal with review.file_summaries = [{path, summary}] for both files and the trust line intact. Two prompt rules (BASE_PROMPT rules 9 and 10) are deployed but only PARTLY effective, see OTHER OPEN ITEMS. #3 is DEFERRED.
 > Requirements agreed 2026-11-17.
 > Everything on main is deployed and healthy: frontend deployed from d2b03b6 (S3 sync + CloudFront /* invalidation, bundle grep-verified, live CSS/JS checked); Runtime and API unchanged since the multi-LLM deploy.
 >
@@ -29,10 +29,11 @@ bottom before doing anything.
 >  - FRONTEND IMPLEMENTED (merged + deployed): ProposalCard shows a File path | Lines | What it does table plus repo, branch and
 >    commit message; code is in `<details>` CLOSED by default; the "What it does" column is HIDDEN until at least one file has a review summary (commit 96fabed), then files without one show a dash. The chat page passes
 >    `review.file_summaries` to the card, matched by path (ReviewSummary.file_summaries in frontend/src/types/index.ts).
->  - REMAINING for #2: (a) review sub-agent emits a per-file one-liner; (b) prompt rule in agent/prompts.py; (c) agent->API->frontend
->    contract test; (d) Runtime image rebuild + API deploy (+ frontend deploy). The API ReviewInfo model and the agent emission MUST
->    use exactly `review.file_summaries[{path, summary}]`, the same key names across agent, API and frontend (the API model strips
->    unknown fields, so it must declare the field).
+>  - DONE 2026-11-17 (c38d1be, deployed): the review sub-agent emits a per-file one-liner (agent/review.py parses a delimited
+>    ===FILE_SUMMARIES=== block; only files sent to the reviewer IN FULL can get a summary; paths must match; 140-char cap; a parse
+>    failure never fails the turn), the API ReviewInfo declares `file_summaries` (key names identical across agent, API, frontend),
+>    and an agent->API contract test guards it. Live example: payment_utils.py -> "Provides utility functions for validating and
+>    calculating payment amounts and fees." The frontend shows the 'What it does' column once summaries exist.
 >  - FINDING: code appears in two places: (a) frontend/src/components/chat/ProposalCard.tsx renders every file in `<details open>`
 >    (deliberate, from the HITL approval-chain fix, so approvers could see the code), and (b) the assistant's reply text if the model
 >    pastes code. NOTE a write-proposal turn returns EMPTY reply text, so per-file descriptions must ride on the proposal/review, not prose.
@@ -78,7 +79,14 @@ bottom before doing anything.
 >  - PRODUCTION-ISSUES QUESTION ("which story or missing test case contributed to the incidents?"): the live agent links incidents ->
 >    deployments -> stories correctly (e.g. INC-2001 -> DEP-1003 -> PROD-403; INC-2003 -> DEP-1001 -> AUTH-304) but INVENTS the
 >    "missing test cases" and "root cause: no testing" statements, because no connected system holds test data, and it also tied
->    INC-2002 to PAY-105 although that incident has no linked deployment. Options not yet chosen: (a) prompt rule to say no test data
+>    INC-2002 to PAY-105 although that incident has no linked deployment. UPDATE 2026-11-17 after deploying prompt rules 9 and 10:
+>    PARTLY EFFECTIVE. The answer now adds a section "Testing Gaps Identified (No test data in systems, these are inferences)" and
+>    did not link INC-2002 to PAY-105 in our run, BUT the per-incident bullets still state "Root Cause: ..." and "Missing Test Case: ..."
+>    as facts (e.g. "edge case of SMS delivery ... was not tested") and invent figures ("~30% of engineering capacity"). The deploy
+>    run also saw INC-2002 cited with PAY-111 (LLM variance). Rule 9 (no code in replies) does NOT stop a direct "show me an example"
+>    request from returning a 56-line function; that may be acceptable (the user asked), and the commit flow itself is fine.
+>    NEXT: either tighten rule 10 (forbid the labels "Root Cause"/"Missing Test Case" unless sourced; require "Possible gap
+>    (inference)"; no invented metrics) with one more Runtime rebuild, or add real test data. Original options: (a) prompt rule to say no test data
 >    exists and label test-gap suggestions as inferences (Runtime rebuild; could ride with the #2 prompt change), or (b) add real test
 >    data (a Jira test field or a Confluence test-plan page per project).
 >
