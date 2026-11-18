@@ -69,13 +69,12 @@ bottom before doing anything.
 >    infra-cdk gitea_stack.py, test added, stack not redeployed) and docs/demo-healthcheck.ps1 has a -StartGitea switch (start path
 >    untested live). VERIFY after the first Friday-night run (check the health check Saturday morning). Whether the org needs to approve
 >    that tag is unverified. Memory: gitea-ec2-found-stopped-on-saturdays.
->  - BUILDER `npm ci` FAILS (OPEN, worked around): frontend/package-lock.json is out of sync for Linux npm 11.19 / node 24 on the builder
->    (EUSAGE: missing top-level @emnapi/core and @emnapi/runtime 1.11.3, which an optional wasm package requires). It is PRE-EXISTING, not
->    caused by the chat UI change (that diff has no @emnapi lines); earlier builder deploys evidently never ran `npm ci`. The 2026-11-17
->    frontend deploy used `npm install --no-audit --no-fund` on the builder (keeps pinned versions, adds the missing entries), then
->    restored the builder lock; nothing was committed from the builder. FIX STILL TO DO: get the Linux npm's lock diff (the deploy step was
->    asked to resend it; not received), apply it to the repo lock, commit, and verify `npm ci` on the builder. Until then a builder
->    frontend deploy must use `npm install` instead of `npm ci`. Memory: builder-npm-ci-lockfile-out-of-sync.
+>  - BUILDER `npm ci` FAILS: FIXED in commit 5070005. The Windows-generated frontend/package-lock.json (npm 11.6.2) lacked top-level
+>    @emnapi/core and @emnapi/runtime 1.11.3, which Linux npm 11.19 / node 24 on the builder requires (EUSAGE). The lock was regenerated on
+>    the builder with `npm install --package-lock-only` (additive: 4 new @emnapi entries, no version/resolved/integrity changes; npm also
+>    recomputed the `"peer": true` flag on 21 existing entries). `npm ci` now passes on the builder and on Windows, and `next build` works
+>    on the builder, so frontend deploys can use `npm ci` again. Note: a local Windows `npm install` (npm 11.6.2) may flip those `peer`
+>    flags back; do not commit such lock churn. Memory: builder-npm-ci-lockfile-out-of-sync.
 >  - PRODUCTION-ISSUES QUESTION ("which story or missing test case contributed to the incidents?"): the live agent links incidents ->
 >    deployments -> stories correctly (e.g. INC-2001 -> DEP-1003 -> PROD-403; INC-2003 -> DEP-1001 -> AUTH-304) but INVENTS the
 >    "missing test cases" and "root cause: no testing" statements, because no connected system holds test data, and it also tied
