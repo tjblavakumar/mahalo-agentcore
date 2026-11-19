@@ -25,8 +25,16 @@ branch the Lambda is packaged as a plain asset (``Code.from_asset("../api")``) s
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
-from aws_cdk import BundlingOptions, CfnOutput, Duration, Stack
+from aws_cdk import (
+    AssetHashType,
+    BundlingOptions,
+    CfnOutput,
+    DockerVolume,
+    Duration,
+    Stack,
+)
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -51,6 +59,48 @@ _API_ASSET_EXCLUDE = [
 ]
 
 
+# …/infra-cdk/mahalo_infra/api_stack.py -> repo root -> skills/ (built-in skills).
+_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "skills"
+
+
+def _api_code(build_image: bool, skills_dir: Path) -> lambda_.Code:
+    """Build the API Lambda code asset.
+
+    Offline branch: plain asset, no Docker. Build-image branch: bundle deps via
+    Docker and copy the repo-root ``skills/`` directory (mounted at
+    ``/skills-src``) into the asset. ``AssetHashType.OUTPUT`` is required because
+    the default source hash covers only ``api/``, so a skill-file change would
+    otherwise not produce a new asset.
+    """
+    if not build_image:
+        return lambda_.Code.from_asset(_API_DIR, exclude=_API_ASSET_EXCLUDE)
+    return lambda_.Code.from_asset(
+        _API_DIR,
+        exclude=_API_ASSET_EXCLUDE,
+        asset_hash_type=AssetHashType.OUTPUT,
+        bundling=BundlingOptions(
+            image=lambda_.Runtime.PYTHON_3_13.bundling_image,
+            volumes=[
+                DockerVolume(
+                    host_path=str(skills_dir), container_path="/skills-src"
+                )
+            ],
+            # The Lambda function runs on ARM64, so native wheels (pydantic_core
+            # etc.) MUST be aarch64/manylinux2014. Pin the pip platform explicitly
+            # so the result does not depend on the build host's architecture.
+            command=[
+                "bash",
+                "-c",
+                "pip install -r requirements.txt "
+                "--platform manylinux2014_aarch64 --python-version 3.13 "
+                "--only-binary=:all: --implementation cp "
+                "-t /asset-output && cp -r app /asset-output "
+                "&& cp -r /skills-src /asset-output/skills",
+            ],
+        ),
+    )
+
+
 class MahaloApiStack(Stack):
     """Function-URL Lambda forwarding to the AgentCore Runtime."""
 
@@ -62,6 +112,7 @@ class MahaloApiStack(Stack):
         runtime_stack: "Stack",
         dashboard_stack: "Stack",
         model_config_stack: "Stack",
+        skills_stack: "Stack",
         identity_enabled: bool = False,
         mock_stacks: "dict[str, Stack] | None" = None,
         **kwargs,
@@ -72,36 +123,12 @@ class MahaloApiStack(Stack):
         dashboard_table = dashboard_stack.table
         model_config_table = model_config_stack.table
 
+        skills_table = skills_stack.table
+
         build_image = bool(self.node.try_get_context("buildImage")) or (
             os.environ.get("MAHALO_BUILD_IMAGE") == "1"
         )
-        if build_image:
-            # Operator deploy: bundle deps into the asset via Docker.
-            code = lambda_.Code.from_asset(
-                _API_DIR,
-                exclude=_API_ASSET_EXCLUDE,
-                bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_13.bundling_image,
-                    # The Lambda function below runs on ARM64, so native wheels
-                    # (pydantic_core etc.) MUST be aarch64/manylinux2014. Pin the
-                    # pip platform explicitly so the result does not depend on the
-                    # build host's architecture (the EC2 builder is Graviton/ARM64,
-                    # but pinning keeps this correct on any builder).
-                    command=[
-                        "bash",
-                        "-c",
-                        "pip install -r requirements.txt "
-                        "--platform manylinux2014_aarch64 --python-version 3.13 "
-                        "--only-binary=:all: --implementation cp "
-                        "-t /asset-output && cp -r app /asset-output",
-                    ],
-                ),
-            )
-        else:
-            # Offline gate: plain asset, no Docker. (A pre-built deps layer is the
-            # offline-branch fallback for a runnable Lambda; for the synth gate the
-            # plain asset is sufficient and Docker-free.)
-            code = lambda_.Code.from_asset(_API_DIR, exclude=_API_ASSET_EXCLUDE)
+        code = _api_code(build_image, _SKILLS_DIR)
 
         fn = lambda_.Function(
             self,
@@ -121,6 +148,7 @@ class MahaloApiStack(Stack):
                 "MAHALO_IDENTITY_ENABLED": "true" if identity_enabled else "false",
                 "MAHALO_DASHBOARD_TABLE": dashboard_table.table_name,
                 "MAHALO_MODEL_CONFIG_TABLE": model_config_table.table_name,
+                "MAHALO_SKILLS_TABLE": skills_table.table_name,
             },
         )
 
@@ -136,6 +164,8 @@ class MahaloApiStack(Stack):
         dashboard_table.grant_read_write_data(fn)
         # Thin API -> model-config table: GetItem/PutItem on the one persona item.
         model_config_table.grant_read_write_data(fn)
+        # Thin API -> skills table: Query/Get/Put/Delete on the shared library.
+        skills_table.grant_read_write_data(fn)
         if identity_enabled:
             # Per-user invoke requires the additional IAM action (§B.5 / §D.4).
             runtime.grant_invoke_runtime_for_user(fn)
@@ -161,6 +191,8 @@ class MahaloApiStack(Stack):
                     lambda_.HttpMethod.GET,
                     # PUT /dashboard/widgets (custom dashboard overwrite-save).
                     lambda_.HttpMethod.PUT,
+                    # DELETE /skills/{name} (remove an uploaded skill).
+                    lambda_.HttpMethod.DELETE,
                 ],
                 # No SigV4 headers — nothing is signed anymore. Only the content
                 # type and the persona header the browser sends.
