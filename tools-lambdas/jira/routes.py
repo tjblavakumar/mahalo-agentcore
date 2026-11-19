@@ -226,7 +226,7 @@ def build_router(store, token):
         project_sprints = [s for s in store.query(PK_SPRINT) if s["project_id"] == project_id]
         stories = store.query(PK_STORY)
         for sprint in project_sprints:
-            if sprint["status"] == "active":
+            if sprint["status"] in ("active", "completed"):
                 done_stories = [
                     s for s in stories
                     if s["sprint_id"] == sprint["id"] and s["status"] == "done"

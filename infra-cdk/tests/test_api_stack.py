@@ -6,15 +6,19 @@ python3.13 Lambda with handler app.main.handler, a Function URL AuthType=NONE
 wired in.
 """
 
+from pathlib import Path
+
 import aws_cdk as cdk
 from aws_cdk import assertions
 
+from mahalo_infra import api_stack as api_stack_mod
 from mahalo_infra.api_stack import MahaloApiStack
 from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.model_config_stack import MahaloModelConfigStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
+from mahalo_infra.skills_stack import MahaloSkillsStack
 
 _ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
@@ -25,12 +29,14 @@ def _api_template():
     runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
     dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
     model_config = MahaloModelConfigStack(app, "MahaloModelConfigStack", env=_ENV)
+    skills = MahaloSkillsStack(app, "MahaloSkillsStack", env=_ENV)
     api = MahaloApiStack(
         app,
         "MahaloApiStack",
         runtime_stack=runtime,
         dashboard_stack=dashboard,
         model_config_stack=model_config,
+        skills_stack=skills,
         env=_ENV,
     )
     return assertions.Template.from_stack(api)
@@ -62,7 +68,7 @@ def test_function_url_cors_block():
     props = url["Properties"]
     assert props["AuthType"] == "NONE"
     cors = props["Cors"]
-    assert set(cors["AllowMethods"]) == {"POST", "GET", "PUT"}
+    assert set(cors["AllowMethods"]) == {"POST", "GET", "PUT", "DELETE"}
     for header in ("Content-Type", "X-Mahalo-Persona"):
         assert header in cors["AllowHeaders"]
     # The SigV4 headers are no longer allowed (nothing is signed).
@@ -108,6 +114,7 @@ def test_mock_stacks_wire_viewer_env_vars():
     runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
     dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
     model_config = MahaloModelConfigStack(app, "MahaloModelConfigStack", env=_ENV)
+    skills = MahaloSkillsStack(app, "MahaloSkillsStack", env=_ENV)
     mocks = {
         svc: MockServiceStack(
             app, f"MahaloMock{svc.capitalize()}Stack", service=svc, env=_ENV
@@ -120,6 +127,7 @@ def test_mock_stacks_wire_viewer_env_vars():
         runtime_stack=runtime,
         dashboard_stack=dashboard,
         model_config_stack=model_config,
+        skills_stack=skills,
         mock_stacks=mocks,
         env=_ENV,
     )
@@ -138,3 +146,57 @@ def test_no_viewer_env_vars_without_mock_stacks():
     (fn,) = tmpl.find_resources("AWS::Lambda::Function").values()
     env = fn["Properties"]["Environment"]["Variables"]
     assert not [k for k in env if k.startswith("MAHALO_") and k.endswith(("_URL", "_TOKEN"))]
+
+
+def test_api_lambda_has_skills_table_env():
+    (fn,) = _api_template().find_resources("AWS::Lambda::Function").values()
+    env = fn["Properties"]["Environment"]["Variables"]
+    assert "MAHALO_SKILLS_TABLE" in env
+
+
+def test_api_role_can_read_write_skills_table():
+    policies = _api_template().find_resources("AWS::IAM::Policy")
+    actions = set()
+    for policy in policies.values():
+        for stmt in policy["Properties"]["PolicyDocument"]["Statement"]:
+            act = stmt["Action"]
+            actions.update(act if isinstance(act, list) else [act])
+    assert "dynamodb:Query" in actions
+    assert "dynamodb:DeleteItem" in actions
+
+
+def _capture_from_asset(monkeypatch):
+    calls = []
+
+    def fake_from_asset(path, **kwargs):
+        calls.append((path, kwargs))
+        return "code"
+
+    monkeypatch.setattr(api_stack_mod.lambda_.Code, "from_asset", fake_from_asset)
+    return calls
+
+
+def test_api_code_build_image_bundles_skills(monkeypatch):
+    calls = _capture_from_asset(monkeypatch)
+    skills_dir = Path("some") / "skills"
+    api_stack_mod._api_code(True, skills_dir)
+    ((_, kwargs),) = calls
+    bundling = kwargs["bundling"]
+    assert bundling.command[-1].endswith("cp -r /skills-src /asset-output/skills")
+    ((vol),) = bundling.volumes
+    assert vol.host_path == str(skills_dir)
+    assert vol.container_path == "/skills-src"
+    assert kwargs["asset_hash_type"] == cdk.AssetHashType.OUTPUT
+
+
+def test_api_code_offline_has_no_bundling(monkeypatch):
+    calls = _capture_from_asset(monkeypatch)
+    api_stack_mod._api_code(False, Path("some") / "skills")
+    ((_, kwargs),) = calls
+    assert "bundling" not in kwargs
+    assert "asset_hash_type" not in kwargs
+
+
+def test_skills_dir_is_repo_root_skills():
+    assert api_stack_mod._SKILLS_DIR.name == "skills"
+    assert api_stack_mod._SKILLS_DIR.parent == Path(api_stack_mod._API_DIR).parent

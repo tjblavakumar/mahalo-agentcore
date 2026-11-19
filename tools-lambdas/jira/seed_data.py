@@ -1,14 +1,45 @@
 """Rich e-commerce seed data for Mock Jira service."""
 
+# skills: tags; capacity_points: points per sprint the developer can take, per
+# project (a missing project means none recorded); primary_service is optional
+# (dev-6 has none on purpose).
 DEVELOPERS = [
-    {"id": "dev-1", "name": "Marcus Chen", "email": "marcus@ecommerce.io"},
-    {"id": "dev-2", "name": "Sarah Johnson", "email": "sarah@ecommerce.io"},
-    {"id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io"},
-    {"id": "dev-4", "name": "Emily Zhang", "email": "emily@ecommerce.io"},
-    {"id": "dev-5", "name": "David Kim", "email": "david@ecommerce.io"},
-    {"id": "dev-6", "name": "Lava Dev", "email": "lava@ecommerce.io"},
+    {
+        "id": "dev-1", "name": "Marcus Chen", "email": "marcus@ecommerce.io",
+        "skills": ["payments", "webhooks", "wallets", "backend"],
+        "primary_service": "payment-service",
+        "capacity_points": {"PAY": 16, "CART": 5},
+    },
+    {
+        "id": "dev-2", "name": "Sarah Johnson", "email": "sarah@ecommerce.io",
+        "skills": ["cart-pricing", "checkout", "performance", "backend"],
+        "primary_service": "cart-service",
+        "capacity_points": {"CART": 13, "PAY": 3, "PROD": 5},
+    },
+    {
+        "id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io",
+        "skills": ["security", "auth", "oauth-sso", "compliance", "backend"],
+        "primary_service": "auth-service",
+        "capacity_points": {"AUTH": 13, "PAY": 5, "ORD": 3},
+    },
+    {
+        "id": "dev-4", "name": "Emily Zhang", "email": "emily@ecommerce.io",
+        "skills": ["search", "recommendations", "catalog", "data"],
+        "primary_service": "product-service",
+        "capacity_points": {"PROD": 13, "CART": 8},
+    },
+    {
+        "id": "dev-5", "name": "David Kim", "email": "david@ecommerce.io",
+        "skills": ["fulfillment", "reporting", "dashboards", "integration", "backend"],
+        "primary_service": "order-service",
+        "capacity_points": {"ORD": 13, "PROD": 5, "PAY": 3},
+    },
+    {
+        "id": "dev-6", "name": "Lava Dev", "email": "lava@ecommerce.io",
+        "skills": ["fraud-ml", "full-stack", "sso", "api-design"],
+        "capacity_points": {"PAY": 8, "AUTH": 8, "ORD": 5},
+    },
 ]
-
 PROJECTS = [
     {
         "id": "PAY",
@@ -731,3 +762,158 @@ STORIES = [
         "comments": [],
     },
 ]
+
+
+# --- Enrichment: earlier completed sprints and extra stories (design section F) ---
+
+_HISTORY_SPRINTS = [
+    # (id, name, start, end, velocity)
+    ("PAY-H3", "Sprint 20", "2026-06-16", "2026-06-27", 26),
+    ("PAY-H2", "Sprint 21", "2026-06-30", "2026-07-11", 29),
+    ("PAY-H1", "Sprint 22", "2026-07-14", "2026-07-25", 31),
+    ("CART-H2", "Sprint 16", "2026-06-30", "2026-07-11", 24),
+    ("CART-H1", "Sprint 17", "2026-07-14", "2026-07-25", 26),
+    ("AUTH-H2", "Sprint 10", "2026-06-30", "2026-07-11", 18),
+    ("AUTH-H1", "Sprint 11", "2026-07-14", "2026-07-25", 19),
+    ("PROD-H2", "Sprint 13", "2026-06-30", "2026-07-11", 26),
+    ("PROD-H1", "Sprint 14", "2026-07-14", "2026-07-25", 29),
+    ("ORD-H2", "Sprint 8", "2026-06-30", "2026-07-11", 21),
+    ("ORD-H1", "Sprint 9", "2026-07-14", "2026-07-25", 24),
+]
+
+SPRINTS.extend(
+    {
+        "id": sid,
+        "project_id": sid.split("-")[0],
+        "name": name,
+        "status": "completed",
+        "start_date": start,
+        "end_date": end,
+        "velocity": velocity,
+    }
+    for sid, name, start, end, velocity in _HISTORY_SPRINTS
+)
+
+_PRIORITIES = {"c": "critical", "h": "high", "m": "medium", "l": "low"}
+
+# (id, sprint suffix or "-" for backlog, title, points, priority, status, assignee or None)
+_EXTRA_STORIES = [
+    # PAY
+    ("PAY-061", "H3", "Vault storage for card references", 8, "h", "done", "dev-3"),
+    ("PAY-062", "H3", "Payment intent state machine", 8, "h", "done", "dev-1"),
+    ("PAY-063", "H3", "Webhook signature verification", 5, "c", "done", "dev-1"),
+    ("PAY-064", "H3", "Checkout error message catalogue", 5, "m", "done", "dev-6"),
+    ("PAY-071", "H2", "3DS2 challenge flow", 13, "h", "done", "dev-1"),
+    ("PAY-072", "H2", "Refund API endpoint", 8, "m", "done", "dev-5"),
+    ("PAY-073", "H2", "Payment audit log export", 5, "m", "done", "dev-3"),
+    ("PAY-074", "H2", "Currency formatting helper", 3, "l", "done", "dev-6"),
+    ("PAY-081", "H1", "Settlement batch job", 13, "h", "done", "dev-5"),
+    ("PAY-082", "H1", "Card-on-file reuse", 8, "h", "done", "dev-1"),
+    ("PAY-083", "H1", "Idempotency keys on charge API", 5, "c", "done", "dev-3"),
+    ("PAY-084", "H1", "Retry-after header handling", 5, "m", "done", "dev-6"),
+    ("PAY-085", "H1", "Chargeback evidence upload", 5, "m", "in_progress", "dev-5"),
+    ("PAY-098", "S1", "Dispute and chargeback webhook events", 5, "h", "in_progress", "dev-1"),
+    ("PAY-099", "S1", "Saved cards management UI", 3, "m", "todo", "dev-6"),
+    ("PAY-091", "-", "Webhook retry dashboard", 5, "m", "todo", None),
+    ("PAY-092", "-", "Partial refund support", 8, "h", "todo", None),
+    ("PAY-093", "-", "PayPal wallet integration", 13, "m", "todo", None),
+    ("PAY-094", "-", "Provider timeout circuit breaker", 5, "h", "todo", None),
+    ("PAY-095", "-", "Saved-card expiry reminders", 3, "l", "todo", None),
+    # CART
+    ("CART-110", "S1", "Cart API pagination for large carts", 5, "m", "done", "dev-4"),
+    ("CART-111", "S1", "Cart badge count fix", 2, "l", "done", "dev-2"),
+    ("CART-112", "S1", "Saved-for-later list", 5, "m", "in_progress", "dev-4"),
+    ("CART-120", "H1", "Tax estimate in cart", 13, "h", "done", "dev-2"),
+    ("CART-121", "H1", "Price rounding utility", 8, "h", "done", "dev-4"),
+    ("CART-122", "H1", "Guest cart merge conflicts", 5, "m", "done", "dev-2"),
+    ("CART-130", "H2", "Cart totals API v2", 8, "h", "done", "dev-2"),
+    ("CART-131", "H2", "Promo banner component", 8, "m", "done", "dev-4"),
+    ("CART-132", "H2", "Cart analytics events", 5, "m", "done", "dev-1"),
+    ("CART-133", "H2", "Empty-cart messaging", 3, "l", "done", "dev-2"),
+    ("CART-207", "-", "Gift-wrap option", 5, "l", "todo", None),
+    ("CART-208", "-", "JPY rounding fix for cart totals", 5, "h", "todo", None),
+    ("CART-209", "-", "Cart abandonment analytics", 8, "m", "todo", None),
+    ("CART-210", "-", "Coupon stacking rules", 8, "h", "todo", None),
+    # AUTH
+    ("AUTH-210", "S1", "Login audit trail", 5, "m", "done", "dev-6"),
+    ("AUTH-211", "S1", "Email verification reminder", 3, "l", "todo", "dev-6"),
+    ("AUTH-212", "S1", "Sign-in credential policy update", 5, "m", "in_review", "dev-3"),
+    ("AUTH-220", "H1", "Account lockout flow", 8, "h", "done", "dev-3"),
+    ("AUTH-221", "H1", "Session timeout settings", 8, "m", "done", "dev-6"),
+    ("AUTH-222", "H1", "Login page accessibility fixes", 3, "l", "done", "dev-3"),
+    ("AUTH-230", "H2", "Sign-in credential hashing upgrade", 8, "c", "done", "dev-3"),
+    ("AUTH-231", "H2", "Registration form validation", 5, "m", "done", "dev-6"),
+    ("AUTH-232", "H2", "Email template refresh", 5, "l", "done", "dev-2"),
+    ("AUTH-307", "-", "SCIM user provisioning", 13, "m", "todo", None),
+    ("AUTH-308", "-", "SMS fallback delivery retry", 5, "h", "todo", None),
+    ("AUTH-309", "-", "Passkey (WebAuthn) support", 13, "l", "todo", None),
+    ("AUTH-310", "-", "Admin audit log viewer", 5, "m", "todo", None),
+    # PROD
+    ("PROD-310", "S1", "Search synonyms admin", 5, "m", "done", "dev-4"),
+    ("PROD-311", "S1", "Category tree caching", 5, "m", "done", "dev-5"),
+    ("PROD-312", "S1", "Bulk import validation", 5, "h", "in_progress", "dev-4"),
+    ("PROD-320", "H1", "Faceted filters", 13, "h", "done", "dev-4"),
+    ("PROD-321", "H1", "Inventory sync job", 8, "h", "done", "dev-5"),
+    ("PROD-322", "H1", "Product page SEO tags", 8, "m", "done", "dev-2"),
+    ("PROD-330", "H2", "Search relevance tuning", 13, "h", "done", "dev-4"),
+    ("PROD-331", "H2", "Image CDN migration", 8, "m", "done", "dev-5"),
+    ("PROD-332", "H2", "Catalog admin export", 5, "l", "done", "dev-2"),
+    ("PROD-405", "-", "Recommendation A/B test results", 5, "m", "todo", None),
+    ("PROD-406", "-", "Deploy-safe migration checks", 8, "h", "todo", None),
+    ("PROD-407", "-", "Wishlist counts on product page", 3, "l", "todo", None),
+    ("PROD-408", "-", "Search typo-tolerance tuning", 8, "m", "todo", None),
+    # ORD
+    ("ORD-410", "S1", "Order status email copy", 5, "l", "done", "dev-5"),
+    ("ORD-411", "S1", "Carrier rate lookup", 5, "m", "done", "dev-6"),
+    ("ORD-412", "S1", "Order cancellation window", 5, "h", "in_progress", "dev-5"),
+    ("ORD-413", "S1", "Return reason analytics", 3, "l", "todo", "dev-1"),
+    ("ORD-420", "H1", "Warehouse inventory feed", 13, "h", "done", "dev-5"),
+    ("ORD-421", "H1", "Order history pagination", 8, "m", "done", "dev-6"),
+    ("ORD-422", "H1", "Shipment notification templates", 3, "l", "done", "dev-3"),
+    ("ORD-430", "H2", "Order state machine refactor", 8, "h", "done", "dev-5"),
+    ("ORD-431", "H2", "Refund-on-return hook", 8, "m", "done", "dev-6"),
+    ("ORD-432", "H2", "Admin order search", 5, "m", "done", "dev-3"),
+    ("ORD-505", "-", "Backorder notifications", 5, "m", "todo", None),
+    ("ORD-506", "-", "Partial cancellation API", 8, "h", "todo", None),
+    ("ORD-507", "-", "Order export scheduling", 3, "l", "todo", None),
+    ("ORD-508", "-", "Carrier tracking retry", 5, "h", "todo", None),
+]
+
+# Carry-over stories (open work inside a completed sprint) get one comment.
+_CARRY_OVER_COMMENTS = {
+    "PAY-085": ("dev-5", "Evidence upload works, waiting on the dispute API contract", "2026-07-24"),
+    "PAY-098": ("dev-1", "Moved to the next sprint, webhook event schema still under review", "2026-08-07"),
+    "PAY-099": ("dev-6", "Not started, blocked behind the card vault changes", "2026-08-07"),
+    "CART-112": ("dev-4", "List UI done, persistence not finished", "2026-08-06"),
+    "AUTH-211": ("dev-6", "Waiting on the email template sign-off", "2026-08-06"),
+    "AUTH-212": ("dev-3", "In review, policy wording needs a second look", "2026-08-07"),
+    "PROD-312": ("dev-4", "Validation rules done, large-file handling pending", "2026-08-06"),
+    "ORD-412": ("dev-5", "Cancellation window logic drafted, tests pending", "2026-08-06"),
+    "ORD-413": ("dev-1", "Not started, analytics schema undecided", "2026-08-07"),
+}
+
+
+def _extra_story(story_id, sprint, title, points, priority, status, assignee):
+    project_id = story_id.split("-")[0]
+    comment = _CARRY_OVER_COMMENTS.get(story_id)
+    return {
+        "id": story_id,
+        "project_id": project_id,
+        "sprint_id": None if sprint == "-" else f"{project_id}-{sprint}",
+        "title": title,
+        "description": f"Deliver {title[0].lower()}{title[1:]} for the {project_id} project.",
+        "status": status,
+        "priority": _PRIORITIES[priority],
+        "story_points": points,
+        "assignee": assignee,
+        "acceptance_criteria": [
+            f"{title} behaves as described in the story",
+            "Covered by automated tests and reviewed",
+        ],
+        "comments": (
+            [{"author": comment[0], "text": comment[1], "date": comment[2]}] if comment else []
+        ),
+    }
+
+
+STORIES.extend(_extra_story(*row) for row in _EXTRA_STORIES)

@@ -1,0 +1,28 @@
+{
+  "skills": [
+    {
+      "name": "JIRA_ROADMAP",
+      "description": "Propose a two-sprint roadmap",
+      "builtin": true,
+      "size_bytes": 4096,
+      "content_sha256": "a3f1c9d2e8b74650912c4d7e6f0a1b2c3d4e5f60718293a4b5c6d7e8f9012345",
+      "updated_at": null,
+      "updated_by": null
+    },
+    {
+      "name": "TEAM_STANDUP",
+      "description": "Summarise yesterday's work",
+      "builtin": false,
+      "size_bytes": 812,
+      "content_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "updated_at": "2026-01-15T10:30:00Z",
+      "updated_by": "pm"
+    }
+  ],
+  "projects": ["PAY", "CART", "AUTH", "PROD", "ORD"],
+  "limits": {
+    "max_bytes": 16384,
+    "max_user_skills": 50,
+    "tool_call_budget": 20
+  }
+}

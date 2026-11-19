@@ -1,0 +1,15 @@
+{
+  "skill": {
+    "name": "TEAM_STANDUP",
+    "description": "Summarise yesterday's work",
+    "builtin": false,
+    "size_bytes": 812,
+    "content_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "updated_at": "2026-01-15T10:30:00Z",
+    "updated_by": "pm",
+    "filename": "TEAM_STANDUP_SKILL.md",
+    "content": "---\nname: team-standup\ndescription: Summarise yesterday's work\n---\nList what was done.\n"
+  },
+  "created": true,
+  "warnings": ["`allowed-tools` was ignored: a skill cannot grant tools."]
+}

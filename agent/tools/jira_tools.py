@@ -75,8 +75,13 @@ def _format_stories(results: list[dict], label: str, developers: Optional[list[d
         assignee_name = dev_by_id.get(assignee_id, assignee_id or "Unassigned")
         output += (
             f"- [{s['id']}] {s['title']} | Status: {s['status']} | "
-            f"Points: {s['story_points']} | Assignee: {assignee_name}\n"
+            f"Points: {s['story_points']} | Assignee: {assignee_name}"
         )
+        if "sprint_id" in s:
+            output += f" | Sprint: {s['sprint_id'] or 'Backlog'}"
+        if "priority" in s:
+            output += f" | Priority: {s['priority']}"
+        output += "\n"
     return output
 
 
@@ -90,7 +95,14 @@ def jira_list_developers() -> str:
         return "No developers found."
     output = "Developers:\n"
     for d in developers:
-        output += f"- {d['id']}: {d['name']} ({d.get('email', 'no email')})\n"
+        output += f"- {d['id']}: {d['name']} ({d.get('email', 'no email')})"
+        if d.get("skills"):
+            output += f" | skills: {', '.join(d['skills'])}"
+        if d.get("capacity_points"):
+            output += " | capacity: " + ", ".join(f"{p} {n}" for p, n in d["capacity_points"].items())
+        if d.get("primary_service"):
+            output += f" | service: {d['primary_service']}"
+        output += "\n"
     return output
 
 

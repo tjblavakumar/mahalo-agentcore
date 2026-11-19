@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buildSuggestions } from "@/lib/chatSuggestions";
-import { api, getModelConfig } from "@/services/api";
+import { api, checkSkill, getModelConfig, listSkills, runSkill } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import type {
   Proposal,
@@ -22,6 +22,17 @@ import ChatMessage from "@/components/chat/ChatMessage";
 import StageProgress from "@/components/chat/StageProgress";
 import ProposalCard from "@/components/chat/ProposalCard";
 import ContextPanel from "@/components/chat/ContextPanel";
+import SkillCheckCard, { type SkillCardState } from "@/components/chat/SkillCheckCard";
+import SkillRunStatus from "@/components/chat/SkillRunStatus";
+import SkillLibraryPanel from "@/components/chat/SkillLibraryPanel";
+import { getSkill } from "@/services/api";
+import type { SkillCheck, SkillRunInfo, SkillSummary } from "@/lib/skills/types";
+import {
+  describeCheckError,
+  describeFailure,
+  formatRunSummary,
+  type SkillFailure,
+} from "@/lib/skills/ui";
 
 interface Message {
   id: string;
@@ -31,6 +42,24 @@ interface Message {
   proposal?: Proposal | null;
   stages?: Stage[];
   review?: ReviewSummary;
+  /** Chip text of a "/" skill command (user bubble). The skill body is never shown. */
+  skillCommand?: string;
+  /** A skill check card. */
+  skillCard?: SkillCard;
+  /** Transient "skill is running" status line. */
+  skillRunning?: { command: string; project: string; systems: string[] };
+  /** Summary line under a skill answer. */
+  skillRunInfo?: SkillRunInfo;
+}
+
+interface SkillCard {
+  command: string;
+  project: string | null;
+  check: SkillCheck | null;
+  sha: string | null;
+  state: SkillCardState;
+  failure?: SkillFailure;
+  content?: string | null;
 }
 
 interface CardResult {
@@ -47,6 +76,9 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [actionResults, setActionResults] = useState<Record<string, CardResult>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [skillsFailed, setSkillsFailed] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [contextPanel, setContextPanel] = useState<{
     isOpen: boolean;
     title: string;
@@ -97,6 +129,154 @@ export default function ChatPage() {
       active = false;
     };
   }, [persona?.personaId]);
+
+  const refreshSkills = useCallback(async () => {
+    const res = await listSkills(persona?.personaId);
+    if (res.data) {
+      setSkills(res.data.skills);
+      setSkillsFailed(false);
+    } else {
+      setSkillsFailed(true);
+    }
+  }, [persona?.personaId]);
+
+  // Load the skill library once per persona.
+  useEffect(() => {
+    let active = true;
+    listSkills(persona?.personaId).then((res) => {
+      if (!active) return;
+      if (res.data) {
+        setSkills(res.data.skills);
+        setSkillsFailed(false);
+      } else {
+        setSkillsFailed(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [persona?.personaId]);
+
+  function updateCard(id: string, patch: Partial<SkillCard>) {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id && m.skillCard ? { ...m, skillCard: { ...m.skillCard, ...patch } } : m))
+    );
+  }
+
+  function dropSkill(name: string) {
+    setSkills((prev) => prev.filter((s) => s.name !== name));
+  }
+
+  async function runCheck(name: string, project: string | null) {
+    setIsLoading(true);
+    const cardId = nextMessageId("check");
+    const res = await checkSkill({ name, project, session_id: sessionId }, persona?.personaId);
+    let card: SkillCard;
+    if (res.data?.skill_check) {
+      card = {
+        command: name,
+        project: res.data.project ?? project,
+        check: res.data.skill_check,
+        sha: res.data.skill?.content_sha256 ?? null,
+        state: "ready",
+      };
+    } else {
+      const failure = res.data?.error
+        ? describeCheckError(res.data.error)
+        : describeFailure("check", res, false);
+      if (failure.removeSkill) dropSkill(name);
+      card = { command: name, project, check: null, sha: null, state: "error", failure };
+    }
+    setMessages((prev) => [
+      ...prev,
+      { id: cardId, role: "assistant", content: "", skillCard: card },
+    ]);
+    setIsLoading(false);
+  }
+
+  async function handleSkillCommand(name: string, project: string | null) {
+    const chip = project ? `/${name} ${project}` : `/${name}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: nextMessageId(), role: "user", content: "", skillCommand: chip },
+    ]);
+    await runCheck(name, project);
+  }
+
+  function handleCheckAgain(msg: Message, project: string | null) {
+    const card = msg.skillCard;
+    if (!card) return;
+    // The old card stays as history; its retry control is used up.
+    updateCard(msg.id, {
+      failure: card.failure ? { ...card.failure, control: null } : card.failure,
+    });
+    return runCheck(card.command, project);
+  }
+
+  function handleCancelSkill(msg: Message) {
+    updateCard(msg.id, { state: "cancelled" });
+  }
+
+  async function handleViewSkill(msg: Message) {
+    const card = msg.skillCard;
+    if (!card || card.content) return;
+    const res = await getSkill(card.command, persona?.personaId);
+    updateCard(msg.id, { content: res.data ? res.data.content : "The skill could not be loaded." });
+  }
+
+  async function handleRunSkill(msg: Message, project: string) {
+    const card = msg.skillCard;
+    if (!card || !card.sha) return;
+    updateCard(msg.id, { state: "accepted", project, failure: undefined });
+    const runId = nextMessageId("running");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: runId,
+        role: "assistant",
+        content: "",
+        skillRunning: {
+          command: card.command,
+          project,
+          systems: card.check?.systems_needed ?? [],
+        },
+      },
+    ]);
+    setIsLoading(true);
+    const res = await runSkill(
+      {
+        name: card.command,
+        project,
+        content_sha256: card.sha,
+        consented: true,
+        session_id: sessionId,
+      },
+      persona?.personaId
+    );
+    setMessages((prev) => prev.filter((m) => m.id !== runId));
+    if (res.data) {
+      if (!sessionId || res.data.session_id !== sessionId) setSessionId(res.data.session_id);
+      const isPending = res.data.status === "pending_approval";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextMessageId("resp"),
+          role: "assistant",
+          content: res.data!.response,
+          systemsQueried: res.data!.systems_queried,
+          proposal: isPending ? res.data!.proposal : null,
+          stages: res.data!.stages,
+          review: res.data!.review,
+          skillRunInfo: res.data!.skill_run ?? undefined,
+        },
+      ]);
+    } else {
+      const failure = describeFailure("run", res, card.check?.writes_involved ?? false);
+      if (failure.removeSkill) dropSkill(card.command);
+      updateCard(msg.id, { state: "error", failure });
+    }
+    setIsLoading(false);
+  }
 
   async function handleSend(message: string) {
     const userMsg: Message = {
@@ -269,6 +449,35 @@ export default function ChatPage() {
 
           {messages.map((msg) => (
             <div key={msg.id}>
+              {msg.skillCommand && (
+                <div className="mb-4 flex justify-end">
+                  <span className="rounded-lg bg-blue-600 px-4 py-3 font-mono text-sm text-white">
+                    {msg.skillCommand}
+                  </span>
+                </div>
+              )}
+              {msg.skillCard && (
+                <SkillCheckCard
+                  command={msg.skillCard.command}
+                  project={msg.skillCard.project}
+                  check={msg.skillCard.check}
+                  state={msg.skillCard.state}
+                  failure={msg.skillCard.failure}
+                  skillContent={msg.skillCard.content}
+                  onViewSkill={() => handleViewSkill(msg)}
+                  onRun={(p) => handleRunSkill(msg, p)}
+                  onCancel={() => handleCancelSkill(msg)}
+                  onCheckAgain={(p) => handleCheckAgain(msg, p)}
+                  onRunAgain={(p) => handleRunSkill(msg, p)}
+                />
+              )}
+              {msg.skillRunning && (
+                <SkillRunStatus
+                  command={msg.skillRunning.command}
+                  project={msg.skillRunning.project}
+                  systems={msg.skillRunning.systems}
+                />
+              )}
               {msg.content && (
                 <ChatMessage
                   role={msg.role}
@@ -277,6 +486,11 @@ export default function ChatPage() {
                   stages={msg.stages}
                   review={msg.review}
                 />
+              )}
+              {msg.skillRunInfo && (
+                <p className="mb-3 text-xs text-gray-500">
+                  {formatRunSummary(msg.skillRunInfo, Boolean(msg.proposal))}
+                </p>
               )}
               {msg.proposal && (
                 <ProposalCard
@@ -303,9 +517,29 @@ export default function ChatPage() {
 
         {/* Input Area */}
         <div className="border-t border-gray-200 bg-white px-6 py-4">
-          <ChatInput onSend={handleSend} disabled={isLoading} />
+          <ChatInput
+            onSend={handleSend}
+            disabled={isLoading}
+            skills={skills}
+            skillsFailed={skillsFailed}
+            onSkillCommand={handleSkillCommand}
+            onOpenSkills={() => setLibraryOpen(true)}
+          />
         </div>
       </div>
+
+      {libraryOpen && (
+        <SkillLibraryPanel
+          skills={skills}
+          personaId={persona?.personaId}
+          onClose={() => setLibraryOpen(false)}
+          onChanged={refreshSkills}
+          onCheckSkill={(name) => {
+            setLibraryOpen(false);
+            void handleSkillCommand(name, null);
+          }}
+        />
+      )}
 
       {/* Context Panel */}
       <ContextPanel

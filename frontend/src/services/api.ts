@@ -8,7 +8,13 @@
  */
 
 import type { PersonaId } from "@/lib/personas";
-import type { ModelConfig } from "@/types";
+import type { ChatResponse, ModelConfig } from "@/types";
+import type {
+  SkillCheckResponse,
+  SkillDetail,
+  SkillPutResponse,
+  SkillsListResponse,
+} from "@/lib/skills/types";
 
 // Default is the thin-API Lambda Function URL convention
 // (https://<id>.lambda-url.<region>.on.aws). Injected at build time via
@@ -20,6 +26,10 @@ const API_BASE_URL =
 interface ApiResponse<T> {
   data: T | null;
   error: string | null;
+  /** HTTP status; undefined when fetch itself threw (network error). */
+  status?: number;
+  /** `detail.code` of a skills-router error body, when detail is an object. */
+  code?: string;
 }
 
 function normalizeErrorMessage(value: unknown): string {
@@ -74,18 +84,26 @@ async function request<T>(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage =
-        normalizeErrorMessage(errorData.detail) ||
-        normalizeErrorMessage(errorData.message) ||
+        (errorData.detail != null && normalizeErrorMessage(errorData.detail)) ||
+        (errorData.message != null && normalizeErrorMessage(errorData.message)) ||
         `Request failed with status ${response.status}`;
+
+      const detail = errorData.detail;
+      const code =
+        detail && typeof detail === "object" && !Array.isArray(detail) && typeof detail.code === "string"
+          ? (detail.code as string)
+          : undefined;
 
       return {
         data: null,
         error: errorMessage,
+        status: response.status,
+        ...(code ? { code } : {}),
       };
     }
 
     const data = await response.json();
-    return { data, error: null };
+    return { data, error: null, status: response.status };
   } catch (err) {
     return {
       data: null,
@@ -117,6 +135,50 @@ export function getModelConfig(personaId?: PersonaId) {
 
 export function putModelConfig(config: ModelConfig, personaId?: PersonaId) {
   return api.put<ModelConfig>("/model-config", config, personaId);
+}
+
+/**
+ * Skills helpers against the thin API's /skills router. Failures carry
+ * `status` and `code` (see ApiResponse) so callers key on those, not on text.
+ */
+export function listSkills(personaId?: PersonaId) {
+  return api.get<SkillsListResponse>("/skills", personaId);
+}
+
+export function getSkill(name: string, personaId?: PersonaId) {
+  return api.get<SkillDetail>(`/skills/${encodeURIComponent(name)}`, personaId);
+}
+
+export function putSkill(
+  name: string,
+  body: { filename: string; content: string; overwrite?: boolean },
+  personaId?: PersonaId
+) {
+  return api.put<SkillPutResponse>(`/skills/${encodeURIComponent(name)}`, body, personaId);
+}
+
+export function deleteSkill(name: string, personaId?: PersonaId) {
+  return api.delete<{ deleted: string }>(`/skills/${encodeURIComponent(name)}`, personaId);
+}
+
+export function checkSkill(
+  body: { name: string; project: string | null; session_id?: string | null },
+  personaId?: PersonaId
+) {
+  return api.post<SkillCheckResponse>("/skills/check", body, personaId);
+}
+
+export function runSkill(
+  body: {
+    name: string;
+    project: string;
+    content_sha256: string;
+    consented: true;
+    session_id?: string | null;
+  },
+  personaId?: PersonaId
+) {
+  return api.post<ChatResponse>("/skills/run", body, personaId);
 }
 
 export type { ApiResponse };

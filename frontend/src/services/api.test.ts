@@ -84,4 +84,53 @@ describe("api client (plain fetch)", () => {
     const [, options] = fetchMock.mock.calls[0];
     expect(options.headers["X-Mahalo-Persona"]).toBeUndefined();
   });
+
+  it("passes status through on success", async () => {
+    const { api } = await import("./api");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: 1 }, true, 200));
+    const result = await api.get("/skills");
+    expect(result.status).toBe(200);
+    expect(result.code).toBeUndefined();
+  });
+
+  it("passes status and detail.code through on a skills error", async () => {
+    const { api } = await import("./api");
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ detail: { code: "skill_changed", message: "changed" } }, false, 409)
+    );
+    const result = await api.post("/skills/run", {});
+    expect(result.data).toBeNull();
+    expect(result.status).toBe(409);
+    expect(result.code).toBe("skill_changed");
+    expect(result.error).toBe("changed");
+  });
+
+  it("sets status but no code on a request-validation 422", async () => {
+    const { api } = await import("./api");
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ detail: [{ msg: "bad project" }] }, false, 422)
+    );
+    const result = await api.post("/skills/check", {});
+    expect(result.status).toBe(422);
+    expect(result.code).toBeUndefined();
+  });
+
+  it("sets status on a non-JSON failure and leaves it undefined on a thrown fetch", async () => {
+    const { api } = await import("./api");
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new Error("not json");
+      },
+    } as unknown as Response);
+    const failed = await api.get("/skills");
+    expect(failed.status).toBe(502);
+    expect(failed.error).toBe("Request failed with status 502");
+
+    fetchMock.mockRejectedValueOnce(new Error("network down"));
+    const thrown = await api.get("/skills");
+    expect(thrown.status).toBeUndefined();
+    expect(thrown.error).toBe("network down");
+  });
 });

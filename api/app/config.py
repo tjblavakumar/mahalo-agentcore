@@ -45,6 +45,13 @@ class Settings:
     )
 
 
+    # DynamoDB table backing the shared skill library (skills design, section A);
+    # wired in by MahaloApiStack as MAHALO_SKILLS_TABLE. MAHALO_SKILLS_DIR
+    # overrides where the packaged built-in skill files are read from.
+    skills_table: str = field(
+        default_factory=lambda: _getenv("MAHALO_SKILLS_TABLE", "mahalo-skills")
+    )
+    skills_dir: str = field(default_factory=lambda: _getenv("MAHALO_SKILLS_DIR", ""))
     # Mock-service Function URLs + API tokens, wired in by MahaloApiStack from the
     # mock stacks. Used ONLY server-side by the read-only viewer proxy and the
     # refresh endpoint; the tokens never reach the browser.

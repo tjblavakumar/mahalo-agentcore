@@ -14,6 +14,7 @@ from mahalo_infra.dashboard_stack import MahaloDashboardStack
 from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.model_config_stack import MahaloModelConfigStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
+from mahalo_infra.skills_stack import MahaloSkillsStack
 
 _ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
@@ -30,12 +31,14 @@ def _api_template_with_dashboard():
     runtime = MahaloRuntimeStack(app, "MahaloRuntimeStack", memory_stack=memory, env=_ENV)
     dashboard = MahaloDashboardStack(app, "MahaloDashboardStack", env=_ENV)
     model_config = MahaloModelConfigStack(app, "MahaloModelConfigStack", env=_ENV)
+    skills = MahaloSkillsStack(app, "MahaloSkillsStack", env=_ENV)
     api = MahaloApiStack(
         app,
         "MahaloApiStack",
         runtime_stack=runtime,
         dashboard_stack=dashboard,
         model_config_stack=model_config,
+        skills_stack=skills,
         env=_ENV,
     )
     return assertions.Template.from_stack(api)

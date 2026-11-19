@@ -37,15 +37,19 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from strands import Agent
 
-from agent import model_config
+from agent import model_config, skills
 from agent.config import settings
 from agent.hitl import emit_system_signal, resume_once
 from agent.prompts import ROLE_PROMPTS
 from agent.review import build_reviewer, review_code
 from agent.runtime_session import build_and_attach
+from agent.strands_agent import _build_bedrock_model
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +59,8 @@ app = BedrockAgentCoreApp()
 _PROMPT_MAX_BYTES = 32 * 1024
 _DEFAULT_DEVELOPER_ID = "dev-6"
 _DEFAULT_ROLE = "developer"
-_VALID_ACTIONS = {"chat", "approve"}
+_VALID_ACTIONS = {"chat", "approve", "skill_check", "skill_run"}
+CHECK_DEADLINE_S = 45.0
 _VALID_DECISIONS = {"APPROVE", "REJECT"}
 
 
@@ -207,8 +212,20 @@ def _run_review(
     return stages, review
 
 
-def _handle_chat(payload: dict, session_id: str) -> dict:
-    """Chat leg: one agent turn; return a proposal on interrupt, else the reply."""
+def _handle_chat(
+    payload: dict,
+    session_id: str,
+    *,
+    extra_hooks=(),
+    review_final_text: bool = True,
+) -> dict:
+    """Chat leg: one agent turn; return a proposal on interrupt, else the reply.
+
+    ``extra_hooks`` are added after the approval hook (skill runs pass the budget
+    hook). ``review_final_text=False`` skips the fenced-code review of a completed
+    answer (``stages``/``review`` are then absent); a ``commit_files`` proposal is
+    still reviewed.
+    """
     prompt = payload.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
         return _error(
@@ -232,6 +249,8 @@ def _handle_chat(payload: dict, session_id: str) -> dict:
     attached = build_and_attach(
         session_id, developer_id=developer_id, role=role, pending_write=False
     )
+    for hook in extra_hooks:
+        attached.agent.hooks.add_hook(hook)
     try:
         result = attached.agent(prompt)
     finally:
@@ -268,16 +287,18 @@ def _handle_chat(payload: dict, session_id: str) -> dict:
     response = str(result).strip()
     # On the complete branch review the concatenation of fenced code blocks, only
     # when at least one is present (FR-17: a no-code turn gets no review stage).
-    code = _extract_fenced_code(response) if response else ""
-    stages, review = _run_review(code, review_model_id, did_fallback)
     out = {
         "status": "complete",
         "response": response,
         "proposal": None,
         "session_id": session_id,
         "error": None,
-        "stages": stages,
     }
+    if not review_final_text:
+        return out
+    code = _extract_fenced_code(response) if response else ""
+    stages, review = _run_review(code, review_model_id, did_fallback)
+    out["stages"] = stages
     if review is not None:
         out["review"] = review
     return out
@@ -366,6 +387,147 @@ def _handle_approve(payload: dict, session_id: str) -> dict:
     }
 
 
+def _validate_skill_input(payload: dict, session_id: str, *, project_required: bool):
+    """Return ``(name, body, project, None)`` or ``(None, None, None, error_envelope)``."""
+
+    def bad(message: str, error_type: str):
+        return None, None, None, _error(
+            message, error_type=error_type, session_id=session_id
+        )
+
+    name = payload.get("skill_name")
+    body = payload.get("skill_body")
+    if (
+        not isinstance(name, str)
+        or len(name) > skills.MAX_COMMAND_NAME_LEN
+        or not skills.COMMAND_NAME_RE.match(name)
+    ):
+        return bad("skill_name is not a valid skill command name", "bad_skill")
+    if not isinstance(body, str) or not body.strip():
+        return bad("skill_body must be non-empty text", "bad_skill")
+    if len(body.encode("utf-8")) > skills.MAX_SKILL_BYTES:
+        return bad("The skill is larger than 16 KB.", "bad_skill")
+    reason = skills.refusal_reason(body)
+    if reason:
+        return bad(reason, "bad_skill")
+    raw_project = payload.get("project")
+    project = skills.normalise_project(raw_project)
+    if (raw_project is not None or project_required) and project is None:
+        return bad(
+            "project must be one of " + ", ".join(skills.SKILL_PROJECTS),
+            "bad_project",
+        )
+    return name, body, project, None
+
+
+def _build_check_agent(manifest) -> Agent:
+    """A tool-less one-shot agent: read-only by construction, no hooks, no Memory."""
+    model = _build_bedrock_model(
+        settings.bedrock_model_id, read_timeout=40, max_attempts=1, max_tokens=6000
+    )
+    return Agent(
+        model=model,
+        tools=[],
+        system_prompt=skills.build_check_system_prompt(manifest),
+    )
+
+
+def _handle_skill_check(payload: dict, session_id: str) -> dict:
+    """Plan a skill without running it (design C). Returns ``skill_check``."""
+    name, body, project, err = _validate_skill_input(
+        payload, session_id, project_required=False
+    )
+    if err:
+        return err
+    manifest = skills.build_manifest()
+    check_agent = _build_check_agent(manifest)
+    user_msg = skills.build_check_user_message(name, project, body, skills.new_nonce())
+
+    pool = ThreadPoolExecutor(max_workers=1)
+    fut = pool.submit(
+        check_agent, user_msg, structured_output_model=skills.SkillCheckDraft
+    )
+    try:
+        result = fut.result(timeout=CHECK_DEADLINE_S)
+    except FutureTimeout:
+        pool.shutdown(wait=False)  # never the ``with`` form: it would block
+        return _error(
+            "The check took too long. Try again.",
+            error_type="check_timeout", session_id=session_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - in-band error envelope
+        pool.shutdown(wait=False)
+        logger.exception("Skill check failed")
+        kind = type(exc).__name__.lower()
+        if "timeout" in kind or "throttl" in kind:
+            return _error(
+                "The check took too long. Try again.",
+                error_type="check_timeout", session_id=session_id,
+            )
+        return _error(
+            "The check could not be completed. Try again.",
+            error_type="check_failed", session_id=session_id,
+        )
+    pool.shutdown(wait=False)
+
+    draft = getattr(result, "structured_output", None)
+    if not isinstance(draft, skills.SkillCheckDraft):
+        return _error(
+            "The check returned no usable plan. Try again.",
+            error_type="check_invalid_output", session_id=session_id,
+        )
+    try:
+        check = skills.build_check(draft, body, project, manifest)
+    except skills.CheckEmpty:
+        return _error(
+            "The check found no steps in this skill.",
+            error_type="check_empty", session_id=session_id,
+        )
+    return {
+        "status": "complete",
+        "response": "",
+        "proposal": None,
+        "session_id": session_id,
+        "error": None,
+        "skill_check": check.model_dump(),
+    }
+
+
+def _handle_skill_run(payload: dict, session_id: str) -> dict:
+    """Run a consented skill as a bounded chat turn (design D)."""
+    name, body, project, err = _validate_skill_input(
+        payload, session_id, project_required=True
+    )
+    if err:
+        return err
+    try:
+        prompt = skills.wrap_skill_run(name, project, body)
+    except skills.SkillRefused as exc:
+        return _error(str(exc), error_type="bad_skill", session_id=session_id)
+
+    budget = skills.SkillRunBudget()
+    out = _handle_chat(
+        {
+            "prompt": prompt,
+            "developer_id": payload.get("developer_id"),
+            "role": payload.get("role"),
+            "review_model_id": payload.get("review_model_id"),
+        },
+        session_id,
+        extra_hooks=[budget],
+        review_final_text=False,
+    )
+    if out.get("status") not in ("complete", "pending_approval"):
+        return out
+    if out["status"] == "complete":
+        if budget.hard_stopped:
+            out["response"] = budget.notice()
+        elif budget.exhausted:
+            out["response"] = (out.get("response") or "") + "\n\n" + budget.notice()
+    out["skill_run"] = budget.info(name, project)
+    return out
+
+
 @app.entrypoint
 def invoke(payload, context):  # 2nd param MUST be named "context" (harness introspects it)
     """The single Runtime entrypoint — validate, dispatch, return a JSON-able dict.
@@ -387,7 +549,7 @@ def invoke(payload, context):  # 2nd param MUST be named "context" (harness intr
     action = payload.get("action")
     if action not in _VALID_ACTIONS:
         return _error(
-            "'action' must be one of {chat, approve}",
+            "'action' must be one of {chat, approve, skill_check, skill_run}",
             error_type="bad_action",
             session_id=session_id,
         )
@@ -395,6 +557,10 @@ def invoke(payload, context):  # 2nd param MUST be named "context" (harness intr
     try:
         if action == "chat":
             return _handle_chat(payload, session_id)
+        if action == "skill_check":
+            return _handle_skill_check(payload, session_id)
+        if action == "skill_run":
+            return _handle_skill_run(payload, session_id)
         return _handle_approve(payload, session_id)
     except Exception as exc:  # noqa: BLE001 - surface as an in-band error envelope
         logger.exception("Entrypoint invocation failed")

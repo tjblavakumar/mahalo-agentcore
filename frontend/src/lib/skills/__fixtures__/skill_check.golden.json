@@ -1,0 +1,39 @@
+{
+  "summary": "Reports on the most recent completed sprint of one project.",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Read sprints and velocity for the project",
+      "systems": ["jira"],
+      "tools": ["jira_get_sprint_info"],
+      "writes": false,
+      "est_calls": 1
+    }
+  ],
+  "systems_needed": ["jira"],
+  "tools_needed": ["jira_get_sprint_info"],
+  "writes_involved": false,
+  "write_tools": [],
+  "gaps": [
+    {
+      "id": "g1",
+      "step": 4,
+      "kind": "unsupported_output",
+      "severity": "workable",
+      "description": "The skill asks for a PDF export.",
+      "workaround": "Show the report as formatted text in the chat instead."
+    }
+  ],
+  "required_arguments": [
+    {
+      "name": "project",
+      "required": true,
+      "provided": true,
+      "allowed_values": ["PAY", "CART", "AUTH", "PROD", "ORD"]
+    }
+  ],
+  "estimated_tool_calls": 5,
+  "tool_call_budget": 20,
+  "likely_too_long": false,
+  "verdict": "can_do_with_changes"
+}

@@ -21,6 +21,7 @@ from mahalo_infra.memory_identity_stack import MahaloMemoryIdentityStack
 from mahalo_infra.mock_service_stack import MockServiceStack
 from mahalo_infra.model_config_stack import MahaloModelConfigStack
 from mahalo_infra.runtime_stack import MahaloRuntimeStack
+from mahalo_infra.skills_stack import MahaloSkillsStack
 
 # Account / region. The account is taken from the environment (CDK sets
 # CDK_DEFAULT_ACCOUNT from the caller's credentials at synth/deploy; AWS_ACCOUNT_ID
@@ -122,12 +123,20 @@ def main() -> None:
         "MahaloModelConfigStack",
         env=_ENV,
     )
+    # Shared skill-library table (skills design, section A). Constructed BEFORE
+    # the API stack and wired in by direct construct reference.
+    skills_stack = MahaloSkillsStack(
+        app,
+        "MahaloSkillsStack",
+        env=_ENV,
+    )
     api_stack = MahaloApiStack(
         app,
         "MahaloApiStack",
         runtime_stack=runtime_stack,
         dashboard_stack=dashboard_stack,
         model_config_stack=model_config_stack,
+        skills_stack=skills_stack,
         mock_stacks=mock_stacks,
         env=_ENV,
     )
