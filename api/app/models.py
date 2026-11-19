@@ -7,9 +7,9 @@ only contract the thin API exposes to the frontend.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 
 # --- Multi-LLM model allow-list (design §A / §B.1) ---------------------------
 #
@@ -85,6 +85,23 @@ class ReviewInfo(BaseModel):
         return data
 
 
+class _Strict(BaseModel):
+    """Base for the skills contract models: a renamed or extra key raises."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SkillRunInfo(_Strict):
+    """Run summary attached to ChatResponse by POST /skills/run (E.3)."""
+
+    name: str
+    project: str
+    tool_calls_used: int
+    tool_call_budget: int
+    budget_exhausted: bool
+    deadline_exhausted: bool
+    elapsed_seconds: float
+
 class ChatResponse(BaseModel):
     """Response from the agent, projected from the Runtime reply."""
 
@@ -95,6 +112,8 @@ class ChatResponse(BaseModel):
     # --- NEW, additive-optional (design §E); old clients ignore these ---
     stages: Optional[list[StageInfo]] = None
     review: Optional[ReviewInfo] = None
+    # Additive-optional; set only by POST /skills/run (complete, pending_approval).
+    skill_run: Optional[SkillRunInfo] = None
 
 
 class ApprovalRequest(BaseModel):
@@ -215,3 +234,108 @@ class ModelConfig(BaseModel):
         if value not in REVIEW_ALLOW_LIST:
             raise ValueError(f"{value!r} is not an allowed review model")
         return value
+
+
+# --- Skills (skills design, E.2 / E.3); all extra="forbid" ---------------------
+
+
+class SkillCheckStep(_Strict):
+    n: int
+    text: str
+    systems: list[str]
+    tools: list[str]
+    writes: bool
+    est_calls: int
+
+
+class SkillCheckGap(_Strict):
+    id: str
+    step: Optional[int]
+    kind: Literal[
+        "missing_connection",
+        "unsupported_output",
+        "unsupported_action",
+        "missing_data",
+        "other",
+    ]
+    severity: Literal["blocked", "workable"]
+    description: str
+    workaround: str
+
+
+class SkillCheckArgument(_Strict):
+    name: str
+    required: bool
+    provided: bool
+    allowed_values: list[str]
+
+
+class SkillCheck(_Strict):
+    """The Runtime ``skill_check`` result, copied unchanged by the API."""
+
+    summary: str
+    steps: list[SkillCheckStep]
+    systems_needed: list[str]
+    tools_needed: list[str]
+    writes_involved: bool
+    write_tools: list[str]
+    gaps: list[SkillCheckGap]
+    required_arguments: list[SkillCheckArgument]
+    estimated_tool_calls: int
+    tool_call_budget: int
+    likely_too_long: bool
+    verdict: Literal["can_do", "can_do_with_changes", "cannot"]
+
+
+class SkillCheckSkill(_Strict):
+    name: str
+    description: str
+    content_sha256: str
+    builtin: bool
+
+
+class SkillCheckError(_Strict):
+    type: str
+    message: str
+
+
+class SkillCheckResponse(_Strict):
+    status: str
+    session_id: str
+    skill: SkillCheckSkill
+    project: Optional[str] = None
+    skill_check: Optional[SkillCheck] = None
+    error: Optional[SkillCheckError] = None
+
+
+class SkillSummary(_Strict):
+    name: str
+    description: str
+    builtin: bool
+    size_bytes: int
+    content_sha256: str
+    updated_at: Optional[str] = None
+    updated_by: Optional[str] = None
+
+
+class SkillDetail(SkillSummary):
+    filename: str
+    content: str
+
+
+class SkillLimits(_Strict):
+    max_bytes: int
+    max_user_skills: int
+    tool_call_budget: int
+
+
+class SkillsListResponse(_Strict):
+    skills: list[SkillSummary]
+    projects: list[str]
+    limits: SkillLimits
+
+
+class SkillPutResponse(_Strict):
+    skill: SkillDetail
+    created: bool
+    warnings: list[str]

@@ -1,0 +1,9 @@
+{
+  "name": "JIRA_ROADMAP",
+  "project": "PAY",
+  "tool_calls_used": 7,
+  "tool_call_budget": 20,
+  "budget_exhausted": false,
+  "deadline_exhausted": false,
+  "elapsed_seconds": 52.4
+}
