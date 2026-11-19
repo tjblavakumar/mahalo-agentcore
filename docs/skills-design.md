@@ -33,7 +33,7 @@ in any layer (no PyYAML, no YAML library in the browser, no testing library).
 | B | Filename `<SYSTEM>_<WHAT>_SKILL.md`; a hand-written frontmatter subset parser (identical Python and TypeScript, shared test vectors); server is the trust boundary; text is stored verbatim and rendered only as plain text (`<pre>`); no markdown, so no remote images or links. |
 | C | New Runtime action `skill_check`: one tool-less Strands `Agent` call with structured output, a manifest built from `tool_schemas.TOOLS` + `WRITE_TOOL_NAMES` + a fixed cannot-do list; verdict, write flag and too-long flag derived in code; UI card with Run / Cancel. |
 | D | New Runtime action `skill_run` that reuses `_handle_chat` with two keyword hooks (extra hook, no final-text review); skill text goes into the prompt in a delimited block (not the Strands `AgentSkills` plugin); `SkillRunBudget` hook caps 20 read-tool calls / 170 s, with a hard stop after two refused calls; overrun notice written by code. No background jobs. |
-| E | `ChatInput` gets an ARIA combobox picker; six thin-API endpoints (`GET/PUT/DELETE /skills...`, `POST /skills/check`, `POST /skills/run`); one key registry; strict (`extra="forbid"`) API models and one golden-fixture contract test per new cross-layer shape. |
+| E | `ChatInput` gets a "/" picker (native textarea with `aria-autocomplete`, `aria-controls`, `aria-activedescendant`; listbox below); six thin-API endpoints (`GET/PUT/DELETE /skills...`, `POST /skills/check`, `POST /skills/run`); one key registry; strict (`extra="forbid"`) API models and one golden-fixture contract test per new cross-layer shape. |
 | F | Additive Jira enrichment (3 new sprints for PAY, 2 for the others, 74 stories, developer fields), 18 ServiceNow `linked_story` re-links, `GET /sprints/{id}` also computes points for completed sprints; worked examples for PAY below. Reseed after deploy is required. |
 | G | Threat model below: wrapper + fixed tool registry + HITL are the controls; anyone with the URL can edit shared skills (stated, accepted). |
 | H | Deploy order: `MahaloSkillsStack`, `MahaloMockJiraStack` and `MahaloMockServicenowStack` (then refresh demo data), Runtime image, API (with bundled `skills/`), frontend. No new IAM on the Runtime. |
@@ -175,7 +175,12 @@ hash; it carries no body).
 
 **Filename rule.** `^[A-Z][A-Z0-9]{1,15}(_[A-Z0-9]{1,24}){1,5}_SKILL\.md$`. The
 **command name** is the filename minus `_SKILL.md` and must be at most 64
-characters. Examples that pass: `JIRA_ROADMAP_SKILL.md`,
+characters. **One command-name regex** is defined here and reused everywhere the
+document says "command-name regex" (path `{name}` in the API, the Runtime
+`skill_name` check, the picker): `COMMAND_NAME_RE =
+^[A-Z][A-Z0-9]{1,15}(_[A-Z0-9]{1,24}){1,5}$` plus `len(name) <= 64`. It lives once
+per layer (`api/app/skills.py`, `agent/skills.py`, `lib/skills/parse.ts`) and the
+contract test feeds the same fixture names to all three. Examples that pass: `JIRA_ROADMAP_SKILL.md`,
 `JIRA_SPRINT_REPORT_SKILL.md`. Fails: `jira_roadmap_skill.md`, `JIRA_SKILL.md`
 (one name part), `JIRA_ROADMAP.md`.
 
@@ -284,6 +289,15 @@ block placed in the check agent's system prompt:
    sprints; delete anything; read file contents from GitHub; schedule or repeat a
    run. Each item is short enough to be checked against the tool list in review.
    Output is chat text only.
+
+Import path. `common.tool_schemas` is importable in the image because
+`/app/common` is on the path, but in dev and tests only because `import agent.tools`
+appends `tools-lambdas` to `sys.path` (see `agent/tests/test_gateway_mode.py`, lines
+22-29). `agent/skills.py` therefore does `import agent.tools` first (for that side
+effect, with a comment) and then `from common import tool_schemas`; it does not
+rely on the caller having imported it. `test_skills_check.py` has an offline-import
+test (fresh interpreter via `subprocess`, no network and no AWS credentials) that
+imports `agent.skills` and builds the manifest (NFR-2).
 
 Tests: the manifest names equal `set(tool_schemas.BY_NAME)`; the write marks equal
 `WRITE_TOOL_NAMES`; if someone adds a tool the manifest changes with it.
@@ -396,16 +410,45 @@ call anything. No `build_and_attach` (no Gateway start, no Memory read or write)
 The time bound is enforced, not assumed. `_build_bedrock_model` today uses
 `Config(read_timeout=settings.bedrock_read_timeout` (300 s)`, retries={"max_attempts": 3,
 "mode": "adaptive"})` (`agent/strands_agent.py`), so an unbounded check could take
-the whole 300 s Lambda window. **Chosen:** add two optional keyword arguments to
-`_build_bedrock_model(model_id, *, read_timeout=None, max_attempts=None)`; `None`
-keeps today's values, so the main agent and the review sub-agent are unchanged
-(an existing test asserts the default config). The check passes
-`read_timeout=40, max_attempts=1`. A read timeout or throttle then surfaces
-within about 40 s as the in-band error `check_timeout` (message "The check took
-too long. Try again."). Alternative considered: wrap the call in a 60 s deadline
-thread; rejected because it leaves the Bedrock call running and a boto setting is
-simpler. Target: 20 s or less; hard bound about 45 s. There is no automatic retry
-**for the check** (`max_attempts=1`); the user repeats it from the card.
+the whole 300 s Lambda window. A `read_timeout` alone is not a bound: `BedrockModel`
+streams (`converse_stream`, `strands/models/bedrock.py`), and botocore's
+`read_timeout` is the longest wait for the next bytes, not a total-time limit, so a
+model that keeps emitting tokens never trips it. **Chosen:** three bounds together.
+
+1. `_build_bedrock_model(model_id, *, read_timeout=None, max_attempts=None,
+   max_tokens=None)` (`agent/strands_agent.py`, modified). `None` keeps today's
+   values, so the main agent and the review sub-agent are unchanged. A new test in
+   `agent/tests/test_skills_check.py` asserts the default `Config` (read_timeout
+   300, max_attempts 3, adaptive, no `max_tokens`) and that the check passes its
+   own values.
+2. The check passes `read_timeout=40, max_attempts=1, max_tokens=3000`. This stops
+   a stalled stream (40 s without bytes), removes retries, and caps generation
+   length (the draft limit of 30 steps and 20 gaps fits in 3000 tokens).
+3. A wall-clock deadline of 45 s in `_handle_skill_check`:
+
+   ```python
+   pool = ThreadPoolExecutor(max_workers=1)
+   fut = pool.submit(check_agent, user_msg, structured_output_model=SkillCheckDraft)
+   try:
+       result = fut.result(timeout=CHECK_DEADLINE_S)   # 45.0
+   except FutureTimeout:
+       pool.shutdown(wait=False)   # never the `with` form: it would block until done
+       return _error("The check took too long. Try again.",
+                     error_type="check_timeout", session_id=session_id)
+   pool.shutdown(wait=False)
+   ```
+
+   The abandoned call keeps running in its worker thread until it finishes; it is
+   bounded by `max_tokens=3000` and the 40 s read timeout and its result is
+   discarded. The Runtime process stays alive, so the thread completes. A model
+   throttle or read timeout inside the call surfaces earlier as `check_timeout` too.
+
+Alternative considered: only the boto timeouts (rejected: not a total-time bound,
+see above). A deadline thread alone (rejected: the abandoned call could stream
+unbounded; `max_tokens` bounds it). Target: 20 s or less; the guaranteed bound is
+about 45 s. There is no automatic retry **for the check**; the card offers
+**Check again** (see the failure table below). `CHECK_DEADLINE_S` is a module
+constant so tests patch it to 0.1 s.
 
 **UI card (`SkillCheckCard.tsx`).** An assistant-side message of kind
 `skill_check`:
@@ -428,6 +471,27 @@ simpler. Target: 20 s or less; hard bound about 45 s. There is no automatic retr
   disabled for `cannot`) and **Cancel**, a "View skill" disclosure (plain text in a `<pre>`, section B).
 - After Run or Cancel the buttons disappear and the card shows "Plan accepted" or
   "Cancelled. Nothing was run." (same pattern as `ProposalCard` results).
+
+**Failure states in the UI (check and run).** `api.ts` reports a non-JSON failure
+(a Lambda kill at 300 s returns a Function URL error without a JSON body) as a
+network error, so the network rows cover that path. `SkillCheckCard.test.tsx` has
+one case per row.
+
+| Case | Source | Message shown | Control | Card state and list |
+| --- | --- | --- | --- | --- |
+| Check `status:"error"` (`check_timeout`, `check_empty`, `check_invalid_output`, `check_failed`) | 200 with `error{type,message}` | the `error.message` text | **Check again** (resends the same request) | `error` state, Run and Cancel hidden |
+| Check `bad_project` | 200 with `error` | the `error.message` text | **Check again** with the project selector shown | `error` state |
+| Check `bad_skill` | 200 with `error` | the `error.message` text | none (fix and re-upload the skill) | `error` state |
+| Check 404 | skill deleted since the list loaded | "This skill no longer exists." | none | skill removed from the page `skills` state and the picker; `error` state |
+| Check 422 | bad name or project | "The skill or project is not valid." | none | `error` state |
+| Check 502 or network error | Runtime or Lambda failure | "The check could not be completed. Try again." | **Check again** | `error` state |
+| Run 409 `skill_changed` | stored text differs from the checked text | "This skill changed after the check. Check it again." | **Check again** (new card, new `content_sha256`) | old card in `error` state, Run hidden |
+| Run 404 | skill deleted after the check | "This skill no longer exists." | none | skill removed from the list; `error` state |
+| Run 422 | bad project or `consented` not true | "The run request was not valid. Check it again." | **Check again** | `error` state |
+| Run 502, network error or Lambda timeout | Runtime failure or 300 s kill | read-only skill: "The run took longer than the limit or failed. Nothing was changed (this skill only reads). Try again."; skill with `writes_involved`: "The run did not finish. Check the approval cards before retrying." | **Run again** (same request) for a read-only skill; none for a write skill (the user checks again) | run status removed; message shown on the card |
+
+In every row the picker and Send button are re-enabled and normal chat is
+unaffected.
 
 ---
 
@@ -501,14 +565,18 @@ answer is skipped; the review of a `commit_files` proposal is unchanged).
 `_handle_skill_run` validates, builds the wrapper, creates a `SkillRunBudget`,
 calls `_handle_chat` with a chat-shaped payload (`prompt` = the wrapped block, plus `developer_id`, `role`, `review_model_id`) and `extra_hooks=[budget], review_final_text=False`, then
 adds `skill_run` to the result and, if a bound was hit, appends the notice.
+With `review_final_text=False` on the complete branch, `_run_review` is not called,
+so the `stages` and `review` keys are **absent** from the Runtime envelope and the
+API passes `None` (`ChatResponse.stages` and `.review` are optional, `api/app/models.py`).
+A `commit_files` interrupt still goes through `_run_review` as today.
 
 **Bounding the run: `SkillRunBudget` (new, in `agent/skills.py`).** A
 `HookProvider` registered after the `WriteApprovalHook` (so for a write tool the
 approval gate raises its interrupt first and this hook is not reached on that
 pass). Evidence from the installed Strands (1.61.1): `BeforeToolCallEvent` has
 `cancel_tool: bool | str` and `invocation_state`; `AfterToolsEvent` has
-`end_turn` ("the agent loop halts after this tool batch"), and `event_loop.py`
-stops when `invocation_state["request_state"]["stop_event_loop"]` is set. There
+`end_turn` ("the agent loop halts after this tool batch"; a string value becomes
+the final assistant text). There
 is no iteration cap and the default executor is concurrent, so a soft message to
 the model alone is not a bound; the design adds a hard stop.
 
@@ -524,28 +592,41 @@ the model alone is not a bound; the design adds a hard stop.
    up. Do not call more tools. Finish with the data you already have and state
    what you could not do.", increment `cancelled`, and record `budget_exhausted`
    or `deadline_exhausted`; else increment `calls`.
-3. **Hard stop.** Cancelled calls are counted. A second callback on
-   `AfterToolsEvent` checks `cancelled >= 2` (the model ignored the first refusal)
-   and then sets `event.end_turn = True` and
-   `event.invocation_state["request_state"]["stop_event_loop"] = True`. The loop
-   ends after that tool batch, so a model that keeps calling tools cannot run to
-   the 300 s ceiling: the worst case is 20 counted calls, 2 refusals and the
-   in-flight model calls, bounded by the 170 s deadline plus about two model turns.
-4. **Honest notice, written by code.** After the turn, if any bound was hit,
-   code builds the notice: "> **Run cut short.** The tool-call/time limit was
-   reached (N of 20 calls, S s), so this report may be incomplete. Anything not
-   shown was not retrieved." If the model produced final text, the notice is
-   appended to it. If the final text is empty (the hard stop fired before the
-   model wrote anything), `response` is **only** the notice plus "No report was
-   produced." `skill_run.budget_exhausted` or `deadline_exhausted` is set in both
-   cases. The notice does not depend on the model.
+3. **Hard stop.** The hook counts refusal *rounds*, not refused calls: a second
+   callback on `AfterToolsEvent` increments `refusal_rounds` once per event in
+   which at least one call of the batch was cancelled by this hook (a batch of 3
+   parallel calls after exhaustion is one round). When `refusal_rounds >= 2` (the
+   model ignored the first refusal) it sets `hard_stopped = True` and
+   `event.end_turn` to the exact notice sentence (below). Evidence
+   (`strands/event_loop/event_loop.py`, around lines 960-985): when `end_turn` is
+   truthy the loop appends an assistant message and returns; for `True` that text is
+   the fixed string "Turn ended early by hook after tool execution", so the design
+   passes a string instead, which makes the final text deterministic. The
+   `request_state["stop_event_loop"]` write is not used (the `end_turn` branch
+   returns before that check). The loop ends after that tool batch, so the worst
+   case is 20 counted calls, 2 refusal rounds and the in-flight model calls,
+   bounded by the 170 s deadline plus about two model turns.
+4. **Honest notice, written by code.** The notice text is built by code:
+   "> **Run cut short.** The tool-call/time limit was reached (N of 20 calls, S s),
+   so this report may be incomplete. Anything not shown was not retrieved." plus,
+   for a hard stop, " No report was produced." `_handle_skill_run` decides on the
+   hook's flags, never on whether the text is empty. If `hard_stopped`, `response =
+   notice_text` (replace; the model's text is the fixed Strands sentence or a
+   partial and is discarded). If the budget or deadline was hit but the loop
+   finished normally (the model obeyed the first refusal), the notice is appended
+   to the model's final text. `skill_run.budget_exhausted` or
+   `deadline_exhausted` is set in both cases. The notice does not depend on the
+   model. The Memory write of the turn may contain the fixed Strands sentence for a
+   hard stop; that is acceptable and noted as a known limit.
 
-Tests (unit, offline): a fake agent whose model keeps issuing read-tool calls
-shows the loop ends after the second cancellation, `response` equals the notice
-only, and `skill_run.budget_exhausted` is true; a fake call named
-`jira___jira_update_story` is neither counted nor cancelled; a fake call at the
-20th read tool is allowed and the 21st is cancelled.
-
+Tests (unit, offline, using a real `AfterToolsEvent`/`BeforeToolCallEvent` object
+and the registered hook, not a mock of its fields): a fake agent whose model keeps
+issuing read-tool calls ends after the second refusal round and `response` equals
+the notice only (not the Strands sentence); a batch of 3 parallel calls after
+exhaustion counts as one round and the loop continues once; a model that obeys the
+first refusal gets the notice appended to its text; `skill_run.budget_exhausted`
+is true; a fake call named `jira___jira_update_story` is neither counted nor
+cancelled; the 20th read tool is allowed and the 21st is cancelled.
 This remains a soft bound against one slow model call in flight (a call cannot be
 interrupted); the 170 s deadline leaves about 130 s for it.
 Known limit, stated honestly: if the run proposes a write and the user approves
@@ -564,15 +645,17 @@ mitigation that fits the demo, with no job queue:
    `servicenow_list_incidents` and `servicenow_list_deployments` are filtered
    by service).
 4. If the Lambda or the Runtime call still times out, `/skills/run` returns 502
-   like `/chat`; the card shows "The run took longer than the limit. Nothing was
-   changed (this skill only reads). Try again." A skill that writes shows
-   "Check the approval cards before retrying."
+   like `/chat`; the card shows the run-failure messages in the failure table of section C
+   ("Nothing was changed (this skill only reads)" for a read-only skill; "Check the
+   approval cards before retrying" for a skill that writes).
 
 **Progress and answer in the chat.** There is no streaming (out of scope), so
 progress is honest and coarse: `SkillRunStatus.tsx` shows "Running JIRA_ROADMAP
-for PAY. Reading Jira and ServiceNow. 23 s elapsed (usually 40-90 s)", with the
+for PAY. Reading Jira and ServiceNow. 23 s elapsed", with the
 systems taken from the check result and a one-second timer. It does not
-fabricate step progress. The final answer is a normal assistant message rendered
+fabricate step progress and shows no expected duration: an "about N s" hint is added
+only from the constant `TYPICAL_RUN_SECONDS` in `lib/skills/types.ts`, which is
+`null` (hidden) until live-plan step 9 measures both examples and sets it. The final answer is a normal assistant message rendered
 by `ChatMessage` (tables, badges, code blocks), followed by a summary line from
 `skill_run`: "JIRA_ROADMAP, PAY, 7 of 20 tool calls, 52 s". A pending write is
 shown with the unchanged `ProposalCard` and `/chat/approve`.
@@ -645,15 +728,28 @@ could not be loaded. Try again." and normal chat is unaffected.
 bubble with a monospace chip `/JIRA_ROADMAP PAY` and nothing else. The skill body
 is never put in the message list.
 
-**Accessibility.** The textarea gets `role="combobox"`, `aria-autocomplete="list"`,
-`aria-expanded`, `aria-controls` (listbox id), `aria-activedescendant` (active
-option id), plus `aria-label="Message"`. The list is `role="listbox"`, each row
+**Accessibility.** HTML-ARIA allows no role override on `<textarea>` (axe rule
+`aria-allowed-role`), and `aria-expanded` is not allowed on the implicit `textbox`
+role. **Chosen:** keep the native textarea and its implicit `textbox` role, with
+only attributes allowed on it: `aria-autocomplete="list"`, `aria-controls` (listbox
+id, set only while the list is open), `aria-activedescendant` (active option id),
+plus `aria-label="Message"`. This is the "list autocomplete" pattern minus the
+combobox role, so a screen reader announces the highlighted option and the live
+region announces the match count. (A single-line `<input role="combobox">` was
+rejected: switching element type on `/` loses the caret and the multi-line chat
+input.) The list is `role="listbox"`, each row
 `role="option"` with `aria-selected`; row text is "NAME - description". A visually
 hidden `role="status"` `aria-live="polite"` node says "3 skills match" or "No
 skills match". The check card is `role="region"` with `aria-label="Skill plan"`
 and announces the verdict through a polite live region when it appears; the Run
 and Cancel buttons are native buttons; the verdict and gap severity are words, not
 colour. The run status node is `role="status"`.
+
+**Picker list refresh.** The chat page owns the `skills` state (loaded with
+`GET /skills` per persona). `SkillLibraryPanel` receives `onChanged()`; after a
+successful save or delete the panel calls it and the page re-fetches
+`GET /skills`, so the picker list updates without a reload. A 404 from check or run
+also removes that skill locally.
 
 **Upload and manage UI.** A button "Skills" next to the send button opens
 `SkillLibraryPanel.tsx` (a panel, not a route): the list with a "Built-in" tag,
@@ -1088,8 +1184,8 @@ secret, no new Bedrock model.
 **Live verification plan.** After step 6: (1) `GET /skills` lists the two
 built-ins; (2) reseed, then compare `GET /sprints/PAY`, `GET /stories`,
 `GET /developers`, `GET /incidents` through the viewer proxy against section F;
-(3) in the chat, `/JIRA_SPRINT_REPORT PAY`: Check card shows `can_do`, Run, and
-compare every number with F.8; (4) `/JIRA_ROADMAP PAY` likewise (a `can_do_with_changes` verdict with only workable gaps is logged as a check-prompt tuning item, not a failure of the build), including the
+(3) in the chat, `/JIRA_SPRINT_REPORT PAY`: Check card shows no `blocked` gap and no write notice, then Run, and
+compare every number with F.8; (4) `/JIRA_ROADMAP PAY` likewise (pass rule, same as requirements AC 15b: no `blocked` gap and `writes_involved:false`; `can_do_with_changes` with only workable gaps is acceptable and is logged as a check-prompt tuning item), including the
 INC-2002, PAY-601 and "proposed, not in Jira" statements; (5) repeat both for
 CART, AUTH, PROD, ORD and check the numbers against the F.3/F.4 tables and the
 capacity shortfall note for PROD and ORD; (6) upload a valid skill, see it in the
@@ -1254,7 +1350,7 @@ Bullets from step 9 and any data missing.
 | | Project present but not one of the five | Yes | 422 | none |
 | | Runtime invoke raises (`ClientError`, timeout) | Yes | 502 `Runtime invoke failed` | ERROR |
 | | Runtime returns an error envelope (`bad_skill`, `check_failed`, `check_timeout`, `check_empty`, `check_invalid_output`) | Yes (repeat) | 200 `SkillCheckResponse` with `status:"error"` and `error{type,message}`; `skill_check:null` | WARNING in the Runtime, ERROR with stack for `check_failed` |
-| | Bedrock read timeout (40 s, one attempt) or throttle during the check | Yes (repeat) | in-band `check_timeout` as above ("The check took too long. Try again.") | WARNING |
+| | Check exceeds the 45 s wall-clock deadline, or a Bedrock read timeout (40 s without bytes, one attempt) or throttle | Yes (repeat, **Check again**) | in-band `check_timeout` as above ("The check took too long. Try again."); the abandoned call finishes in the background, capped by `max_tokens=3000` | WARNING |
 | `POST /skills/run` | Skill not found | Yes | 404 | none |
 | | `content_sha256` differs from stored | Yes (re-check) | 409 `skill_changed` | none |
 | | `project` missing or invalid; `consented` not `true` | Yes | 422 | none |
@@ -1324,8 +1420,13 @@ Bullets from step 9 and any data missing.
   gap); a duplicate gap (draft and code-added, same kind and subject) appears
   once; a code-added `missing_connection` stays blocked even if the draft gave a
   workaround; a body naming `jira_update_story` sets `writes_involved` even when
-  the draft omits it; `_build_bedrock_model` default config unchanged and the
-  check passes `read_timeout=40, max_attempts=1`; fake agent returning a draft; verdict
+  the draft omits it; a new test of the default `Config` of `_build_bedrock_model`
+  (read_timeout 300, max_attempts 3, adaptive, no `max_tokens`; no existing test
+  asserts it, `agent/tests/test_runtime_app.py` lines 454-499 check only
+  `profile_name` and `region_name`) and that the check passes `read_timeout=40,
+  max_attempts=1, max_tokens=3000`; a slow fake agent that sleeps past
+  `CHECK_DEADLINE_S` (patched to 0.1 s) gives `check_timeout` and returns promptly
+  (the handler does not wait for the worker); offline-import test; fake agent returning a draft; verdict
   recomputed (draft says fine but a blocked gap exists); unknown tool becomes a
   blocked gap; write detection; too-long flag; workable without workaround becomes
   blocked; empty steps -> `check_empty`; the check agent has an empty tool
@@ -1335,8 +1436,11 @@ Bullets from step 9 and any data missing.
   (20th call allowed, 21st cancelled, deadline, writes never counted or cancelled,
   thread safety; Gateway-prefixed name `jira___jira_update_story` is treated as a write;
   a fake agent that keeps calling tools is ended by the hard stop after the second
-  cancellation); `_handle_skill_run` with a fake agent: notice appended on
-  exhaustion, notice-only response when the model wrote nothing, `skill_run` populated, no `review`/`stages` on a text answer, review
+  refusal round, using real `AfterToolsEvent` objects, including a parallel batch of
+  3 calls after exhaustion that counts as one round); `_handle_skill_run` with a
+  fake agent: notice appended on exhaustion, notice-only response (decided on the
+  hook flag, not on empty text, and not the Strands "Turn ended early" sentence)
+  after a hard stop, `skill_run` populated, `stages` and `review` keys absent on a text answer, review
   still runs for a `commit_files` interrupt, interrupt still returns
   `pending_approval`; `_handle_chat` unchanged for a normal chat (existing tests).
 - `tools-lambdas/tests/test_seed_enrichment.py`: unique ids; every `sprint_id`
@@ -1352,8 +1456,8 @@ Bullets from step 9 and any data missing.
   existing exact-output test stays unchanged.
 - Frontend (Vitest): `parse.test.ts` (shared vectors), `commands.test.ts`
   (`parseSlash` cases: all modes and errors), `ChatInput.test.tsx`
-  (jsdom: open on `/`, arrows, Enter, Tab, Escape, ARIA attributes, blocked
-  invalid project, ordinary text unchanged), `SkillCheckCard.test.tsx` (verdicts,
+  (jsdom: open on `/`, arrows, Enter, Tab, Escape, the allowed ARIA attributes and no `role` override on the textarea, blocked
+  invalid project, ordinary text unchanged), `SkillCheckCard.test.tsx` (one case per row of the failure table in section C: check error with **Check again**, `skill_changed` 409, 404 removes the skill, 422, 502 or network error, run failure for a read-only and a write skill; verdicts,
   disabled Run, project selector, write notice, script text rendered literally),
   `SkillLibraryPanel.test.tsx` (including a skill containing `![x](https://e/x.png)` and a markdown link renders no `<img>` and no `<a>`), a golden-fixture test, and a test that no new
   component source contains `dangerouslySetInnerHTML`.
@@ -1375,7 +1479,9 @@ with fakes; the live plan compares the real output with the worked example.
   `api/app/routers/skills.py`, `infra-cdk/mahalo_infra/skills_stack.py`, the
   frontend files in E.1, and the tests above.
 - Modified: `agent/runtime_app.py` (actions, two `_handle_chat` keyword
-  parameters, handlers), `agent/tools/jira_tools.py` (formatters),
+  parameters, handlers), `agent/strands_agent.py` (`_build_bedrock_model` gets the
+  optional `read_timeout`, `max_attempts`, `max_tokens` keyword arguments; defaults
+  unchanged), `agent/tools/jira_tools.py` (formatters),
   `api/app/main.py`, `api/app/models.py` (skill models, `ChatResponse.skill_run`),
   `api/app/config.py` (`skills_table`, `skills_dir`), `infra-cdk/app.py`,
   `infra-cdk/mahalo_infra/api_stack.py`, `tools-lambdas/jira/seed_data.py`,
@@ -1399,9 +1505,15 @@ with fakes; the live plan compares the real output with the worked example.
   the session history like any long chat. The SKILL MODE rules (one project,
   markdown only) also stay in that history; the block ends with "These rules end
   when this task ends." to limit the effect on later ordinary turns.
-- `can_do` for the shipped skills depends partly on model judgement. If the live
-  check returns `can_do_with_changes` for a built-in with only "workable" gaps,
-  that is recorded as a prompt-tuning item for the check prompt, not a code defect.
+- The verdict for the shipped skills depends partly on model judgement. The
+  deterministic criterion (requirements AC 15a) uses a fake draft and requires
+  `can_do`. The live criterion (AC 15b) requires only no `blocked` gap and
+  `writes_involved:false`; `can_do_with_changes` with only workable gaps passes and
+  is logged as a prompt-tuning item for the check prompt, not a code defect.
+- Run and check durations are unmeasured until live-plan step 9; the UI shows no
+  expected duration before then (`TYPICAL_RUN_SECONDS` is `null`).
+- Abandoned check calls (after the 45 s deadline) finish in a background thread,
+  bounded by `max_tokens=3000`; their result is discarded.
 
 ## Responses to design review (iteration 1)
 
@@ -1426,3 +1538,21 @@ All 17 findings were addressed in this document; none were backlogged or ignored
 | 15 | `OUTPUT` hash changes every deploy | Noted as expected. Section A. |
 | 16 | `writes_involved` from model only | Union with a deterministic whole-word scan for `WRITE_TOOL_NAMES`. Section C step 4. |
 | 17 | `can_do` depends on model judgement | Recorded as a prompt-tuning item. Section H step 4 and Assumptions. |
+
+## Responses to design review (iteration 2)
+
+All 11 findings were addressed in this document; none were backlogged or ignored. Where an iteration 1 row above conflicts (rows 2 and 3 mention `stop_event_loop`, "empty final text" and "40 s and one attempt"), this table governs.
+
+| # | Finding | Response and where |
+| --- | --- | --- |
+| 1 | The 45 s check bound did not hold for a streaming model | Read-timeout and attempts kept, plus `max_tokens=3000` and a 45 s wall-clock deadline (`ThreadPoolExecutor`, `shutdown(wait=False)`, `CHECK_DEADLINE_S` patched in tests); abandoned call bounded by `max_tokens`; rejected-alternative text rewritten; error table, NFR-1, AC 41, slow-fake test. Section C. |
+| 2 | Hard stop text was Strands' fixed sentence; refusals counted per call | `end_turn` set to the code-written notice string; decision on the hook flag `hard_stopped`, never on empty text; `refusal_rounds` counted once per `AfterToolsEvent`; `stop_event_loop` dropped; tests with real events and a 3-call parallel batch. Section D, Testability, AC 42. |
+| 3 | False claim of an existing config test; `strands_agent.py` not listed | Claim replaced by a new default-`Config` test (existing tests only assert `profile_name` and `region_name`); `agent/strands_agent.py` added to Modified with the `max_tokens` plumbing. Section C, Files to change. |
+| 4 | AC 15 conflicted with section H | AC 15 split into 15a (fake draft, deterministic, `can_do`) and 15b (live: no `blocked` gap, `writes_involved:false`); section H step 3-4 and Assumptions use the same rule. |
+| 5 | UI behaviour for check and run failures unspecified | Failure-state table (message, control, card state) with **Check again** / **Run again**, 404 removes the skill, network and Lambda-timeout rows; one test per row. Section C, Testability, AC 47. |
+| 6 | `stages` and `review` omission ambiguous | Stated: `_run_review` not called, both keys absent, API passes `None`. Section D, AC 29. |
+| 7 | Command-name regex never given | `COMMAND_NAME_RE` defined once in section B with the length limit; reused for path and Runtime checks, same fixtures in all three layers. |
+| 8 | `role=combobox` on a textarea | Native textarea keeps its implicit role; only allowed ARIA attributes; `<input role=combobox>` rejected with the reason. Section E.1, AC 11, NFR-6. |
+| 9 | Unmeasured "usually 40-90 s" | Removed; `TYPICAL_RUN_SECONDS` is `null` until live-plan step 9 measures it. Section D. |
+| 10 | Picker refresh after upload or delete | Page owns `skills`; panel calls `onChanged()` which re-fetches `GET /skills`. Section E.1. |
+| 11 | Import relies on a `sys.path` side effect | `agent/skills.py` imports `agent.tools` first; offline-import subprocess test. Section C. |

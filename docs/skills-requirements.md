@@ -245,8 +245,10 @@ The two example skills:
 - NFR-1. **Turn time.** A chat turn is one blocking call (typically 40-60 s)
   through a Lambda Function URL with a 300 s limit. The check step shall
   complete in about 20 s or less (one model call, no tools, no Memory/Gateway
-  start) and shall be bounded to about 45 s (one attempt, 40 s read timeout), after
-  which it returns an in-band `check_timeout` error. A skill run shall be sized to finish well inside 300 s (FR-26).
+  start) and shall be bounded to about 45 s by a wall-clock deadline in the
+  handler (with a capped output length, one attempt and a 40 s read timeout as
+  additional limits; a read timeout alone is not a total-time bound for a streaming
+  model), after which it returns an in-band `check_timeout` error. A skill run shall be sized to finish well inside 300 s (FR-26).
 - NFR-2. **Offline-safety.** Importing any new agent or API module needs no AWS
   credentials or network. The DynamoDB table is built lazily.
 - NFR-3. **Least privilege.** The API function gets read/write on the new skills
@@ -258,8 +260,9 @@ The two example skills:
 - NFR-5. **No new tool.** The feature adds no Gateway tool and changes no tool
   argument, so the Gateway schema and its deploy are untouched. (A formatter
   change in `agent/tools/jira_tools.py` is output text only.)
-- NFR-6. **Accessibility.** The picker follows the WAI-ARIA combobox/listbox
-  pattern; the check card and run status are announced to assistive technology;
+- NFR-6. **Accessibility.** The picker uses the native textarea with only the ARIA
+  attributes allowed on it (autocomplete, controls, activedescendant) and a
+  listbox/option list, so it adds no `aria-allowed-role` violation; the check card and run status are announced to assistive technology;
   no information is conveyed by colour alone.
 - NFR-7. **Static export.** The frontend remains a Next.js static export: no
   route handlers, server actions or dynamic routes are added.
@@ -301,8 +304,9 @@ Picker
     command and description; typing `/JIRA_R` narrows it to `JIRA_ROADMAP`.
 11. ArrowDown/ArrowUp move the highlight, Enter or Tab inserts
     `/JIRA_ROADMAP ` and closes the list, Escape closes it, and focus never
-    leaves the text box. The text box exposes the combobox role with
-    `aria-expanded`, `aria-controls` and `aria-activedescendant`; the list
+    leaves the text box. The text box keeps its native role (no `role`
+    override) and exposes `aria-autocomplete="list"`, `aria-controls` and
+    `aria-activedescendant` while the list is open; the list
     exposes `listbox`/`option`; a polite live region announces the match count.
 12. After `/JIRA_ROADMAP ` a project suggestion list (PAY, CART, AUTH, PROD, ORD)
     appears. `/JIRA_ROADMAP XYZ` is blocked with "Project must be one of PAY,
@@ -316,9 +320,14 @@ Picker
 
 Check
 
-15. `POST /skills/check` for `JIRA_ROADMAP` + `PAY` returns `verdict: can_do`,
-    `writes_involved: false`, no `blocked` gap, `required_arguments` showing
-    `project` provided, and tools limited to existing read tools.
+15a. (Unit, deterministic.) With a fake draft whose steps use only read tools,
+    `POST /skills/check` for `JIRA_ROADMAP` + `PAY` returns `verdict: can_do`,
+    `writes_involved: false`, no gaps, `required_arguments` showing `project`
+    provided, and tools limited to existing read tools.
+15b. (Live.) For both built-in skills and all five projects the live check
+    returns no `blocked` gap and `writes_involved: false`; a `can_do_with_changes`
+    verdict with only `workable` gaps is acceptable and is logged as a
+    check-prompt tuning item.
 16. The check calls no tool: in the agent test the check agent is built with
     `tools=[]` and the test asserts the tool registry is empty.
 17. A skill that says "publish the result to Confluence and attach a PDF"
@@ -359,7 +368,8 @@ Run
     run that calls `jira_update_story` still returns `status:
     pending_approval` and `/chat/approve` still resumes it.
 29. A skill run does not call the review sub-agent for a completed text answer
-    (no `review` object and no `stages` in the response).
+    (`_run_review` is not called; the `review` and `stages` keys are absent from
+    the Runtime envelope and are `null` in the API response).
 30. The run response carries `skill_run` with `name`, `project`,
     `tool_calls_used`, `tool_call_budget`, `budget_exhausted`,
     `deadline_exhausted`, `elapsed_seconds`; the UI shows the summary line.
@@ -409,10 +419,14 @@ Added after design review
     through the real router and asserts every key is present and non-null, and a
     second test feeds the router-built request body to the Runtime entry point.
 41. A check that exceeds its time bound returns `status:"error"` with
-    `error.type = "check_timeout"` within about 45 s.
+    `error.type = "check_timeout"` within about 45 s. A unit test with a fake
+    agent that sleeps past the deadline (patched to 0.1 s) shows the handler
+    returns `check_timeout` promptly without waiting for the call; the check
+    model is built with a capped `max_tokens`.
 42. A model that keeps calling tools after the budget is exhausted is stopped
-    after the second refused call; the response is the code-written notice, and
-    `skill_run.budget_exhausted` is `true`. The budget hook treats
+    after the second refusal round (a batch of parallel calls counts as one
+    round); the response is exactly the code-written notice (not the Strands
+    default "Turn ended early" text), and `skill_run.budget_exhausted` is `true`. The budget hook treats
     `jira___jira_update_story` (Gateway-prefixed) as a write and never counts or
     cancels it.
 43. Typing `/JIRA_ROADMAP PAY` then Enter sends with project `PAY` (list closed);
@@ -427,6 +441,16 @@ Added after design review
 46. An infra test exercises the API bundling branch offline (monkeypatched
     `Code.from_asset`) and asserts the `skills/` copy command, the volume and
     `asset_hash_type`.
+47. The check card handles failures: a check error shows its message and a
+    **Check again** button; a run 409 `skill_changed` shows "This skill changed
+    after the check. Check it again." with **Check again**; a 404 shows "This skill
+    no longer exists." and removes the skill from the picker; a network or Lambda
+    timeout on a run shows the read-only or write-skill message and re-enables the
+    picker. One component test per case.
+48. After a successful upload or delete in the library panel, the picker list
+    shows the change without a page reload.
+49. Importing `agent.skills` in a fresh interpreter with no network and no AWS
+    credentials succeeds and builds the manifest.
 
 ## Out of Scope
 
