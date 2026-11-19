@@ -95,8 +95,10 @@ The two example skills:
   `compatibility` shall be accepted but **ignored**, and the upload result shall
   list them as warnings (in particular `allowed-tools`: a skill cannot grant
   tools).
-- FR-13. Stored skill text shall only ever be **rendered as text or Markdown
-  through the existing safe renderer**, never as HTML.
+- FR-13. Stored skill text shall only ever be **rendered as plain
+  text** (the "View skill" view and the upload preview), never as HTML and never
+  as Markdown, so a stored skill cannot load a remote image or show a clickable
+  link. Skill *output* in chat uses the existing chat renderer.
 
 ### The "/" picker
 
@@ -243,7 +245,8 @@ The two example skills:
 - NFR-1. **Turn time.** A chat turn is one blocking call (typically 40-60 s)
   through a Lambda Function URL with a 300 s limit. The check step shall
   complete in about 20 s or less (one model call, no tools, no Memory/Gateway
-  start). A skill run shall be sized to finish well inside 300 s (FR-26).
+  start) and shall be bounded to about 45 s (one attempt, 40 s read timeout), after
+  which it returns an in-band `check_timeout` error. A skill run shall be sized to finish well inside 300 s (FR-26).
 - NFR-2. **Offline-safety.** Importing any new agent or API module needs no AWS
   credentials or network. The DynamoDB table is built lazily.
 - NFR-3. **Least privilege.** The API function gets read/write on the new skills
@@ -398,6 +401,32 @@ Safety
     `api/app/routers/model_config.py` and `tools-lambdas/common/tool_schemas.py`.
 39. A repository scan of the committed files finds no AWS account id, ARN,
     token, password or absolute workstation path.
+
+Added after design review
+
+40. The key `skill_check` is used identically in the agent envelope, the API
+    response and the frontend type; a contract test runs real handler output
+    through the real router and asserts every key is present and non-null, and a
+    second test feeds the router-built request body to the Runtime entry point.
+41. A check that exceeds its time bound returns `status:"error"` with
+    `error.type = "check_timeout"` within about 45 s.
+42. A model that keeps calling tools after the budget is exhausted is stopped
+    after the second refused call; the response is the code-written notice, and
+    `skill_run.budget_exhausted` is `true`. The budget hook treats
+    `jira___jira_update_story` (Gateway-prefixed) as a write and never counts or
+    cancels it.
+43. Typing `/JIRA_ROADMAP PAY` then Enter sends with project `PAY` (list closed);
+    `/JIRA_ROADMAP` then Enter sends with no project; `/jira_roadmap pay` sends
+    `JIRA_ROADMAP` with `PAY`.
+44. A stored skill containing `![x](https://e/x.png)` renders no `<img>` and no
+    `<a>` in "View skill" or in the upload preview.
+45. The check returns no `missing_connection` gap for the system names
+    "ServiceNow", "Jira Cloud" and "SNOW", lists a duplicate gap once, and sets
+    `writes_involved` when the skill text names a write tool even if the model
+    did not.
+46. An infra test exercises the API bundling branch offline (monkeypatched
+    `Code.from_asset`) and asserts the `skills/` copy command, the volume and
+    `asset_hash_type`.
 
 ## Out of Scope
 
