@@ -4,6 +4,48 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-11-18 STATUS-8 SKILLS FEATURE: DESIGN PAUSED AT REVIEW LIMIT — RESUME HERE (supersedes STATUS-7 where they differ) ===
+> NO CODE EXISTS YET. Only design docs, committed on branch feat/skills in worktree .worktrees/skills (commits fd26691, 417e0fe), NOT on main:
+> docs/skills-requirements.md and docs/skills-design.md. main == origin/main == cebb59f (before this tracker edit). Builder stopped, Gitea running.
+> WORKFLOW wf_76f073c3db52789c ("skills-feature-design-first") is PAUSED on repeat `design-loop` (2/2 iterations used). Steps still pending
+> after it: approval-gate (USER approves the design) -> plan -> converge-loop (fix + semantic review, max 2) -> report. The report step does
+> NOT merge, push or deploy; the orchestrator merges and the user approves deploy separately.
+> HOW TO RESUME: ask the user which they want. (a) RECOMMENDED: one more fix-and-review pass: update_workflow action=extend_repeat,
+> nodeId=design-loop, additionalIterations=1 (one extra iteration = one fix + one review). (b) End the loop with findings unresolved:
+> update_workflow action=update_status, nodeId=design-loop, status=completed (the review verdict stays CHANGES_REQUESTED). The user had not
+> chosen yet when the session paused. If the workflow handle is lost, the design docs on feat/skills can seed a new design-first run.
+> REVIEW HISTORY: pass 1 = 0 HIGH, 8 MEDIUM, 9 NIT (all 17 addressed in 417e0fe); pass 2 = 1 HIGH, 4 MEDIUM, 6 NIT. Full text:
+> .agents/tasks/skills/design-review.md and design-review.json in the MAIN checkout (git-ignored scratch, not in the worktree).
+> THE FIVE FINDINGS STILL OPEN (pass 2): 1) HIGH: the check step's "45 s hard bound" is false. BedrockModel streams (converse_stream), so
+> read_timeout=40 limits only the gap between chunks, not total time. Fix: cap max_tokens (~3000) on the check model AND add a real
+> wall-clock deadline (run the check in a ThreadPoolExecutor, fut.result(timeout=45), pool.shutdown(wait=False), return check_timeout),
+> reword NFR-1/AC 41, add a test with a sleeping fake agent. 2) MEDIUM: the budget hard stop sets end_turn=True, so Strands writes the fixed
+> text "Turn ended early by hook after tool execution" into the answer and Memory (not an empty final text). Fix: set end_turn to the exact
+> notice string, have the handler decide on a hook flag (hard_stopped) not on text emptiness, replace not append, count refusal ROUNDS
+> (one per AfterToolsEvent with a cancelled call, stop at 2) not calls, drop the dead stop_event_loop line. 3) MEDIUM: the design cites an
+> existing test of _build_bedrock_model defaults that does not exist, and omits agent/strands_agent.py from the files-to-change list. 4) MEDIUM:
+> requirement AC 15 demands verdict can_do for JIRA_ROADMAP+PAY while section H accepts can_do_with_changes; make AC 15 a fake-draft test and
+> make the live criterion "no blocked gap, writes_involved false". 5) MEDIUM: no UI rules for check/run failures (check_timeout, check_empty,
+> skill_changed 409, 404 deleted skill, Lambda-timeout network error): need a table of message + Retry/Check-again button per case.
+> NITs: stages/review absent on skill runs; define the command-name regex ^[A-Z][A-Z0-9]{1,15}(_[A-Z0-9]{1,24}){1,5}$; role=combobox is not
+> allowed on a textarea; the "40-90 s" run-time text is unmeasured; picker refresh after upload/delete; agent/skills.py must import agent.tools
+> first so common.tool_schemas resolves.
+> WHAT THE REVIEWER VERIFIED AS SOUND (against the real code): decision not to use the Strands skills plugin (it loads from directories; Skill.
+> from_content exists, installed strands-agents 1.61.1); no new Gateway tool (27 tool descriptors, tool_schemas.py untouched); HITL files
+> (approval.py, hitl.py, github_write_tools.py) zero diff; seed enrichment arithmetic recomputes correctly (74 new stories, 11 new sprints,
+> per-sprint done points equal recorded velocity, capacity sums PAY 35 / CART 26 / AUTH 21 / PROD 23 / ORD 21, mean velocities 30/26/19/29/24);
+> existing demo stories and tests are not disturbed; GET /sprints/{id} today computes points only for active sprints so the design's change is
+> needed. Worked example for the roadmap skill on PAY: Sprint A = PAY-110, PAY-098, PAY-099 (29 pts); Sprint B = PAY-092, PAY-094, PAY-085,
+> PAY-091, PAY-095 (26); not scheduled PAY-093, PAY-109. UNVERIFIED until live: whether the model returns can_do for the built-in skills; run
+> times; Function URL CORS on a Lambda-timeout 502; Docker bind-mount of the skills/ folder on the builder.
+> EXPECTED DEPLOY SURFACE LATER (nothing deployed): new skills table stack, MahaloMockJiraStack (seed data), Runtime image (MAHALO_BUILD_IMAGE=1),
+> Api (MAHALO_BUILD_IMAGE=1), frontend static deploy (NEXT_PUBLIC_API_URL set + bundle grep-checked; builder `npm ci` works now). Not the GitHub
+> mock stack. Then live-verify /JIRA_SPRINT_REPORT and /JIRA_ROADMAP for one project each against the enriched data.
+> HOUSEKEEPING: three UNTRACKED stray files sit in the main checkout and must NOT be committed: docs/skills-design.md (an older draft of the
+> design, newer one is on feat/skills), skills-design.md and skills-requirements.md at the repo root (junk: a code reply and a one-line URL).
+> Stage files by name only. Delete them when convenient. The skills worktree is kept on purpose; remove it only after the feature is merged
+> or abandoned.
+>
 > === 2026-11-18 STATUS-7 SKILLS FEATURE (design discussion, NOT STARTED; no code written) ===
 > IDEA: let users upload a SKILL.md into the chat, have the orchestrator agent understand the steps, VALIDATE whether Mahalo can do them
 > (missing connections, no PDF output, etc.), then run with the user's consent; store skills so they can be re-run from the chat box
