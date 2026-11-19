@@ -135,6 +135,38 @@ def test_jira_get_stories_by_assignee_resolves_and_formats(monkeypatch):
     )
 
 
+def test_format_stories_appends_sprint_and_priority_when_present():
+    out = jira_tools._format_stories(
+        [
+            {"id": "PAY-1", "title": "A", "status": "todo", "story_points": 3,
+             "assignee": None, "sprint_id": None, "priority": "high"},
+            {"id": "PAY-2", "title": "B", "status": "done", "story_points": 5,
+             "assignee": "dev-1", "sprint_id": "PAY-S1", "priority": "low"},
+        ],
+        "x",
+    )
+    assert "Assignee: Unassigned | Sprint: Backlog | Priority: high\n" in out
+    assert "Assignee: dev-1 | Sprint: PAY-S1 | Priority: low\n" in out
+
+
+def test_jira_list_developers_shows_enrichment_when_present(monkeypatch):
+    fake = _FakeRequest({"/developers": {"developers": [
+        {"id": "dev-1", "name": "Marcus Chen", "email": "m@x.io", "skills": ["payments", "backend"],
+         "capacity_points": {"PAY": 16, "CART": 5}, "primary_service": "payment-service"},
+        {"id": "dev-6", "name": "Lava Dev", "email": "l@x.io", "skills": ["sso"],
+         "capacity_points": {"PAY": 8}},
+        {"id": "dev-9", "name": "Plain", "email": "p@x.io"},
+    ]}})
+    monkeypatch.setattr(jira_tools, "make_request", fake)
+
+    out = jira_tools.jira_list_developers()
+
+    assert ("- dev-1: Marcus Chen (m@x.io) | skills: payments, backend "
+            "| capacity: PAY 16, CART 5 | service: payment-service\n") in out
+    assert "- dev-6: Lava Dev (l@x.io) | skills: sso | capacity: PAY 8\n" in out
+    assert "- dev-9: Plain (p@x.io)\n" in out
+
+
 # --------------------------------------------------------------------------- #
 # 2b. Jira assignee resolution logic (_resolve_assignee)
 # --------------------------------------------------------------------------- #

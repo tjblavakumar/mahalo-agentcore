@@ -18,9 +18,24 @@ PK_DEPLOYMENT = "DEPLOYMENT"
 PK_INCIDENT = "INCIDENT"
 
 
+# Re-link generated deployments to real Jira stories (applied to copies only).
+LINKED_STORY_OVERRIDES = {
+    "DEP-1008": "PAY-105", "DEP-1010": "PAY-106", "DEP-1011": "PAY-101",
+    "DEP-1013": "PAY-103", "DEP-1014": "PAY-110",
+    "DEP-1016": "CART-203", "DEP-1020": "CART-201", "DEP-1022": "CART-206",
+    "DEP-1025": "AUTH-306", "DEP-1028": "AUTH-301", "DEP-1031": "AUTH-304",
+    "DEP-1034": "PROD-403", "DEP-1035": "PROD-404", "DEP-1036": "PROD-401",
+    "DEP-1037": "PROD-402",
+    "DEP-1042": "ORD-503", "DEP-1043": "ORD-501", "DEP-1048": "ORD-503",
+}
+
+
 def seed_items():
     days = seed_dates.compute_shift_days(seed_dates.today_utc())
     deployments = seed_dates.shift_records(seed_data.DEPLOYMENTS, days, ("deployed_at",))
+    for dep in deployments:
+        if dep["id"] in LINKED_STORY_OVERRIDES:
+            dep["linked_story"] = LINKED_STORY_OVERRIDES[dep["id"]]
     incidents = seed_dates.shift_records(seed_data.INCIDENTS, days, ("opened_at", "resolved_at"))
     for svc in seed_data.SERVICES:
         yield {"pk": PK_SERVICE, "sk": svc["id"], "record": svc}
