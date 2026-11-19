@@ -2,6 +2,8 @@
  * Shared TypeScript types for the MAHALO chat frontend.
  */
 
+import type { SkillRunInfo } from "@/lib/skills/types";
+
 export type UserRole = "product_manager" | "developer" | "executive";
 
 /**
@@ -63,6 +65,8 @@ export interface ChatResponse {
    */
   stages?: Stage[];
   review?: ReviewSummary;
+  /** Present on /skills/run responses (null or absent on ordinary chat). */
+  skill_run?: SkillRunInfo | null;
 }
 
 /**
