@@ -4,7 +4,71 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
-> === 2026-11-18 STATUS-8 SKILLS FEATURE: DESIGN PAUSED AT REVIEW LIMIT — RESUME HERE (supersedes STATUS-7 where they differ) ===
+> === 2026-11-19 STATUS-9 SKILLS FEATURE: DESIGN APPROVED BY THE USER, WAITING AT THE APPROVAL GATE — RESUME HERE (supersedes STATUS-8) ===
+> THE USER APPROVED THE DESIGN (with the 12 review findings applied as required corrections) and asked to PAUSE and RESUME LATER.
+> The approval has NOT yet been sent to the workflow, so NOTHING IS PLANNED OR BUILT. NO CODE EXISTS. Nothing is deployed. main == origin/main ==
+> 866c696 (plus this tracker edit). Builder stopped, Gitea running.
+> WORKFLOW: wf_76f073c3db52789c ("skills-feature-design-first") is PAUSED at step `approval-gate` (agent wf-coder, step session
+> sess_af510849-039b-439e-82bf-1924a0542aee), waiting for the user's reply. The design loop was ENDED by the user after 3 review passes
+> (verdict stayed CHANGES_REQUESTED; the user chose to fix the findings during the build instead of a 4th pass). Remaining steps: plan ->
+> converge-loop (fix + semantic review, max 2) -> report. The report step does NOT merge, push or deploy.
+> HOW TO RESUME: (1) inspect_workflow wf_76f073c3db52789c; confirm it is paused at approval-gate. (2) Send ONE send_message (severity=info)
+> to the approval-gate session id above containing the approval and the directive text below. (3) The plan step then runs; expect pauses
+> only at the end. (4) Check `git worktree list` still shows .worktrees/skills on feat/skills (commits fd26691, 417e0fe, 2aa9c73).
+> DIRECTIVE TO SEND ON RESUME (paraphrase is fine): "APPROVED by the user. Proceed to plan and implement the Skills design exactly as
+> documented in docs/skills-design.md and docs/skills-requirements.md, with ALL 12 findings of the third design review (.agents/tasks/skills/
+> design-review.md in the main checkout) applied as REQUIRED corrections: they must appear in the plan as explicit work items and be
+> verified by the build review. Specifically: (1) extend frontend/src/services/api.ts request() additively to return {data, error, status?,
+> code?}, define one error body {detail:{code,message}} (+errors[] on 422 invalid_skill) for every non-2xx skills response with codes
+> invalid_skill, builtin_read_only, exists, library_full, skill_changed, skill_not_found, and correct the false 'non-JSON failure is a network
+> error' sentence, add an api.test.ts case; (2) agent/skills.py must import agent.tools.jira_tools (side effect: appends tools-lambdas to
+> sys.path) or append the path itself before `from common import tool_schemas`; fix the wrong claim and the offline-import test; (3) add
+> golden-file contract tests for skill_run, the GET /skills envelope (skills, projects, limits{max_bytes,max_user_skills,tool_call_budget}) and
+> the PUT response (skill, created, warnings), with extra=forbid models and *_KEYS constants in types.ts, and add max_user_skills to the
+> registry; (4) add a `subject` field (<=80 chars) to the draft gap model so gaps can be merged on (kind, normalise_subject(subject)), with a
+> unit case; (5) system-name normaliser = exact alias sets after stripping non-alphanumerics: jira in {jira, jiracloud, jirasoftware};
+> servicenow in {servicenow, snow, servicenowitsm}; github in {github, git, githubcom}; confluence in {confluence, wiki, confluencecloud};
+> anything else unknown (GitLab and Snowflake must be blocked); (6) max_tokens for the check = 6000 (keep the limits) OR reduce the limits
+> and show the arithmetic; update SkillCheckDraft, the Config test and the validation table; (7) remove the stale 'notice appended or notice
+> only if empty' wording: when the hook sets hard_stopped the response is the notice ONLY, decided on the flag never on empty text; fix the
+> iteration-1 response rows; (8) state that the structured-output tool exists during the check call and a forced second cycle is possible,
+> reword AC 16; (9) skill_run is attached to both complete and pending_approval results, summary shows 'waiting for approval'; (10) the
+> SkillRunBudget clock starts when it is constructed, just before _handle_chat; (11) the evidence log route is GET /sprints/{project_id};
+> (12) one [SYSTEM] marker rule: re.match(r'\s*\[system\]', line, re.I) per line, identical in API and Runtime, same shared vectors. Keep
+> baselines green (tools-lambdas 147, agent 126+1 skipped, api 113, frontend vitest 188), the HITL files agent/approval.py, agent/hitl.py,
+> agent/tools/github_write_tools.py at ZERO diff, no new Gateway tool, infra tests targeted only (never the whole infra suite). Do NOT merge,
+> push or deploy; stop after the report."
+> THE APPROVED DESIGN IN PLAIN TERMS (the gate's summary, A-H): A) NEW DynamoDB table mahalo-skills, one shared library for all personas, caps
+> 16 KB per skill and 50 uploads; the two built-ins JIRA_SPRINT_REPORT and JIRA_ROADMAP are read-only files from the repo skills/ folder
+> packaged into the API Lambda; uploads survive reloads and "refresh demo data". B) Upload validation: filename SYSTEM_WHAT_SKILL.md;
+> frontmatter with name (must match the filename) and description; non-empty body; no control characters; [SYSTEM] lines and <<<SKILL markers
+> rejected; the same hand-written parser in browser and API with shared test vectors, the API is the trust boundary; unknown keys such as
+> allowed-tools are ignored with a warning; skill text is shown as plain text only (no images or links). C) CHECK card: new Runtime action
+> skill_check, one model call, no Memory; compares the skill to a manifest built from the 27 real tool definitions plus a fixed "cannot do"
+> list (PDF, email, Confluence write, etc.); CODE decides verdict, write flag and too-long flag; the card shows steps, gaps, Run and Cancel;
+> about 45 s deadline then check_timeout. D) RUN bounds: skill_run reuses the chat path with the skill inside a delimited block (the Strands
+> AgentSkills plugin is NOT used); cap 20 tool calls or 170 s; after two refused rounds the code forces a stop and writes the "run cut short"
+> notice itself; the six-write approval gate is unchanged; no independent-review stage runs on skill output; no background jobs. Known limit:
+> an approved write continues in a normal chat turn with no budget. E) PICKER and API: typing / opens a keyboard-accessible list, then an
+> optional project (/JIRA_ROADMAP PAY); six endpoints GET /skills, GET/PUT/DELETE /skills/{name}, POST /skills/check, POST /skills/run;
+> strict key contracts and golden-file tests tie agent, API and UI. F) SEED DATA (additive): 3 new completed sprints for PAY and 2 for each
+> other project, 74 new stories, developer skills and capacity, 18 existing ServiceNow incidents re-linked to real stories (existing stories
+> unchanged; each sprint's velocity equals its done points); run "refresh demo data" after deploy. G) SECURITY: skill text is data inside a
+> user-turn block with a random delimiter; it cannot add tools; the write gate stays; notices are written by code; ACCEPTED RISK: the API is
+> unauthenticated so anyone with the URL can edit shared skills. H) DEPLOY (later, needs its own user approval): Skills table stack, Jira and
+> ServiceNow mock stacks, refresh demo data, Runtime image (MAHALO_BUILD_IMAGE=1), API (MAHALO_BUILD_IMAGE=1, with the bundled skills/ folder),
+> frontend static deploy (NEXT_PUBLIC_API_URL set and the bundle grep-checked; builder `npm ci` works); no new Runtime IAM; DELETE must be added
+> to the API CORS. Not the GitHub mock stack. Then live-verify /JIRA_SPRINT_REPORT and /JIRA_ROADMAP for one project each against the enriched data.
+> THINGS THE USER WAS TOLD AND ACCEPTED: no independent review on skill output; shared skills editable by anyone with the URL; an approved write
+> inside a run has no budget; the largest deploy so far; the model's "can do" judgement and run times are UNVERIFIED until a live test; the design
+> never got a clean review pass (12 open findings, none change what the user sees).
+> FILES: design docs ONLY on branch feat/skills in worktree .worktrees/skills (docs/skills-requirements.md, docs/skills-design.md; latest commit
+> 2aa9c73); review text in .agents/tasks/skills/design-review.md and design-review.json in the MAIN checkout (git-ignored scratch). Three untracked
+> stray files in the main checkout must NOT be committed: docs/skills-design.md (old draft), skills-design.md and skills-requirements.md at the
+> repo root (junk). Stage files by name only.
+> IF THE WORKFLOW HANDLE IS LOST: start a new design-first/plan run seeded from the design docs on feat/skills and the directive above.
+>
+> === 2026-11-18 STATUS-8 SKILLS FEATURE: DESIGN PAUSED AT REVIEW LIMIT (superseded by STATUS-9 above) ===
 > NO CODE EXISTS YET. Only design docs, committed on branch feat/skills in worktree .worktrees/skills (commits fd26691, 417e0fe), NOT on main:
 > docs/skills-requirements.md and docs/skills-design.md. main == origin/main == cebb59f (before this tracker edit). Builder stopped, Gitea running.
 > WORKFLOW wf_76f073c3db52789c ("skills-feature-design-first") is PAUSED on repeat `design-loop` (2/2 iterations used). Steps still pending
