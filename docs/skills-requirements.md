@@ -153,7 +153,7 @@ The two example skills:
   able to add tools, change system rules, bypass the HITL gate, or override the
   honesty rules.
 - FR-26. A run shall be **bounded**: at most 20 tool calls and about 170 seconds
-  of tool use. When a bound is hit the agent shall stop calling tools, finish
+  from the start of the run (the clock starts when the budget is created, so Gateway start and Memory rehydrate count). When a bound is hit the agent shall stop calling tools, finish
   with what it has, and the response shall say **plainly** that the run was cut
   short (the notice is added by code, not left to the model).
 - FR-27. A run that proposes a write shall stop at the existing approval card,
@@ -162,7 +162,7 @@ The two example skills:
   (headings, tables, short bullets, code blocks). Tables shall use the existing
   badge convention: P1-P4 and status words alone in a table cell.
 - FR-29. The result shall show a short **run summary line**: skill, project,
-  tool calls used of the budget, elapsed seconds, and whether a bound was hit.
+  tool calls used of the budget, elapsed seconds, and whether a bound was hit. The summary is also shown when the run ends at a write proposal (`pending_approval`), marked "waiting for approval".
 - FR-30. While a run is in progress the chat shall show progress (what is
   running, elapsed time) instead of a frozen spinner.
 
@@ -238,13 +238,13 @@ The two example skills:
   keep working. Normal chat (no skill) behaves exactly as today.
 - FR-43. Every field that crosses a layer (agent, API, frontend) shall use the
   **same key name**, and an **agent -> API contract test** shall exist for every
-  new cross-layer field.
+  new cross-layer field, including the skill list, upload and run responses (golden files and key-set tests in all three layers).
 
 ## Non-Functional Requirements
 
 - NFR-1. **Turn time.** A chat turn is one blocking call (typically 40-60 s)
   through a Lambda Function URL with a 300 s limit. The check step shall
-  complete in about 20 s or less (one model call, no tools, no Memory/Gateway
+  complete in about 20 s or less (usually one model call, which may take a second structured-output cycle; no tools other than the structured-output tool; no Memory/Gateway
   start) and shall be bounded to about 45 s by a wall-clock deadline in the
   handler (with a capped output length, one attempt and a 40 s read timeout as
   additional limits; a read timeout alone is not a total-time bound for a streaming
@@ -288,7 +288,7 @@ Library and upload
    without `description`; `name: Jira_Roadmap` (not lowercase-hyphen);
    `name: jira-other` in `JIRA_ROADMAP_SKILL.md` (name does not match
    filename); `name:` ending in a hyphen; an empty body; a 16,385-byte file; a
-   file containing a NUL character; a body line starting with `[SYSTEM]`.
+   file containing a NUL character; a body line that matches the `[SYSTEM]` rule (`re.match(r"\s*\[system\]", line, re.I)`, so leading spaces and any case count).
 6. A shared vector file of valid and invalid skill files produces identical
    accept/reject results in the Python validator and the TypeScript validator.
 7. Uploading a skill with `allowed-tools: Bash` stores it, ignores that key, and
@@ -329,7 +329,7 @@ Check
     verdict with only `workable` gaps is acceptable and is logged as a
     check-prompt tuning item.
 16. The check calls no tool: in the agent test the check agent is built with
-    `tools=[]` and the test asserts the tool registry is empty.
+    `tools=[]`, has no tool other than the structured-output tool during the call, and the test asserts the registry holds nothing else.
 17. A skill that says "publish the result to Confluence and attach a PDF"
     returns `verdict: cannot` with at least one `blocked` gap for the write to
     Confluence and one for PDF output, even if the model's own draft said
@@ -359,9 +359,9 @@ Run
     holds.
 26. The agent receives the skill text only inside the skill-mode block; a unit
     test asserts the block's rules text, the random delimiter, and that a skill
-    body containing the delimiter, or a line starting with `[SYSTEM]`, is
+    body containing the delimiter, or a line matching the `[SYSTEM]` rule of AC 5, is
     refused before any model call.
-27. A run that reaches 20 tool calls, or 170 s of tool use, cancels further tool
+27. A run that reaches 20 tool calls, or 170 s from the start of the run, cancels further tool
     calls, and the response ends with a code-added notice that the run was cut
     short; `skill_run.budget_exhausted` (or `deadline_exhausted`) is `true`.
 28. Registering the budget hook does not change the six-write gate: a fake skill
@@ -372,7 +372,7 @@ Run
     the Runtime envelope and are `null` in the API response).
 30. The run response carries `skill_run` with `name`, `project`,
     `tool_calls_used`, `tool_call_budget`, `budget_exhausted`,
-    `deadline_exhausted`, `elapsed_seconds`; the UI shows the summary line.
+    `deadline_exhausted`, `elapsed_seconds`, also when `status` is `pending_approval`; the UI shows the summary line ("waiting for approval" in that case).
 
 Example skills and data
 
@@ -417,7 +417,7 @@ Added after design review
 40. The key `skill_check` is used identically in the agent envelope, the API
     response and the frontend type; a contract test runs real handler output
     through the real router and asserts every key is present and non-null, and a
-    second test feeds the router-built request body to the Runtime entry point.
+    second test feeds the router-built request body to the Runtime entry point. Golden files for `skill_check`, `skill_run`, `skills_list` and `skill_put` are loaded through the strict API models and compared with the TypeScript `*_KEYS` constants; `limits` includes `max_user_skills`.
 41. A check that exceeds its time bound returns `status:"error"` with
     `error.type = "check_timeout"` within about 45 s. A unit test with a fake
     agent that sleeps past the deadline (patched to 0.1 s) shows the handler
@@ -435,7 +435,7 @@ Added after design review
 44. A stored skill containing `![x](https://e/x.png)` renders no `<img>` and no
     `<a>` in "View skill" or in the upload preview.
 45. The check returns no `missing_connection` gap for the system names
-    "ServiceNow", "Jira Cloud" and "SNOW", lists a duplicate gap once, and sets
+    "ServiceNow", "Jira Cloud" and "SNOW", lists a duplicate gap once (same kind and same normalised subject), reports `GitLab` and `Snowflake` as blocked `missing_connection` gaps (aliases match exactly, not by prefix), and sets
     `writes_involved` when the skill text names a write tool even if the model
     did not.
 46. An infra test exercises the API bundling branch offline (monkeypatched
@@ -446,11 +446,11 @@ Added after design review
     after the check. Check it again." with **Check again**; a 404 shows "This skill
     no longer exists." and removes the skill from the picker; a network or Lambda
     timeout on a run shows the read-only or write-skill message and re-enables the
-    picker. One component test per case.
+    picker. One component test per case. The failure handling keys on `status` and `code`, which `api.ts` returns in addition to `data` and `error`; an `api.test.ts` case covers the pass-through.
 48. After a successful upload or delete in the library panel, the picker list
     shows the change without a page reload.
 49. Importing `agent.skills` in a fresh interpreter with no network and no AWS
-    credentials succeeds and builds the manifest.
+    credentials succeeds and builds the manifest (the module imports `agent.tools.jira_tools` for its `sys.path` side effect before `common.tool_schemas`).
 
 ## Out of Scope
 
