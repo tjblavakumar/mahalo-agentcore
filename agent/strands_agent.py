@@ -83,8 +83,18 @@ def _integrations_context() -> str:
     )
 
 
-def _build_bedrock_model(model_id: str) -> BedrockModel:
+def _build_bedrock_model(
+    model_id: str,
+    *,
+    read_timeout: int | None = None,
+    max_attempts: int | None = None,
+    max_tokens: int | None = None,
+) -> BedrockModel:
     """Construct the Bedrock model with a 300s read timeout and the lava profile.
+
+    ``read_timeout``, ``max_attempts`` and ``max_tokens`` are optional overrides
+    (the skill check uses them to bound its call); ``None`` keeps the defaults
+    (``settings.bedrock_read_timeout``, 3 attempts, no ``max_tokens``).
 
     Credentials come from the AWS profile (default ``lava``) via a boto3 Session
     so no AWS keys are baked into code. The profile is decided *before* the
@@ -99,9 +109,14 @@ def _build_bedrock_model(model_id: str) -> BedrockModel:
     role (design §A.6 / Task 6 Finding 1).
     """
     boto_config = Config(
-        read_timeout=settings.bedrock_read_timeout,
+        read_timeout=(
+            settings.bedrock_read_timeout if read_timeout is None else read_timeout
+        ),
         connect_timeout=settings.bedrock_connect_timeout,
-        retries={"max_attempts": 3, "mode": "adaptive"},
+        retries={
+            "max_attempts": 3 if max_attempts is None else max_attempts,
+            "mode": "adaptive",
+        },
     )
 
     profile = settings.aws_profile
@@ -117,10 +132,12 @@ def _build_bedrock_model(model_id: str) -> BedrockModel:
 
     # NOTE: BedrockModel rejects passing BOTH ``region_name`` and ``boto_session``
     # ("Cannot specify both"), so the region is carried by the boto3 Session only.
+    extra = {} if max_tokens is None else {"max_tokens": max_tokens}
     return BedrockModel(
         model_id=model_id,
         boto_session=session,
         boto_client_config=boto_config,
+        **extra,
     )
 
 
