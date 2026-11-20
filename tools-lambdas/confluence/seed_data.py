@@ -454,7 +454,7 @@ Velocity: 34 points (planned), 26 points (completed)
         "content": """# Payment Service API Specification
 
 ## Base URL
-`https://api.ecommerce.io/v1/payments`
+`https://api.supermart.example/v1/payments`
 
 ## Authentication
 Bearer token required for all endpoints.
@@ -528,7 +528,7 @@ Configure webhook URL in dashboard. Events:
         "content": """# Cart Service API Specification
 
 ## Base URL
-`https://api.ecommerce.io/v1/cart`
+`https://api.supermart.example/v1/cart`
 
 ## Endpoints
 
@@ -589,7 +589,7 @@ Remove applied coupon.
 ## Getting Started
 
 ### 1. Register for API Access
-Create a developer account at https://developers.ecommerce.io
+Create a developer account at https://developers.supermart.example
 
 ### 2. Get API Keys
 - **Test key**: Use for development (prefix: `test_`)
@@ -613,14 +613,14 @@ Authorization: Bearer your_api_key_here
 4. Events are retried 3 times with exponential backoff
 
 ## SDKs
-- Python: `pip install ecommerce-sdk`
-- Node.js: `npm install @ecommerce/sdk`
-- Ruby: `gem install ecommerce-ruby`
+- Python: `pip install supermart-sdk`
+- Node.js: `npm install @supermart/sdk`
+- Ruby: `gem install supermart-ruby`
 
 ## Support
-- Documentation: https://docs.ecommerce.io
-- Status page: https://status.ecommerce.io
-- Email: developers@ecommerce.io
+- Documentation: https://docs.supermart.example
+- Status page: https://status.supermart.example
+- Email: developers@supermart.example
 """,
     },
 ]

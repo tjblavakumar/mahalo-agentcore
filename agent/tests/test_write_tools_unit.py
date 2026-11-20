@@ -108,7 +108,7 @@ def test_jira_update_story_not_found(monkeypatch):
 def test_jira_update_story_unresolved_assignee(monkeypatch):
     fake = _FakeRequest({
         "/stories/PAY-105": {"id": "PAY-105", "title": "Checkout"},
-        "/developers": {"developers": [{"id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io"}]},
+        "/developers": {"developers": [{"id": "dev-3", "name": "Raj Patel", "email": "raj@supermart.example"}]},
     })
     monkeypatch.setattr(jira_write_tools, "make_request", fake)
     # _resolve_assignee/_fetch_developers live in jira_tools and use ITS make_request.

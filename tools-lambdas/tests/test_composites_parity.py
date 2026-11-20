@@ -24,9 +24,9 @@ if _REPO_ROOT not in sys.path:
 
 
 _DEVELOPERS = [
-    {"id": "dev-1", "name": "Alice Nguyen", "email": "alice@ecommerce.io"},
-    {"id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io"},
-    {"id": "dev-7", "name": "Raj Sharma", "email": "rajsharma@ecommerce.io"},
+    {"id": "dev-1", "name": "Alice Nguyen", "email": "alice@supermart.example"},
+    {"id": "dev-3", "name": "Raj Patel", "email": "raj@supermart.example"},
+    {"id": "dev-7", "name": "Raj Sharma", "email": "rajsharma@supermart.example"},
 ]
 
 
@@ -35,7 +35,7 @@ _DEVELOPERS = [
     [
         ("Raj Patel", "dev-3"),        # exact full-name
         ("alice", "dev-1"),            # first-name / substring (unique)
-        ("raj@ecommerce.io", "dev-3"), # exact email
+        ("raj@supermart.example", "dev-3"), # exact email
         ("nobody", None),             # no-match
         ("dev-9", "dev-9"),           # dev- passthrough (ignores the directory)
         ("raj", None),                # ambiguous: Raj Patel AND Raj Sharma -> None

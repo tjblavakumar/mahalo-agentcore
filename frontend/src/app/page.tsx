@@ -17,7 +17,7 @@ export default function Home() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
       <div className="text-center">
         <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
-        <p className="mt-3 text-gray-500 text-sm">Loading MAHALO3...</p>
+        <p className="mt-3 text-gray-500 text-sm">Loading Mahalo...</p>
       </div>
     </div>
   );

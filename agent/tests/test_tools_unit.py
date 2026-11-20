@@ -113,7 +113,7 @@ def test_jira_list_projects_endpoint_and_formatting(monkeypatch):
 
 def test_jira_get_stories_by_assignee_resolves_and_formats(monkeypatch):
     developers = {"developers": [
-        {"id": "dev-6", "name": "Lava Dev", "email": "lava@ecommerce.io"},
+        {"id": "dev-6", "name": "Lava Dev", "email": "lava@supermart.example"},
     ]}
     stories = {"stories": [
         {"id": "PAY-109", "title": "Crypto payments", "status": "in_progress",
@@ -174,9 +174,9 @@ def test_jira_list_developers_shows_enrichment_when_present(monkeypatch):
 @pytest.fixture
 def _devs(monkeypatch):
     developers = {"developers": [
-        {"id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io"},
-        {"id": "dev-6", "name": "Lava Dev", "email": "lava@ecommerce.io"},
-        {"id": "dev-4", "name": "Rachel Green", "email": "rachel@ecommerce.io"},
+        {"id": "dev-3", "name": "Raj Patel", "email": "raj@supermart.example"},
+        {"id": "dev-6", "name": "Lava Dev", "email": "lava@supermart.example"},
+        {"id": "dev-4", "name": "Rachel Green", "email": "rachel@supermart.example"},
     ]}
     monkeypatch.setattr(jira_tools, "make_request", _FakeRequest({"/developers": developers}))
 
@@ -187,7 +187,7 @@ def test_resolve_assignee_dev_prefix_passthrough(_devs):
 
 def test_resolve_assignee_full_name_and_email(_devs):
     assert jira_tools._resolve_assignee("Raj Patel") == "dev-3"
-    assert jira_tools._resolve_assignee("lava@ecommerce.io") == "dev-6"
+    assert jira_tools._resolve_assignee("lava@supermart.example") == "dev-6"
 
 
 def test_resolve_assignee_first_name_single_match(_devs):
@@ -205,7 +205,7 @@ def test_resolve_assignee_none_when_unknown_or_ambiguous(_devs):
 
 def test_jira_stories_by_assignee_unresolved_message(monkeypatch):
     developers = {"developers": [
-        {"id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io"},
+        {"id": "dev-3", "name": "Raj Patel", "email": "raj@supermart.example"},
     ]}
     monkeypatch.setattr(jira_tools, "make_request", _FakeRequest({"/developers": developers}))
     out = jira_tools.jira_get_stories_by_assignee("nobody")

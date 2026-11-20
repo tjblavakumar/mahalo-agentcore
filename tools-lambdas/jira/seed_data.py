@@ -5,37 +5,37 @@
 # (dev-6 has none on purpose).
 DEVELOPERS = [
     {
-        "id": "dev-1", "name": "Marcus Chen", "email": "marcus@ecommerce.io",
+        "id": "dev-1", "name": "Marcus Chen", "email": "marcus@supermart.example",
         "skills": ["payments", "webhooks", "wallets", "backend"],
         "primary_service": "payment-service",
         "capacity_points": {"PAY": 16, "CART": 5},
     },
     {
-        "id": "dev-2", "name": "Sarah Johnson", "email": "sarah@ecommerce.io",
+        "id": "dev-2", "name": "Sarah Johnson", "email": "sarah@supermart.example",
         "skills": ["cart-pricing", "checkout", "performance", "backend"],
         "primary_service": "cart-service",
         "capacity_points": {"CART": 13, "PAY": 3, "PROD": 5},
     },
     {
-        "id": "dev-3", "name": "Raj Patel", "email": "raj@ecommerce.io",
+        "id": "dev-3", "name": "Raj Patel", "email": "raj@supermart.example",
         "skills": ["security", "auth", "oauth-sso", "compliance", "backend"],
         "primary_service": "auth-service",
         "capacity_points": {"AUTH": 13, "PAY": 5, "ORD": 3},
     },
     {
-        "id": "dev-4", "name": "Emily Zhang", "email": "emily@ecommerce.io",
+        "id": "dev-4", "name": "Emily Zhang", "email": "emily@supermart.example",
         "skills": ["search", "recommendations", "catalog", "data"],
         "primary_service": "product-service",
         "capacity_points": {"PROD": 13, "CART": 8},
     },
     {
-        "id": "dev-5", "name": "David Kim", "email": "david@ecommerce.io",
+        "id": "dev-5", "name": "David Kim", "email": "david@supermart.example",
         "skills": ["fulfillment", "reporting", "dashboards", "integration", "backend"],
         "primary_service": "order-service",
         "capacity_points": {"ORD": 13, "PROD": 5, "PAY": 3},
     },
     {
-        "id": "dev-6", "name": "Lava Dev", "email": "lava@ecommerce.io",
+        "id": "dev-6", "name": "Lava Dev", "email": "lava@supermart.example",
         "skills": ["fraud-ml", "full-stack", "sso", "api-design"],
         "capacity_points": {"PAY": 8, "AUTH": 8, "ORD": 5},
     },

@@ -43,7 +43,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">MAHALO3</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Mahalo</h1>
+            <p className="text-sm font-medium text-blue-600 mt-1">SuperMart engineering</p>
             <p className="text-gray-500 mt-2">Sign in as a persona</p>
           </div>
 
