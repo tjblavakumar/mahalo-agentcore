@@ -4,7 +4,33 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
-> === 2026-11-19 STATUS-11 ROADMAP TOTALS IN CODE: DESIGN PAUSED AT REVIEW LIMIT — RESUME HERE (STATUS-10 below still describes what is live) ===
+> === 2026-11-20 STATUS-12 ROADMAP TOTALS COMPUTED IN CODE: SHIPPED AND LIVE-VERIFIED (supersedes STATUS-11 and the open defect in STATUS-10) ===
+> Merged to main as db65ee4 (branch commit 61b83b8) and pushed. Deployed in the REQUIRED order: MahaloRuntimeStack (MAHALO_BUILD_IMAGE=1) then
+> MahaloApiStack (MAHALO_BUILD_IMAGE=1, bundles skills/). Both UPDATE_COMPLETE. Builder stopped, GITHUB_MODE=real, Gitea running. Workflows
+> wf_e1ebc4d3d4fff9cd (build) and wf_0233bad6513647d5 (deploy) completed. Worktrees .worktrees/roadmap-planner and .worktrees/skills removed, branches
+> roadmap-computed-sprint-plan and feat/skills deleted (both were merged).
+> WHAT IT DOES: for JIRA_ROADMAP the Runtime fetches sprints, stories, developers, incidents and deployments through five existing Gateway read tools
+> (agent/roadmap_fetch.py), and agent/roadmap.py (pure, no I/O) computes capacity (half-up mean of completed velocities), the ordered selection for
+> Sprint A and B, developer allocation (assigned points counted first, unassigned placed against remaining headroom, "capacity only" when skills do
+> not match, "over by N" for over-capacity assignees) and incident -> linked_deployment -> linked_story links, then renders every table and total.
+> The model writes only a Notes paragraph on a TOOL-LESS agent with no Memory; a guard rejects Notes with any digit or id; if Notes fail the plan is
+> still returned. If a source cannot be read, a fixed message is shown instead of numbers. No Gateway/Lambda/frontend/database change; HITL files and
+> tool_schemas.py zero diff. skills/JIRA_ROADMAP_SKILL.md is now 4332 bytes. ROLLBACK ORDER: previous API first, then previous Runtime (the new short
+> skill file on an old Runtime gives the model no steps).
+> TESTS: agent 295 passed + 3 skipped (re-run by the orchestrator with no MAHALO_* env vars), skill API tests 122, tools-lambdas/api/frontend
+> unchanged. LIVE (report .agents/tasks/roadmap-computed/deploy-report.md, git-ignored): 3 PAY runs + 1 CART run PASS all script checks (sums equal
+> headings and Total rows, no sprint over capacity, capacity correct, developer loads correct, stories real and open, links only via deployments,
+> INC-2002 no recorded link, CART INC-2004 not tied to a story, no proposal). The 3 PAY runs are identical apart from Notes. PAY: capacity 30,
+> Sprint A PAY-110/PAY-098/PAY-099 = 29, Sprint B PAY-092/PAY-094/PAY-085/PAY-091/PAY-095 = 26, not scheduled PAY-093/PAY-109, dev-6 over by 16 in
+> Sprint A, dev-5 over by 2 in Sprint B. CART capacity 26, Sprint A 26, Sprint B 5. Runs take ~5 s (was ~34 s), 5 tool calls. The orchestrator
+> re-ran one PAY run live and re-added every table: all correct. Sprint report regression PASS.
+> RESIDUAL GAP (user decision pending): the Notes guard blocks digits and ids but NOT number WORDS (the "zero..twenty" rule was dropped on review
+> to avoid false rejects like "no one"). Notes state counts in words that are model-written and unchecked: in the deploy runs the incident count
+> varied (five vs six); in the orchestrator's run it was correct. Tables are always right. Options: (1) leave as is; (2) RECOMMENDED: Notes prompt
+> forbids counting, and the guard also rejects number words from "two" upward (keep "one" allowed); Runtime rebuild only; (3) drop Notes entirely.
+> The roadmap skill is now DEMO-SAFE for its tables; mention that the Notes paragraph is AI commentary.
+>
+> === 2026-11-19 STATUS-11 ROADMAP TOTALS IN CODE: DESIGN PAUSED AT REVIEW LIMIT (superseded by STATUS-12 above) ===
 > GOAL (user chose option C): code, not the model, picks the stories for each proposed sprint of the JIRA_ROADMAP skill and computes every total;
 > the model only presents. NO CODE WRITTEN YET; nothing merged or deployed. Live system unchanged (Skills live at 4fda838 + skill text e566942;
 > the roadmap's SUMS ARE STILL UNRELIABLE, do not demo the roadmap; the sprint report is reliable). main == origin/main == b99cbde. Builder stopped,
