@@ -24,7 +24,11 @@ bottom before doing anything.
 > "Corrected" tables, and the corrected tables are not re-added. CART passed arithmetic (26 of 26 correct) but ties INC-2004 to CART-208 "by title" in the
 > risks text (a soft violation of the link rule). The sprint-report skill is unaffected and reliable. NOTE over-capacity is partly BY DESIGN: the skill
 > keeps a story's current assignee and flags overload, and the enriched developer capacities are small (e.g. dev-5 capacity 3 on PAY).
-> OPTIONS (user decision pending): (A) one more prompt attempt: add a CUMULATIVE POINTS column to each sprint table so each row shows its running sum
+> USER CHOSE (C) on 2026-11-19: code computes the sprint selection and totals. Workflow wf_e1ebc4d3d4fff9cd ("roadmap-code-computed-totals")
+> was launched in worktree .worktrees/roadmap-planner (base 4152263): short design + review, then a USER-APPROVAL GATE with six open decisions
+> (where the computation lives; developer allocation in code; incident linking in code; over-capacity assignees; how the model is kept from altering
+> numbers; whether the sprint report uses the same mechanism), then build + code review, then a report. No merge/push/deploy in the run.
+> OPTIONS that were considered: (A) one more prompt attempt: add a CUMULATIVE POINTS column to each sprint table so each row shows its running sum
 > (forces the addition to be visible row by row), forbid printing draft tables, retest 3 PAY runs; if still not clean, do B or C. (B) revert the roadmap
 > skill text to the 4fda838 version (shorter answers, same error type) and tell users sums are approximate. (C) the dependable fix: compute the packing/
 > totals IN CODE (for example a deterministic read-only step or tool that returns the per-sprint selection and sums) so the model only presents them;
