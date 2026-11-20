@@ -4,6 +4,17 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-13 SUPERMART DEMO DECK ADDED (docs only; no code or deploy change; STATUS-12 still describes the live system) ===
+> The previous demo failed because the story was unclear, so the demo now opens with the business. docs/Mahalo_SuperMart_Demo.pptx (commit fc78737)
+> is a 30-minute, 14-slide, neutral-style deck: fictional retailer SuperMart, the five teams (PROD/CART/AUTH/PAY/ORD explained), a challenges
+> infographic, one quote each from David Kim (Exec), Marcus Chen (PM) and Lava Dev (Developer), a "connected" infographic, live-demo slides for Exec,
+> PM, Developer and PM again (exact prompts on the slides and in the speaker notes, with timings), built-in trust, Skills, and an honest real-vs-demo-data
+> slide. Rebuild with `python docs/demo/build_deck.py` (needs python-pptx; nothing is installed in system Python). The infographics are hand-authored
+> SVGs in docs/demo/, rendered to 3200x1800 PNGs with headless Edge (--force-device-scale-factor=2 --window-size=1600,900 --screenshot). The deck has
+> not been visually checked in PowerPoint (none installed); only a text-fit estimate was run. Do not demo "missing test cases caused incidents": the
+> data has no test records. Open follow-ups (not started): align docs/DEMO_script.md with the deck; optionally rename the @ecommerce.io seed emails
+> and the "MAHALO3" login title to SuperMart.
+
 > === 2026-11-20 STATUS-12 ROADMAP TOTALS COMPUTED IN CODE: SHIPPED AND LIVE-VERIFIED (supersedes STATUS-11 and the open defect in STATUS-10) ===
 > Merged to main as db65ee4 (branch commit 61b83b8) and pushed. Deployed in the REQUIRED order: MahaloRuntimeStack (MAHALO_BUILD_IMAGE=1) then
 > MahaloApiStack (MAHALO_BUILD_IMAGE=1, bundles skills/). Both UPDATE_COMPLETE. Builder stopped, GITHUB_MODE=real, Gitea running. Workflows
