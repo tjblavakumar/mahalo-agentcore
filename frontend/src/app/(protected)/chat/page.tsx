@@ -25,6 +25,7 @@ import ContextPanel from "@/components/chat/ContextPanel";
 import SkillCheckCard, { type SkillCardState } from "@/components/chat/SkillCheckCard";
 import SkillRunStatus from "@/components/chat/SkillRunStatus";
 import SkillLibraryPanel from "@/components/chat/SkillLibraryPanel";
+import type { SkillFileBlock } from "@/lib/skills/chatBlock";
 import { getSkill } from "@/services/api";
 import type { SkillCheck, SkillRunInfo, SkillSummary } from "@/lib/skills/types";
 import {
@@ -79,6 +80,8 @@ export default function ChatPage() {
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [skillsFailed, setSkillsFailed] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  // A skill drafted in chat; the key remounts the panel so a new draft replaces the old one.
+  const [skillDraft, setSkillDraft] = useState<{ block: SkillFileBlock; key: number } | null>(null);
   const [contextPanel, setContextPanel] = useState<{
     isOpen: boolean;
     title: string;
@@ -485,6 +488,10 @@ export default function ChatPage() {
                   systemsQueried={msg.systemsQueried}
                   stages={msg.stages}
                   review={msg.review}
+                  onOpenSkillUpload={(block) => {
+                    setSkillDraft((prev) => ({ block, key: (prev?.key ?? 0) + 1 }));
+                    setLibraryOpen(true);
+                  }}
                 />
               )}
               {msg.skillRunInfo && (
@@ -523,13 +530,18 @@ export default function ChatPage() {
             skills={skills}
             skillsFailed={skillsFailed}
             onSkillCommand={handleSkillCommand}
-            onOpenSkills={() => setLibraryOpen(true)}
+            onOpenSkills={() => {
+              setSkillDraft(null);
+              setLibraryOpen(true);
+            }}
           />
         </div>
       </div>
 
       {libraryOpen && (
         <SkillLibraryPanel
+          key={skillDraft?.key ?? 0}
+          initialDraft={skillDraft?.block}
           skills={skills}
           personaId={persona?.personaId}
           onClose={() => setLibraryOpen(false)}

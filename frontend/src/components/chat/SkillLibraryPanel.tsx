@@ -14,6 +14,8 @@ interface SkillLibraryPanelProps {
   onChanged: () => void;
   /** Open the check card for a skill (used after a save). */
   onCheckSkill: (name: string) => void;
+  /** A skill drafted in chat: shown as the pending upload (validated, not saved). */
+  initialDraft?: { filename: string; content: string };
 }
 
 interface Pending {
@@ -32,9 +34,14 @@ export default function SkillLibraryPanel({
   onClose,
   onChanged,
   onCheckSkill,
+  initialDraft,
 }: SkillLibraryPanelProps) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState<Pending | null>(null);
+  const [pending, setPending] = useState<Pending | null>(() =>
+    initialDraft
+      ? { filename: initialDraft.filename, validation: validateSkill(initialDraft.filename, initialDraft.content) }
+      : null,
+  );
   const [replaceAsk, setReplaceAsk] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [savedName, setSavedName] = useState<string | null>(null);

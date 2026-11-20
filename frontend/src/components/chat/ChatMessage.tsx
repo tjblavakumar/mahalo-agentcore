@@ -19,6 +19,7 @@ import yaml from "highlight.js/lib/languages/yaml";
 import type { Stage, ReviewSummary } from "@/types";
 import { trustLine } from "@/lib/stageProgress";
 import { matchBadge, BADGE_CLASSES, type BadgeMatch } from "@/lib/badgeTokens";
+import type { SkillFileBlock } from "@/lib/skills/chatBlock";
 import CodeBlock from "./CodeBlock";
 
 const HIGHLIGHT_LANGUAGES = {
@@ -83,6 +84,8 @@ interface ChatMessageProps {
   stages?: Stage[];
   /** Review sub-agent summary (findings) for a code turn. */
   review?: ReviewSummary;
+  /** Hand a skill file block from the answer to the skill library upload flow. */
+  onOpenSkillUpload?: (block: SkillFileBlock) => void;
 }
 
 export default function ChatMessage({
@@ -91,6 +94,7 @@ export default function ChatMessage({
   systemsQueried,
   stages,
   review,
+  onOpenSkillUpload,
 }: ChatMessageProps) {
   const isUser = role === "user";
   const line = isUser ? null : trustLine(stages);
@@ -161,7 +165,11 @@ export default function ChatMessage({
                   }
                   const lang = /language-([\w-]+)/.exec(child.props.className ?? "")?.[1];
                   return (
-                    <CodeBlock language={lang} text={plainText(child.props.children)}>
+                    <CodeBlock
+                      language={lang}
+                      text={plainText(child.props.children)}
+                      onOpenSkillUpload={onOpenSkillUpload}
+                    >
                       {child.props.children}
                     </CodeBlock>
                   );
