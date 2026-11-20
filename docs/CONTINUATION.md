@@ -24,11 +24,16 @@ bottom before doing anything.
 > Sprint A PAY-110/PAY-098/PAY-099 = 29, Sprint B PAY-092/PAY-094/PAY-085/PAY-091/PAY-095 = 26, not scheduled PAY-093/PAY-109, dev-6 over by 16 in
 > Sprint A, dev-5 over by 2 in Sprint B. CART capacity 26, Sprint A 26, Sprint B 5. Runs take ~5 s (was ~34 s), 5 tool calls. The orchestrator
 > re-ran one PAY run live and re-added every table: all correct. Sprint report regression PASS.
-> RESIDUAL GAP (user decision pending): the Notes guard blocks digits and ids but NOT number WORDS (the "zero..twenty" rule was dropped on review
-> to avoid false rejects like "no one"). Notes state counts in words that are model-written and unchecked: in the deploy runs the incident count
-> varied (five vs six); in the orchestrator's run it was correct. Tables are always right. Options: (1) leave as is; (2) RECOMMENDED: Notes prompt
-> forbids counting, and the guard also rejects number words from "two" upward (keep "one" allowed); Runtime rebuild only; (3) drop Notes entirely.
-> The roadmap skill is now DEMO-SAFE for its tables; mention that the Notes paragraph is AI commentary.
+> NOTES PARAGRAPH DROPPED (user decision 2026-11-20, commit 92ead24, deployed Runtime then API, both UPDATE_COMPLETE; report
+> .agents/tasks/roadmap-computed/notes-removal-deploy-report.md): the guard had blocked digits and ids but not number words, and live Notes stated
+> incident counts in words that varied (five vs six). Now the JIRA_ROADMAP run path makes NO model call; the answer is exactly render_plan(plan).
+> Notes agent, prompt, guard and their tests removed; new tests assert no model agent is built and identical input gives an identical answer
+> (agent 274 passed + 3 skipped). Live: two PAY runs byte-identical (Sprint A 29 of 30, Sprint B 26 of 30, ends with the incidents list), CART
+> 26 of 26 / 5 of 26, ~1-6 s, 5 tool calls; sprint report regression PASS; skill file 4228 bytes. The roadmap skill is FULLY DEMO-SAFE.
+> NEXT TOPIC (user, 2026-11-20): the demo failed because the story was unclear. Proposed a business-first narrative: "SuperMart", an online
+> retailer with five product teams (PAY, CART, AUTH, PROD, ORD) on siloed tools; one pain statement each from Executive, PM, Developer; then
+> Mahalo's answer per persona. Offered to write docs/DEMO_STORY.md and rework docs/DEMO_script.md; waiting on the user's answers (audience,
+> length, slides or talk track) and go-ahead. Possible small follow-up: rename seed emails (@ecommerce.io) and the "MAHALO3" login title to fit.
 >
 > === 2026-11-19 STATUS-11 ROADMAP TOTALS IN CODE: DESIGN PAUSED AT REVIEW LIMIT (superseded by STATUS-12 above) ===
 > GOAL (user chose option C): code, not the model, picks the stories for each proposed sprint of the JIRA_ROADMAP skill and computes every total;
