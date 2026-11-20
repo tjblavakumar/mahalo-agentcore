@@ -4,7 +4,39 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
-> === 2026-11-19 STATUS-9 SKILLS FEATURE: DESIGN APPROVED BY THE USER, WAITING AT THE APPROVAL GATE — RESUME HERE (supersedes STATUS-8) ===
+> === 2026-11-19 STATUS-10 SKILLS FEATURE IS LIVE; ROADMAP SKILL HAS AN OPEN ARITHMETIC DEFECT (supersedes STATUS-9) ===
+> SHIPPED: Skills merged to main (merge commit 4fda838) and DEPLOYED + live-verified: MahaloSkillsStack (new table mahalo-skills), Jira and
+> ServiceNow mock stacks, Runtime image, API, frontend, demo data refreshed. Workflow wf_76f073c3db52789c completed; branch feat/skills and
+> worktree .worktrees/skills are merged and can be removed. Builder stopped, Gitea running, GITHUB_MODE=real. Tests on the branch (re-run by the
+> orchestrator): tools-lambdas 167, agent 210 (+3 skipped), api 235, frontend vitest 318 + lint clean, infra skills+api stack tests 15; the HITL
+> files (approval.py, hitl.py, github_write_tools.py) and tool_schemas.py have zero diff.
+> VERIFIED LIVE BY THE ORCHESTRATOR (read-only, nothing approved): GET /skills lists both built-ins (JIRA_ROADMAP, JIRA_SPRINT_REPORT) with sizes
+> matching the files; POST /skills/check ~27 s; JIRA_SPRINT_REPORT PAY run 12.7 s / 3 tool calls and EVERY number matches Jira (done 34, pending 8,
+> committed 42, 81%, velocities 26/29/31/34, current sprint 5 of 34); JIRA_ROADMAP PAY run ~34 s / 5 tool calls, no write proposal, every scheduled
+> story is real with correct points and priority, all open stories covered, mean velocity 30 correct, INC-2002 correctly shown as "no recorded link",
+> sprints labelled proposed and the allocation labelled Inference.
+> OPEN DEFECT (roadmap skill): the stories chosen are right but the ADDITION is wrong. First live run: Sprint A rows 5+5+8+13=31 labelled "30 of 30",
+> dev-5 Sprint B load stated 13 but = 10. FIX ATTEMPT 1 (commit e566942, deployed API-only): skills/JIRA_ROADMAP_SKILL.md hardened (write every
+> addition out, running total when filling a sprint, Total row per sprint, no over-capacity pick for unassigned stories, self-check step 10). RESULT of
+> the deploy run (full report .agents/tasks/skills/roadmap-fix-deploy-report.md, git-ignored): it did NOT fix it. 3 of 3 PAY runs still have a heading/
+> total mismatch (check a), 2 of 3 end with a sprint above the 30-point capacity, one run lists a 13-point story in BOTH sprints and its Total row omits a
+> row (39 real vs 26 shown), developers are over capacity in all 4 runs. The answers got LONGER and MESSIER: the model prints draft tables, then
+> "Corrected" tables, and the corrected tables are not re-added. CART passed arithmetic (26 of 26 correct) but ties INC-2004 to CART-208 "by title" in the
+> risks text (a soft violation of the link rule). The sprint-report skill is unaffected and reliable. NOTE over-capacity is partly BY DESIGN: the skill
+> keeps a story's current assignee and flags overload, and the enriched developer capacities are small (e.g. dev-5 capacity 3 on PAY).
+> OPTIONS (user decision pending): (A) one more prompt attempt: add a CUMULATIVE POINTS column to each sprint table so each row shows its running sum
+> (forces the addition to be visible row by row), forbid printing draft tables, retest 3 PAY runs; if still not clean, do B or C. (B) revert the roadmap
+> skill text to the 4fda838 version (shorter answers, same error type) and tell users sums are approximate. (C) the dependable fix: compute the packing/
+> totals IN CODE (for example a deterministic read-only step or tool that returns the per-sprint selection and sums) so the model only presents them;
+> bigger change (Gateway/tool-schema parity if a new tool, Runtime + API + Mock deploys). A prompt change can lower the error rate but cannot guarantee
+> arithmetic.
+> LESSON (line endings): core.autocrlf=true on this Windows machine had turned skills/*.md into CRLF in the WORKING COPY (committed blobs were LF), which
+> fails the no-CR skill test locally and would ship CRLF if deployed from Windows. Fixed in e566942 by `skills/*.md text eol=lf` in .gitattributes
+> (existing files had to be deleted and re-checked-out). Always verify CR bytes on any file bundled into a Lambda.
+> HOUSEKEEPING: stray files from the skills build were moved (not deleted) to %TEMP%\mahalo-stray-skills; the builder's /tmp/deploy.log and /tmp/s.sh
+> contain the account id (builder only, not in git; delete them next time the builder is up); .worktrees/multi-llm is an old locked empty folder.
+>
+> === 2026-11-19 STATUS-9 SKILLS FEATURE: DESIGN APPROVED BY THE USER, WAITING AT THE APPROVAL GATE (superseded by STATUS-10 above) ===
 > THE USER APPROVED THE DESIGN (with the 12 review findings applied as required corrections) and asked to PAUSE and RESUME LATER.
 > The approval has NOT yet been sent to the workflow, so NOTHING IS PLANNED OR BUILT. NO CODE EXISTS. Nothing is deployed. main == origin/main ==
 > 866c696 (plus this tracker edit). Builder stopped, Gitea running.
