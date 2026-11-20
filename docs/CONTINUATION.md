@@ -4,6 +4,45 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === 2026-11-19 STATUS-11 ROADMAP TOTALS IN CODE: DESIGN PAUSED AT REVIEW LIMIT — RESUME HERE (STATUS-10 below still describes what is live) ===
+> GOAL (user chose option C): code, not the model, picks the stories for each proposed sprint of the JIRA_ROADMAP skill and computes every total;
+> the model only presents. NO CODE WRITTEN YET; nothing merged or deployed. Live system unchanged (Skills live at 4fda838 + skill text e566942;
+> the roadmap's SUMS ARE STILL UNRELIABLE, do not demo the roadmap; the sprint report is reliable). main == origin/main == b99cbde. Builder stopped,
+> Gitea running.
+> WORKFLOW wf_e1ebc4d3d4fff9cd ("roadmap-code-computed-totals") is PAUSED on repeat `design-loop` (2/2 used). Worktree .worktrees/roadmap-planner,
+> branch roadmap-computed-sprint-plan, base b99cbde (not 4152263; only a tracker commit differs), no commits yet. Remaining steps: approval (USER
+> approval gate with the six open decisions) -> plan -> build-loop (code + code review, max 2, pause) -> report (no merge/push/deploy).
+> DESIGN TEXT: .agents/tasks/roadmap-computed/design.md, review in design-review.md/.json in the SAME folder of the MAIN checkout. These are
+> GIT-IGNORED scratch files, not committed anywhere: do not delete them. The worktree was created from main, so its own .agents copy is not used.
+> DESIGN IN SHORT: inside the skill_run path for JIRA_ROADMAP the Runtime fetches the data itself through FIVE EXISTING Gateway read tools
+> (sprints, stories, developers, incidents, deployments; call_tool_sync with the full registry key), computes capacity (rounded mean of completed
+> velocities), the ordered selection for Sprint A and B, developer allocation and incident links in code, and RENDERS all tables and totals in code.
+> The model writes only a short guarded Notes paragraph. If the computation fails, a fixed message is shown instead of numbers. No new Gateway tool
+> (27 descriptors unchanged), no Lambda, frontend or contract change. Deploy surface: Runtime image (MAHALO_BUILD_IMAGE=1) first, then API with
+> -c buildImage=1 (needed so the skills/ folder stays bundled). Worked example still matches current PAY data: Sprint A 29, Sprint B 26, not scheduled
+> PAY-093 and PAY-109.
+> REVIEW HISTORY: pass 1 = 0 HIGH, 5 MEDIUM, 3 NIT (all addressed); pass 2 = 0 HIGH, 4 MEDIUM, 3 NIT still open (design-review.md header wrongly says 3
+> MEDIUM; the JSON and list have 4). The architecture was confirmed sound against the code. OPEN FINDINGS: (1) a model failure in the Notes turn RAISES
+> from _handle_chat (it does not return an error envelope), so the computed plan would be lost: catch it in the JIRA_ROADMAP branch, return the plan +
+> "> Notes unavailable.", test with a fake agent that raises, and state what bounds the Notes call's wall time; (2) the Notes prompt is unspecified:
+> define build_roadmap_notes_prompt(project, plan_md) with the plan in a delimited block, "the plan is final", at most 120 words / 3 sentences on
+> over-capacity developers and incident risks, labelled Inference, no digits and no ids, test < 32 KB; (3) the Notes turn still has all Gateway tools
+> and Memory (could call tools or propose a write; tool_calls_used == 5 not guaranteed): run it on a TOOL-LESS agent with no Memory like
+> _build_check_agent, and say how prepare/_handle_chat change; (4) allocation must sum each developer's ASSIGNED stories per sprint first, then place
+> unassigned ones against the remaining headroom; add a unit case with an unassigned story ordered before an assigned one. NITs: reject all digits and
+> ids in Notes (simplifies the guard); drop the zero..twenty word rule ("no one" false rejects); fix the hygiene regex to \b[A-Za-z]:\\ and note base b99cbde.
+> UNVERIFIED until live: that each Gateway tool's text content equals the route JSON (jira search_stories is a composite); the added wall time of five
+> sequential Gateway calls inside the 170 s budget; the Notes guard's false-reject rate.
+> HOW TO RESUME: ask the user which they want (they had not chosen when pausing). RECOMMENDED: end the loop and carry the 7 findings into the build as
+> REQUIRED corrections: update_workflow action=update_status nodeId=design-loop status=completed, then at the `approval` step relay the six open
+> decisions (with the design's recommendation and cost for each) to the user, and when the user approves, send the approval PLUS the 7 corrections
+> above to that step's session. Alternative: one more design pass: update_workflow action=extend_repeat nodeId=design-loop additionalIterations=1.
+> THE SIX OPEN DECISIONS (design gives a recommendation for each; read design.md): 1 where the computation lives; 2 developer allocation in code;
+> 3 incident -> deployment -> story linking in code (fixes the CART "by title" violation); 4 a current assignee already over capacity; 5 how the
+> model is kept from altering numbers and what the user sees on failure; 6 whether JIRA_SPRINT_REPORT uses the same mechanism (it is already correct).
+> AFTER BUILD: user approves a deploy separately; live checks = at least 3 JIRA_ROADMAP PAY runs and 1 CART run with every sum re-added by script
+> against the data, plus a JIRA_SPRINT_REPORT PAY regression run.
+>
 > === 2026-11-19 STATUS-10 SKILLS FEATURE IS LIVE; ROADMAP SKILL HAS AN OPEN ARITHMETIC DEFECT (supersedes STATUS-9) ===
 > SHIPPED: Skills merged to main (merge commit 4fda838) and DEPLOYED + live-verified: MahaloSkillsStack (new table mahalo-skills), Jira and
 > ServiceNow mock stacks, Runtime image, API, frontend, demo data refreshed. Workflow wf_76f073c3db52789c completed; branch feat/skills and
