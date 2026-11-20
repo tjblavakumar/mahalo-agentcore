@@ -1130,6 +1130,13 @@ found in Jira". No test asserts generated `linked_story` values (searched
 
 All numbers below come from the tables above.
 
+> Note: `/JIRA_ROADMAP` no longer relies on the model for its sums. The Runtime
+> reads the five source payloads and computes the capacity, both sprints, the
+> developer loads and the incident links in code (`agent/roadmap.py`), then writes
+> every table and total itself. The model adds only a short guarded Notes
+> paragraph. The roadmap numbers in this section are the expected output of that
+> code for the current seed.
+
 **`/JIRA_SPRINT_REPORT PAY`**
 
 - Report sprint: Sprint 23 (`PAY-S1`), the completed sprint with the latest end date.
