@@ -12,8 +12,17 @@ bottom before doing anything.
 > slide. Rebuild with `python docs/demo/build_deck.py` (needs python-pptx; nothing is installed in system Python). The infographics are hand-authored
 > SVGs in docs/demo/, rendered to 3200x1800 PNGs with headless Edge (--force-device-scale-factor=2 --window-size=1600,900 --screenshot). The deck has
 > not been visually checked in PowerPoint (none installed); only a text-fit estimate was run. Do not demo "missing test cases caused incidents": the
-> data has no test records. Open follow-ups (not started): align docs/DEMO_script.md with the deck; optionally rename the @ecommerce.io seed emails
-> and the "MAHALO3" login title to SuperMart.
+> data has no test records.
+> FOLLOW-UPS DONE (commit d717a80, deployed and live-verified): docs/DEMO_script.md rewritten to follow the deck slide by slide (timings, talk track,
+> /JIRA_ROADMAP PAY step, cheat sheet, safety tips). Branding: "MAHALO3" -> "Mahalo" on login (plus "SuperMart engineering"), sidebar, page title,
+> loading text; agent BASE_PROMPT now "You are Mahalo, an AI assistant for SuperMart's software development teams." Seed emails/URLs ecommerce.io ->
+> supermart.example (Jira developers, Confluence API pages, SDK names; test fixtures too). Live DynamoDB patched IN PLACE (no reset, demo state kept):
+> mahalo-mock-jira 6 developer records, mahalo-mock-confluence 3 pages; github/servicenow had none. Deployed via builder (--exclusively):
+> MahaloMockJiraStack + MahaloMockConfluenceStack (so a future refresh-demo-data reseeds SuperMart names), MahaloRuntimeStack (MAHALO_BUILD_IMAGE=1),
+> frontend rebuilt + S3 sync + invalidation. GITHUB_MODE=real before and after; builder stopped. Live: /login shows "SuperMart engineering", no
+> MAHALO3; agent answers "I'm Mahalo ... SuperMart's software development teams"; Jira lookup returns lava@supermart.example. Tests: agent 274 + 3
+> skipped, tools-lambdas 167. Local frontend node_modules is stale (missing jsdom, recharts, react-grid-layout), so local vitest/tsc could not run;
+> the builder's clean npm install + next build passed.
 
 > === 2026-11-20 STATUS-12 ROADMAP TOTALS COMPUTED IN CODE: SHIPPED AND LIVE-VERIFIED (supersedes STATUS-11 and the open defect in STATUS-10) ===
 > Merged to main as db65ee4 (branch commit 61b83b8) and pushed. Deployed in the REQUIRED order: MahaloRuntimeStack (MAHALO_BUILD_IMAGE=1) then
