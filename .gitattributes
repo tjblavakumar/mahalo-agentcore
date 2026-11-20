@@ -5,3 +5,6 @@
 *.bash  text eol=lf
 Dockerfile text eol=lf
 *.Dockerfile text eol=lf
+
+# Built-in skill files are bundled into the API Lambda and validated byte-for-byte (no CR allowed).
+skills/*.md text eol=lf
