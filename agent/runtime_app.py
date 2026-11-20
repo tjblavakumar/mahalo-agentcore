@@ -61,7 +61,6 @@ _DEFAULT_DEVELOPER_ID = "dev-6"
 _DEFAULT_ROLE = "developer"
 _VALID_ACTIONS = {"chat", "approve", "skill_check", "skill_run"}
 CHECK_DEADLINE_S = 45.0
-NOTES_DEADLINE_S = 40.0
 _VALID_DECISIONS = {"APPROVE", "REJECT"}
 
 
@@ -494,21 +493,6 @@ def _handle_skill_check(payload: dict, session_id: str) -> dict:
     }
 
 
-def _build_notes_agent() -> Agent:
-    """A tool-less one-shot agent for the roadmap Notes: no tools, hooks or Memory."""
-    model = _build_bedrock_model(
-        settings.bedrock_model_id, read_timeout=30, max_attempts=1, max_tokens=400
-    )
-    return Agent(
-        model=model,
-        tools=[],
-        system_prompt=(
-            "You write one short, careful note about a sprint plan that was computed "
-            "by code. You have no tools. Follow the user's rules exactly."
-        ),
-    )
-
-
 def _roadmap_envelope(session_id: str, response: str, budget, name: str, project: str) -> dict:
     return {
         "status": "complete",
@@ -520,33 +504,10 @@ def _roadmap_envelope(session_id: str, response: str, budget, name: str, project
     }
 
 
-def _roadmap_notes(project: str, plan, plan_md: str, budget) -> str:
-    """The guarded Notes paragraph, or a one-line notice. Never raises."""
-    try:
-        if budget.elapsed > skills.RUN_DEADLINE_S - NOTES_DEADLINE_S:
-            return roadmap.NOTES_UNAVAILABLE
-        prompt = skills.build_roadmap_notes_prompt(project, plan_md)
-        notes_agent = _build_notes_agent()
-        pool = ThreadPoolExecutor(max_workers=1)
-        fut = pool.submit(notes_agent, prompt)
-        try:
-            result = fut.result(timeout=NOTES_DEADLINE_S)
-        finally:
-            pool.shutdown(wait=False)  # never the ``with`` form: it would block
-        text = str(result).strip()
-        if not text:
-            return roadmap.NOTES_UNAVAILABLE
-        accepted = roadmap.check_narrative(text, plan)
-        return accepted if accepted is not None else roadmap.NOTES_OMITTED
-    except Exception as exc:  # noqa: BLE001 - the plan is already built and must be kept
-        logger.warning("Roadmap notes failed error=%s", type(exc).__name__)
-        return roadmap.NOTES_UNAVAILABLE
-
-
 def _handle_roadmap_run(session_id: str, name: str, project: str) -> dict:
-    """Run a computed built-in skill: fetch, compute and render in code (no tools for the model).
+    """Run a computed built-in skill: fetch, compute and render it entirely in code.
 
-    The model only writes a short Notes paragraph on a tool-less agent. A fetch or
+    No model call is made: the whole answer is the rendered plan. A fetch or
     compute failure returns a fixed message and never asks the model for numbers.
     """
     budget = skills.SkillRunBudget()
@@ -567,9 +528,7 @@ def _handle_roadmap_run(session_id: str, name: str, project: str) -> dict:
         )
     except roadmap.PlanUnavailable as exc:
         return _roadmap_envelope(session_id, exc.message, budget, name, project)
-    plan_md = roadmap.render_plan(plan)
-    notes = _roadmap_notes(project, plan, plan_md, budget)
-    return _roadmap_envelope(session_id, plan_md + "\n\n" + notes, budget, name, project)
+    return _roadmap_envelope(session_id, roadmap.render_plan(plan), budget, name, project)
 
 
 def _handle_skill_run(payload: dict, session_id: str) -> dict:

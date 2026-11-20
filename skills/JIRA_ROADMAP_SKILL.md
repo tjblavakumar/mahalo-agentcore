@@ -14,8 +14,7 @@ anything.
 The sprint selection, every total and the developer allocation are computed by
 code, not by the model. The code reads the data, works out the plan, and writes
 every table and number. The numbers are computed by code and shown unchanged.
-The model may add one short Notes paragraph. It cannot change, add or drop a
-number, and a Notes paragraph that contains a digit or an id is left out.
+No part of the answer is written by the model.
 
 If the data cannot be read, the answer is a fixed message that says nothing was
 changed. No partial numbers are shown.

@@ -1,4 +1,4 @@
-"""Computed roadmap plan: planner rules, renderer and Notes guard.
+"""Computed roadmap plan: planner rules and renderer.
 
 Inputs come from the real seed (``seed_items()`` applies the date shift and the
 deployment re-links), so the golden numbers below are the seed's, not invented.
@@ -405,40 +405,3 @@ def test_render_escapes_pipes_in_titles():
     plan = _plan("PAY", _mini([_story("PAY-1", 2, title="a | b\nc")], [_dev("dev-1", 5)]))
     assert "a \\| b c" in roadmap.render_plan(plan)
 
-
-# --- guard -------------------------------------------------------------------- #
-
-
-def test_guard_accepts_short_digit_free_sentence():
-    plan = _plan("PAY")
-    text = "Inference: the overloaded developer needs relief and the open incidents have no story."
-    assert roadmap.check_narrative(text, plan) == text
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "The sprint holds 31 points.",
-        "| a | b |\n| - | - |",
-        "a | b | c",
-        "## Heading\nbody",
-        "```\ncode\n```",
-        " ".join(["word"] * 121),
-        "One. Two. Three. Four.",
-        "Look at PAY-110.",
-        "Look at dev-6.",
-        "See INC-2012.",
-        "See DEP-1014.",
-        "",
-        "   ",
-        None,
-    ],
-)
-def test_guard_rejects(text):
-    assert roadmap.check_narrative(text, _plan("PAY")) is None
-
-
-def test_guard_boundaries():
-    plan = _plan("PAY")
-    assert roadmap.check_narrative(" ".join(["word"] * 120), plan) is not None
-    assert roadmap.check_narrative("One. Two. Three.", plan) == "One. Two. Three."

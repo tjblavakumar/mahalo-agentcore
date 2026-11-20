@@ -3,8 +3,8 @@
 Pure module: no I/O, no clock, no randomness. ``compute_plan`` turns the five
 source payloads (sprints, stories, developers, incidents, deployments) into a
 frozen ``Plan``. ``render_plan`` writes every table and total from plan fields,
-so a rendered number cannot differ from the computed one. ``check_narrative``
-guards the short model "Notes" paragraph that follows the plan.
+so a rendered number cannot differ from the computed one. The rendered plan is
+the whole answer: no model writes any part of it.
 
 Rules (the written spec that replaced steps 6-9 of the skill file):
 
@@ -30,12 +30,6 @@ _NO_INCIDENT_RANK = 99
 PRIORITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 _UNKNOWN_PRIORITY_RANK = 4
 ACTIVE_INCIDENT_STATUSES = ("open", "investigating")
-
-NARRATIVE_MAX_WORDS = 120
-NARRATIVE_MAX_SENTENCES = 3
-
-NOTES_OMITTED = "> Notes omitted: the narrative contained figures not in the computed plan."
-NOTES_UNAVAILABLE = "> Notes unavailable."
 
 
 class PlanUnavailable(Exception):
@@ -585,39 +579,3 @@ def render_plan(plan: Plan) -> str:
 
     return "\n".join(out).rstrip("\n") + "\n"
 
-
-# --------------------------------------------------------------------------- #
-# Notes guard
-# --------------------------------------------------------------------------- #
-
-_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}(\s|$)", re.MULTILINE)
-_FENCE_RE = re.compile(r"```|~~~")
-_ID_RE = re.compile(r"\b[A-Za-z]+-\d+\b")
-
-
-def check_narrative(text, plan: Plan) -> Optional[str]:
-    """Return the narrative when it is safe to append, else ``None``.
-
-    Rejects tables, headings, code fences, more than 120 words or 3 sentences,
-    any digit, and any story, developer, incident or deployment id. The plan is
-    accepted for the call signature; nothing from it is allowed in the text.
-    """
-    if not isinstance(text, str):
-        return None
-    body = text.replace("\r", "").strip()
-    if not body:
-        return None
-    if any(ch.isdigit() for ch in body) or _ID_RE.search(body):
-        return None
-    for line in body.split("\n"):
-        stripped = line.strip()
-        if stripped.startswith("|") or stripped.count("|") >= 2:
-            return None
-    if _HEADING_RE.search(body) or _FENCE_RE.search(body):
-        return None
-    if len(body.split()) > NARRATIVE_MAX_WORDS:
-        return None
-    sentences = [p for p in re.split(r"(?<=[.!?])\s+", body) if p.strip()]
-    if len(sentences) > NARRATIVE_MAX_SENTENCES:
-        return None
-    return body

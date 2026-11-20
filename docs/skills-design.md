@@ -1133,8 +1133,9 @@ All numbers below come from the tables above.
 > Note: `/JIRA_ROADMAP` no longer relies on the model for its sums. The Runtime
 > reads the five source payloads and computes the capacity, both sprints, the
 > developer loads and the incident links in code (`agent/roadmap.py`), then writes
-> every table and total itself. The model adds only a short guarded Notes
-> paragraph. The roadmap numbers in this section are the expected output of that
+> every table and total itself. No part of the answer is written by the model
+> (a guarded Notes paragraph was tried and dropped by user decision on 2026-11-20,
+> because number words could slip past its guard). The roadmap numbers in this section are the expected output of that
 > code for the current seed.
 
 **`/JIRA_SPRINT_REPORT PAY`**
