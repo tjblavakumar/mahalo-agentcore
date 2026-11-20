@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf6f0"/>
+      <stop offset="1" stop-color="#f6ece4"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="80" y="78" font-size="40" font-weight="700" fill="#2b2b2b">SuperMart today</text>
+  <text x="80" y="118" font-size="24" fill="#6b5b50">Five product teams. Four tools that don't talk. No single picture of delivery.</text>
+
+  <rect x="80" y="150" width="1440" height="118" rx="16" fill="#ffffff" filter="url(#sh)"/>
+  <text x="110" y="185" font-size="18" font-weight="700" fill="#8a6d5a" letter-spacing="1">ONE CHECKOUT, FIVE TEAMS</text>
+  <g font-size="20">
+    <rect x="110" y="200" width="262" height="52" rx="10" fill="#e8f1fb"/>
+    <text x="130" y="224" font-weight="700" fill="#1f4e79">PAY  Payments</text>
+    <text x="130" y="244" font-size="15" fill="#4a6a8a">cards, wallets, refunds, fraud</text>
+    <rect x="390" y="200" width="262" height="52" rx="10" fill="#e8f1fb"/>
+    <text x="410" y="224" font-weight="700" fill="#1f4e79">CART  Shopping cart</text>
+    <text x="410" y="244" font-size="15" fill="#4a6a8a">coupons, shipping, checkout</text>
+    <rect x="670" y="200" width="262" height="52" rx="10" fill="#e8f1fb"/>
+    <text x="690" y="224" font-weight="700" fill="#1f4e79">AUTH  Accounts</text>
+    <text x="690" y="244" font-size="15" fill="#4a6a8a">login, SSO, two-factor</text>
+    <rect x="950" y="200" width="262" height="52" rx="10" fill="#e8f1fb"/>
+    <text x="970" y="224" font-weight="700" fill="#1f4e79">PROD  Catalog</text>
+    <text x="970" y="244" font-size="15" fill="#4a6a8a">products, search, inventory</text>
+    <rect x="1230" y="200" width="262" height="52" rx="10" fill="#e8f1fb"/>
+    <text x="1250" y="224" font-weight="700" fill="#1f4e79">ORD  Orders</text>
+    <text x="1250" y="244" font-size="15" fill="#4a6a8a">fulfilment, tracking, returns</text>
+  </g>
+
+  <text x="80" y="318" font-size="18" font-weight="700" fill="#8a6d5a" letter-spacing="1">FOUR SEPARATE TOOLS</text>
+  <g>
+    <rect x="80" y="335" width="320" height="140" rx="16" fill="#ffffff" stroke="#d9cfc7" stroke-width="2" filter="url(#sh)"/>
+    <text x="110" y="378" font-size="28" font-weight="700" fill="#2b2b2b">Jira</text>
+    <text x="110" y="410" font-size="18" fill="#555">The plan: sprints, stories,</text>
+    <text x="110" y="434" font-size="18" fill="#555">who is doing what</text>
+
+    <rect x="453" y="335" width="320" height="140" rx="16" fill="#ffffff" stroke="#d9cfc7" stroke-width="2" filter="url(#sh)"/>
+    <text x="483" y="378" font-size="28" font-weight="700" fill="#2b2b2b">Git</text>
+    <text x="483" y="410" font-size="18" fill="#555">The code: branches,</text>
+    <text x="483" y="434" font-size="18" fill="#555">commits, pull requests</text>
+
+    <rect x="826" y="335" width="320" height="140" rx="16" fill="#ffffff" stroke="#d9cfc7" stroke-width="2" filter="url(#sh)"/>
+    <text x="856" y="378" font-size="28" font-weight="700" fill="#2b2b2b">ServiceNow</text>
+    <text x="856" y="410" font-size="18" fill="#555">What's broken: incidents,</text>
+    <text x="856" y="434" font-size="18" fill="#555">deployments</text>
+
+    <rect x="1199" y="335" width="320" height="140" rx="16" fill="#ffffff" stroke="#d9cfc7" stroke-width="2" filter="url(#sh)"/>
+    <text x="1229" y="378" font-size="28" font-weight="700" fill="#2b2b2b">Confluence</text>
+    <text x="1229" y="410" font-size="18" fill="#555">The docs: designs,</text>
+    <text x="1229" y="434" font-size="18" fill="#555">policies, runbooks</text>
+  </g>
+  <g stroke="#d64545" stroke-width="3" stroke-dasharray="8 7">
+    <line x1="400" y1="405" x2="453" y2="405"/>
+    <line x1="773" y1="405" x2="826" y2="405"/>
+    <line x1="1146" y1="405" x2="1199" y2="405"/>
+  </g>
+  <g fill="#ffffff" stroke="#d64545" stroke-width="3">
+    <circle cx="426" cy="405" r="15"/><circle cx="799" cy="405" r="15"/><circle cx="1172" cy="405" r="15"/>
+  </g>
+  <g stroke="#d64545" stroke-width="3" stroke-linecap="round">
+    <line x1="420" y1="399" x2="432" y2="411"/><line x1="432" y1="399" x2="420" y2="411"/>
+    <line x1="793" y1="399" x2="805" y2="411"/><line x1="805" y1="399" x2="793" y2="411"/>
+    <line x1="1166" y1="399" x2="1178" y2="411"/><line x1="1178" y1="399" x2="1166" y2="411"/>
+  </g>
+  <text x="800" y="508" text-anchor="middle" font-size="20" font-style="italic" fill="#b23b3b">Nothing links an incident to the deploy and the story that caused it. People do it by hand.</text>
+
+  <text x="80" y="560" font-size="18" font-weight="700" fill="#8a6d5a" letter-spacing="1">WHAT IT FEELS LIKE</text>
+  <g>
+    <rect x="80" y="575" width="455" height="275" rx="18" fill="#ffffff" filter="url(#sh)"/>
+    <circle cx="135" cy="630" r="32" fill="#7b4fa0"/>
+    <text x="135" y="640" text-anchor="middle" font-size="26" font-weight="700" fill="#fff">DK</text>
+    <text x="185" y="622" font-size="24" font-weight="700" fill="#2b2b2b">Executive</text>
+    <text x="185" y="648" font-size="17" fill="#777">David Kim</text>
+    <text x="110" y="700" font-size="19" fill="#333">"Before every release I ask who's</text>
+    <text x="110" y="726" font-size="19" fill="#333">at risk. It takes three meetings,</text>
+    <text x="110" y="752" font-size="19" fill="#333">and the answer is already stale."</text>
+    <rect x="110" y="785" width="300" height="40" rx="20" fill="#fde8e8"/>
+    <text x="260" y="812" text-anchor="middle" font-size="18" font-weight="700" fill="#b23b3b">3 meetings per status check</text>
+
+    <rect x="572" y="575" width="455" height="275" rx="18" fill="#ffffff" filter="url(#sh)"/>
+    <circle cx="627" cy="630" r="32" fill="#1f7a6d"/>
+    <text x="627" y="640" text-anchor="middle" font-size="26" font-weight="700" fill="#fff">MC</text>
+    <text x="677" y="622" font-size="24" font-weight="700" fill="#2b2b2b">Product Manager</text>
+    <text x="677" y="648" font-size="17" fill="#777">Marcus Chen</text>
+    <text x="602" y="700" font-size="19" fill="#333">"To plan a sprint I copy Jira and</text>
+    <text x="602" y="726" font-size="19" fill="#333">ServiceNow into a spreadsheet and</text>
+    <text x="602" y="752" font-size="19" fill="#333">guess who still has capacity."</text>
+    <rect x="602" y="785" width="300" height="40" rx="20" fill="#fde8e8"/>
+    <text x="752" y="812" text-anchor="middle" font-size="18" font-weight="700" fill="#b23b3b">Plans built in spreadsheets</text>
+
+    <rect x="1064" y="575" width="455" height="275" rx="18" fill="#ffffff" filter="url(#sh)"/>
+    <circle cx="1119" cy="630" r="32" fill="#c46a1b"/>
+    <text x="1119" y="640" text-anchor="middle" font-size="26" font-weight="700" fill="#fff">LD</text>
+    <text x="1169" y="622" font-size="24" font-weight="700" fill="#2b2b2b">Developer</text>
+    <text x="1169" y="648" font-size="17" fill="#777">Lava Dev</text>
+    <text x="1094" y="700" font-size="19" fill="#333">"Half my morning is tab-switching:</text>
+    <text x="1094" y="726" font-size="19" fill="#333">find my stories, check incidents,</text>
+    <text x="1094" y="752" font-size="19" fill="#333">wait for review, update Jira."</text>
+    <rect x="1094" y="785" width="300" height="40" rx="20" fill="#fde8e8"/>
+    <text x="1244" y="812" text-anchor="middle" font-size="18" font-weight="700" fill="#b23b3b">4 tools before writing code</text>
+  </g>
+</svg>

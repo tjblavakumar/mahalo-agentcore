@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1f7fb"/>
+      <stop offset="1" stop-color="#e6f0f6"/>
+    </linearGradient>
+    <radialGradient id="hub" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#2f8fd8"/>
+      <stop offset="1" stop-color="#1b5e99"/>
+    </radialGradient>
+    <filter id="sh2" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg2)"/>
+
+  <text x="80" y="78" font-size="40" font-weight="700" fill="#1d2b36">With Mahalo</text>
+  <text x="80" y="118" font-size="24" fill="#4f6577">One assistant that reads all four tools, and gives each role what it needs.</text>
+
+  <g stroke="#2f8fd8" stroke-width="4" fill="none">
+    <path d="M500 255 C 620 255, 640 420, 700 440"/>
+    <path d="M500 445 L 690 445"/>
+    <path d="M500 635 C 620 635, 640 470, 700 450"/>
+  </g>
+  <g stroke="#2e9e6b" stroke-width="4" fill="none">
+    <path d="M900 430 C 960 410, 990 230, 1100 225"/>
+    <path d="M905 440 C 980 430, 1000 365, 1100 365"/>
+    <path d="M905 455 C 980 470, 1000 515, 1100 515"/>
+    <path d="M900 465 C 960 490, 990 655, 1100 660"/>
+  </g>
+
+  <g>
+    <rect x="80" y="180" width="420" height="150" rx="18" fill="#ffffff" filter="url(#sh2)"/>
+    <circle cx="135" cy="225" r="30" fill="#7b4fa0"/>
+    <text x="135" y="235" text-anchor="middle" font-size="24" font-weight="700" fill="#fff">DK</text>
+    <text x="180" y="220" font-size="22" font-weight="700" fill="#1d2b36">Executive</text>
+    <text x="180" y="245" font-size="17" fill="#4f6577">"What's at risk this sprint?"</text>
+    <rect x="110" y="270" width="360" height="40" rx="20" fill="#e3f4ea"/>
+    <text x="290" y="297" text-anchor="middle" font-size="18" font-weight="700" fill="#1f7a4d">Portfolio risk in one answer</text>
+
+    <rect x="80" y="370" width="420" height="150" rx="18" fill="#ffffff" filter="url(#sh2)"/>
+    <circle cx="135" cy="415" r="30" fill="#1f7a6d"/>
+    <text x="135" y="425" text-anchor="middle" font-size="24" font-weight="700" fill="#fff">MC</text>
+    <text x="180" y="410" font-size="22" font-weight="700" fill="#1d2b36">Product Manager</text>
+    <text x="180" y="435" font-size="17" fill="#4f6577">"/JIRA_ROADMAP PAY"</text>
+    <rect x="110" y="460" width="360" height="40" rx="20" fill="#e3f4ea"/>
+    <text x="290" y="487" text-anchor="middle" font-size="18" font-weight="700" fill="#1f7a4d">Two-sprint plan in seconds</text>
+
+    <rect x="80" y="560" width="420" height="150" rx="18" fill="#ffffff" filter="url(#sh2)"/>
+    <circle cx="135" cy="605" r="30" fill="#c46a1b"/>
+    <text x="135" y="615" text-anchor="middle" font-size="24" font-weight="700" fill="#fff">LD</text>
+    <text x="180" y="600" font-size="22" font-weight="700" fill="#1d2b36">Developer</text>
+    <text x="180" y="625" font-size="17" fill="#4f6577">"Write it, review it, commit it"</text>
+    <rect x="110" y="650" width="360" height="40" rx="20" fill="#e3f4ea"/>
+    <text x="290" y="677" text-anchor="middle" font-size="18" font-weight="700" fill="#1f7a4d">Story to reviewed commit</text>
+  </g>
+
+  <circle cx="800" cy="445" r="125" fill="url(#hub)" filter="url(#sh2)"/>
+  <circle cx="800" cy="445" r="140" fill="none" stroke="#2f8fd8" stroke-width="2" stroke-dasharray="4 8" opacity="0.6"/>
+  <text x="800" y="425" text-anchor="middle" font-size="40" font-weight="700" fill="#ffffff">Mahalo</text>
+  <text x="800" y="460" text-anchor="middle" font-size="18" fill="#dcecf9">one chat</text>
+  <text x="800" y="484" text-anchor="middle" font-size="18" fill="#dcecf9">one dashboard</text>
+  <text x="800" y="508" text-anchor="middle" font-size="18" fill="#dcecf9">reusable skills</text>
+
+  <g>
+    <rect x="1100" y="180" width="420" height="90" rx="16" fill="#ffffff" filter="url(#sh2)"/>
+    <text x="1130" y="218" font-size="26" font-weight="700" fill="#1d2b36">Jira</text>
+    <text x="1130" y="248" font-size="17" fill="#4f6577">sprints, stories, capacity</text>
+
+    <rect x="1100" y="320" width="420" height="90" rx="16" fill="#ffffff" filter="url(#sh2)"/>
+    <text x="1130" y="358" font-size="26" font-weight="700" fill="#1d2b36">Git</text>
+    <text x="1130" y="388" font-size="17" fill="#4f6577">branches, commits, pull requests</text>
+
+    <rect x="1100" y="470" width="420" height="90" rx="16" fill="#ffffff" filter="url(#sh2)"/>
+    <text x="1130" y="508" font-size="26" font-weight="700" fill="#1d2b36">ServiceNow</text>
+    <text x="1130" y="538" font-size="17" fill="#4f6577">incidents, deployments</text>
+
+    <rect x="1100" y="615" width="420" height="90" rx="16" fill="#ffffff" filter="url(#sh2)"/>
+    <text x="1130" y="653" font-size="26" font-weight="700" fill="#1d2b36">Confluence</text>
+    <text x="1130" y="683" font-size="17" fill="#4f6577">designs, policies, runbooks</text>
+  </g>
+  <text x="1310" y="740" text-anchor="middle" font-size="18" font-style="italic" fill="#1f7a4d">incident, deploy and story linked automatically</text>
+
+  <rect x="80" y="775" width="1440" height="95" rx="18" fill="#1d2b36"/>
+  <text x="110" y="812" font-size="16" font-weight="700" fill="#9fc4e0" letter-spacing="1">BUILT-IN TRUST</text>
+  <g font-size="20" font-weight="600" fill="#ffffff">
+    <circle cx="125" cy="843" r="9" fill="#2e9e6b"/><text x="145" y="850">A human approves every write</text>
+    <circle cx="615" cy="843" r="9" fill="#2e9e6b"/><text x="635" y="850">A second AI model reviews the code</text>
+    <circle cx="1145" cy="843" r="9" fill="#2e9e6b"/><text x="1165" y="850">Plan numbers computed by code</text>
+  </g>
+</svg>
