@@ -43,7 +43,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
 
-from agent import model_config, skills
+from agent import model_config, roadmap, roadmap_fetch, skills
 from agent.config import settings
 from agent.hitl import emit_system_signal, resume_once
 from agent.prompts import ROLE_PROMPTS
@@ -61,6 +61,7 @@ _DEFAULT_DEVELOPER_ID = "dev-6"
 _DEFAULT_ROLE = "developer"
 _VALID_ACTIONS = {"chat", "approve", "skill_check", "skill_run"}
 CHECK_DEADLINE_S = 45.0
+NOTES_DEADLINE_S = 40.0
 _VALID_DECISIONS = {"APPROVE", "REJECT"}
 
 
@@ -493,6 +494,84 @@ def _handle_skill_check(payload: dict, session_id: str) -> dict:
     }
 
 
+def _build_notes_agent() -> Agent:
+    """A tool-less one-shot agent for the roadmap Notes: no tools, hooks or Memory."""
+    model = _build_bedrock_model(
+        settings.bedrock_model_id, read_timeout=30, max_attempts=1, max_tokens=400
+    )
+    return Agent(
+        model=model,
+        tools=[],
+        system_prompt=(
+            "You write one short, careful note about a sprint plan that was computed "
+            "by code. You have no tools. Follow the user's rules exactly."
+        ),
+    )
+
+
+def _roadmap_envelope(session_id: str, response: str, budget, name: str, project: str) -> dict:
+    return {
+        "status": "complete",
+        "response": response,
+        "proposal": None,
+        "session_id": session_id,
+        "error": None,
+        "skill_run": budget.info(name, project),
+    }
+
+
+def _roadmap_notes(project: str, plan, plan_md: str, budget) -> str:
+    """The guarded Notes paragraph, or a one-line notice. Never raises."""
+    try:
+        if budget.elapsed > skills.RUN_DEADLINE_S - NOTES_DEADLINE_S:
+            return roadmap.NOTES_UNAVAILABLE
+        prompt = skills.build_roadmap_notes_prompt(project, plan_md)
+        notes_agent = _build_notes_agent()
+        pool = ThreadPoolExecutor(max_workers=1)
+        fut = pool.submit(notes_agent, prompt)
+        try:
+            result = fut.result(timeout=NOTES_DEADLINE_S)
+        finally:
+            pool.shutdown(wait=False)  # never the ``with`` form: it would block
+        text = str(result).strip()
+        if not text:
+            return roadmap.NOTES_UNAVAILABLE
+        accepted = roadmap.check_narrative(text, plan)
+        return accepted if accepted is not None else roadmap.NOTES_OMITTED
+    except Exception as exc:  # noqa: BLE001 - the plan is already built and must be kept
+        logger.warning("Roadmap notes failed error=%s", type(exc).__name__)
+        return roadmap.NOTES_UNAVAILABLE
+
+
+def _handle_roadmap_run(session_id: str, name: str, project: str) -> dict:
+    """Run a computed built-in skill: fetch, compute and render in code (no tools for the model).
+
+    The model only writes a short Notes paragraph on a tool-less agent. A fetch or
+    compute failure returns a fixed message and never asks the model for numbers.
+    """
+    budget = skills.SkillRunBudget()
+    try:
+        try:
+            sources, calls = roadmap_fetch.fetch_sources(project)
+            budget.calls = calls
+        except roadmap.PlanUnavailable as exc:
+            budget.calls = getattr(exc, "calls", 0)
+            raise
+        plan = roadmap.compute_plan(
+            project,
+            sources["sprints"],
+            sources["stories"],
+            sources["developers"],
+            sources["incidents"],
+            sources["deployments"],
+        )
+    except roadmap.PlanUnavailable as exc:
+        return _roadmap_envelope(session_id, exc.message, budget, name, project)
+    plan_md = roadmap.render_plan(plan)
+    notes = _roadmap_notes(project, plan, plan_md, budget)
+    return _roadmap_envelope(session_id, plan_md + "\n\n" + notes, budget, name, project)
+
+
 def _handle_skill_run(payload: dict, session_id: str) -> dict:
     """Run a consented skill as a bounded chat turn (design D)."""
     name, body, project, err = _validate_skill_input(
@@ -500,6 +579,8 @@ def _handle_skill_run(payload: dict, session_id: str) -> dict:
     )
     if err:
         return err
+    if name in skills.COMPUTED_SKILLS:
+        return _handle_roadmap_run(session_id, name, project)
     try:
         prompt = skills.wrap_skill_run(name, project, body)
     except skills.SkillRefused as exc:

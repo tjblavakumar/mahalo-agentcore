@@ -6,56 +6,45 @@ description: Proposed roadmap for ONE project's next two sprints from open Jira 
 # Jira roadmap proposal
 
 Propose a roadmap for the next two sprints of the single project named in the run
-arguments. This skill only reads Jira and ServiceNow. Do not create or change
+arguments. This skill only reads Jira and ServiceNow. It does not create or change
 anything.
+
+## How this skill runs
+
+The sprint selection, every total and the developer allocation are computed by
+code, not by the model. The code reads the data, works out the plan, and writes
+every table and number. The numbers are computed by code and shown unchanged.
+The model may add one short Notes paragraph. It cannot change, add or drop a
+number, and a Notes paragraph that contains a digit or an id is left out.
+
+If the data cannot be read, the answer is a fixed message that says nothing was
+changed. No partial numbers are shown.
+
+## What the code reads
+
+1. `jira_get_sprint_info` for the project: the recorded velocity of every completed sprint, the active sprint and any planned sprint.
+2. `jira_search_stories` for the project, with no other filter.
+3. `jira_list_developers`: skills and `capacity_points` for the project. A missing value is shown as "not recorded".
+4. `servicenow_list_incidents` for the project's service (PAY payment-service, CART cart-service, AUTH auth-service, PROD product-service, ORD order-service). Incidents that are open or investigating are used.
+5. `servicenow_list_deployments` for the same service.
+
+## What the code computes
+
+- Capacity per proposed sprint: the mean of the recorded velocities of all completed sprints, rounded half up to a whole point. The velocities and the addition are shown. If no completed sprint has a velocity, capacity cannot be sized and only the open stories are listed.
+- Open stories are those whose status is not done. Groups: Backlog (no sprint), Planned (a planned sprint), Carry-over (a completed sprint, not done), In flight (the active sprint). In-flight stories are listed as "in flight, excluded" and are not planned.
+- Order: stories reached from an open or investigating incident first, by incident severity P1 to P4; then priority critical, high, medium, low; carry-over before the rest within a priority; then story id.
+- Fill Sprint A, then Sprint B, one story at a time in that order. A story is taken only if the running total stays at or below the capacity. Anything left is "Not scheduled". A story without recorded points is "points not recorded".
+- Incident links: an incident is linked to a story ONLY through the incident's linked_deployment and that deployment's linked_story. With no linked_deployment it shows "no recorded link". If the linked story is not in the project's Jira stories it shows "linked story <id> not found in Jira". A link is never made from similar words or titles.
+- Developer allocation (Inference): developer capacity is per sprint, from the capacity recorded for this project. A story that already has an assignee keeps it, and the developer is flagged with "over by N" when the stories named for them in a sprint are above their capacity. A story with no assignee goes to the developer with the best skill match who still has capacity left in that sprint ("skill match" or "capacity only" is shown). A developer with no recorded capacity is never chosen. If nobody has capacity, the cell says "no developer has capacity". The total developer capacity is compared with the sprint capacity.
+- Risks: open or investigating incidents that have no open Jira story (no link, linked story not found, or linked story already Done).
+
+## What the answer shows
+
+Capacity, Sprint A (proposed), Sprint B (proposed), Not scheduled, Developer load (Inference), Incidents and risks, and Data notes when a field was missing or unrecognised. The two sprints are PROPOSED by this skill from recorded velocity. They are not read from Jira. Each sprint heading, its Total row and its written addition come from the same computed number.
 
 ## Rules
 
 - Work on the project in the run arguments only.
-- Every number, id and status must come from a tool result. If something is not in the data, write "not recorded". Never invent velocity, dates, links or causes.
-- The two future sprints are PROPOSED by you. They are not read from Jira. Say so in the output, and mention any planned sprint Jira already has.
-- An incident is linked to a story ONLY through the incident's linked_deployment and that deployment's linked_story. If the incident has no linked_deployment, write "no recorded link". If the linked story is not in the project's Jira stories, write "linked story <id> not found in Jira". Never link by similar words.
-- Developer allocation is an inference. Label it "Inference" and base it on the skills and capacity recorded for developers.
-- Arithmetic: never write a total you have not added out. Whenever you state the points of a sprint or of a developer, write the addition in full (for example 5 + 5 + 8 + 13 = 31) and add it a second time to check it before you use the number in a heading or a table.
-- Write severity (P1 to P4) and status words (Open, Investigating, Done, In progress, In review, Todo) alone in their table cell.
-- Do not paste code.
-
-## Steps
-
-1. Call jira_get_sprint_info with the project id. Note the recorded velocity of every completed sprint, the active sprint, and any planned sprint.
-2. Call jira_search_stories with the project id and no other filter. Open stories are those whose status is not done. Group them: Backlog (no sprint), Planned (in a planned sprint), Carry-over (in a completed sprint, not done), In flight (in the active sprint, not done). In-flight stories are not planned; list them as "in flight".
-3. Map the project to its service: PAY payment-service, CART cart-service, AUTH auth-service, PROD product-service, ORD order-service. Call servicenow_list_incidents with that service and no status filter. Keep incidents that are open or investigating.
-4. Call servicenow_list_deployments with the same service. For each kept incident follow incident -> linked_deployment -> that deployment's linked_story, using the link rules above. Report the deployment status next to the link.
-5. Call jira_list_developers once. Use each developer's skills, capacity_points for this project, and primary_service when present. A missing field is "not recorded".
-6. Capacity per proposed sprint = the mean of the recorded velocities of all completed sprints, rounded to a whole point. Show the velocities used and the addition that gives the mean. If no completed sprint has a velocity, say capacity cannot be sized and stop after listing the open work.
-7. Order the open Jira stories (excluding in flight): first stories reached from an open or investigating incident, by incident severity P1 to P4; then by priority critical, high, medium, low; within the same priority carry-over before the rest; then by story id. Fill Sprint A, then Sprint B, one story at a time in that order. Keep a running total: add the next story's points to the running total and take the story only if the new total is less than or equal to the sprint capacity; otherwise skip it and try the next story. A sprint total must never be above the capacity. Anything left is "Not scheduled".
-8. Allocation: keep a story's current assignee if there is one, and flag it if that puts the developer over capacity. For a story with no assignee, suggest the developer whose skills best match the story title and who still has capacity left for this project after the points already given to that developer in both sprints. Never choose a developer who would go over capacity; if no developer has capacity left, write "no developer has capacity" in that cell. Work out each developer's points per sprint by adding the stories named for them in that sprint's table, write the addition (for example dev-5 Sprint B: 5 + 5 = 10), and flag every developer over capacity. If total developer capacity is below the sprint capacity, say by how much.
-9. Risks: list open or investigating incidents that have no open Jira story (no link, linked story not found, or linked story already Done). Say "no open Jira story addresses this". You may suggest creating a story, but do not create one.
-10. Check before you answer: each sprint total is not above the capacity; each stated sum equals its written-out addition; each developer's Sprint A and Sprint B points equal the sum of the stories named for them. Correct anything that does not match.
-
-## Output
-
-## Roadmap proposal: <PROJECT> - next two sprints
-Source: Jira (jira_get_sprint_info, jira_search_stories, jira_list_developers), ServiceNow (servicenow_list_incidents, servicenow_list_deployments)
-> The two sprints below are proposed by this skill from recorded velocity. They are not read from Jira. <Add the planned sprint Jira has, if any, and which stories it holds.>
-
-### Capacity
-Recorded velocities used, the addition and the mean, and the points per sprint.
-
-### Incidents on <service>
-A table: Incident, Severity, Status, Linked deployment, Deployment status, Linked story, Story in Jira.
-
-### Proposed Sprint A (<points> of <capacity> points)
-A table: Story, Title, Points, Priority, Why it is here, Suggested developer. End it with a Total row: the written-out addition in the Title cell and the sum in the Points cell. The heading uses that same sum.
-
-### Proposed Sprint B (<points> of <capacity> points)
-The same table, with its own Total row.
-
-### Not scheduled
-A table: Story, Title, Points, Priority. Add the in-flight stories in a separate line.
-
-### Developer allocation (Inference)
-A table: Developer, Skills, Capacity, Sprint A points, Sprint B points. Under it, one line per developer with the written-out additions. Notes on anyone over capacity.
-
-### Risks and gaps
-Bullets from step 9 and any data missing.
+- Every number, id and status comes from the data. If something is not in the data it is shown as "not recorded". Nothing is invented.
+- Developer allocation is an inference and is labelled "Inference".
+- No code is pasted.
