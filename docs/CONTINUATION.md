@@ -4,6 +4,20 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-14 SKILL AUTHORING IN CHAT: SHIPPED AND LIVE-VERIFIED (commit 584b521) ===
+> Problem: "help me create a skill file ..." made the agent propose a git branch with Python files. Fix: BASE_PROMPT rule 11 (all personas) - a
+> create/write/draft-a-skill request returns ONE skill file in a four-backtick ```` ```markdown ```` fence (frontmatter + instructions), never a
+> branch/commit/PR/Jira/incident proposal; only Jira/ServiceNow/Confluence/git read tools; refuse unrunnable requests (internet, future data).
+> Frontend: a markdown/md fence whose text starts with --- frontmatter containing `name` gets Download (saves NAME_SKILL.md derived from `name`) and
+> "Open in upload" (pre-fills SkillLibraryPanel via props + remount key; existing validation and Save still required). Known limit: if the model
+> skips the fence/frontmatter the answer is plain text with no buttons. No API app code change (only api/tests/test_skill_authoring_prompt.py).
+> Deployed via builder: MahaloRuntimeStack + frontend (S3 sync + invalidation); MahaloApiStack not redeployed; GITHUB_MODE=real before/after;
+> builder stopped. Workflow wf_ef863bfb4c1e78a3 failed only at its live-verify step (agent token error); the orchestrator ran the checks itself:
+> (a) the user's prompt -> status complete, proposal null, block PRODUCTION_ISSUES_SKILL.md passes validate_skill with no errors; (b) Fed-rate 2027
+> skill -> explanation, no proposal; (c) "Write the code for PAY-109 ... commit" -> pending_approval (NOT approved); live bundle contains
+> "Open in upload". Orchestrator re-ran tests: agent 280 + 3 skipped, api 237, frontend vitest 329. Worktree/branch removed (an empty
+> .worktrees/skill-authoring folder was locked by the shell; it is git-ignored, delete it later).
+
 > === STATUS-13 SUPERMART DEMO DECK ADDED (docs only; no code or deploy change; STATUS-12 still describes the live system) ===
 > The previous demo failed because the story was unclear, so the demo now opens with the business. docs/Mahalo_SuperMart_Demo.pptx (commit fc78737)
 > is a 30-minute, 14-slide, neutral-style deck: fictional retailer SuperMart, the five teams (PROD/CART/AUTH/PAY/ORD explained), a challenges
