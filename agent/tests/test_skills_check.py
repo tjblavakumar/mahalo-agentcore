@@ -100,7 +100,9 @@ def test_check_agent_is_tool_less_and_bounded(monkeypatch):
 # --- system normaliser ------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("name", ["ServiceNow", "Jira Cloud", "SNOW", "ServiceNow ITSM"])
+@pytest.mark.parametrize(
+    "name", ["ServiceNow", "Jira Cloud", "SNOW", "ServiceNow ITSM", "CI/CD", "ci-cd", "CICD"]
+)
 def test_known_system_aliases_add_no_gap(name):
     check = skills.build_check(_draft([DraftStep(text="s", systems=[name])]), BODY, "PAY")
     assert check.gaps == []
@@ -118,6 +120,7 @@ def test_normalise_system_is_exact_alias():
     assert skills.normalise_system("GitLab") == "gitlab"
     assert skills.normalise_system("Snowflake") == "snowflake"
     assert skills.normalise_system("Git Hub") == "github"
+    assert skills.normalise_system("CI/CD") == "servicenow"
 
 
 # --- gaps -------------------------------------------------------------------- #

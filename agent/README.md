@@ -21,6 +21,7 @@ agent/
     github_tools.py    4 read tools  (GITHUB_TOOLS)
     confluence_tools.py 3 read tools (CONFLUENCE_TOOLS)
     servicenow_tools.py 5 read tools (SERVICENOW_TOOLS)
+    cicd_tools.py      3 read tools  (CICD_TOOLS: recorded CI/CD pipeline results, seeded demo data)
   tests/
     test_tools_unit.py        offline unit tests (mocked HTTP)
     test_integration_live.py  one live test; skips when the tunnel is down

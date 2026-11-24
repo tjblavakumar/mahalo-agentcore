@@ -37,6 +37,7 @@ from agent.memory_client import (
     build_memory_session_spec,
 )
 from agent.prompts import ROLE_PROMPTS
+from agent.tools.cicd_tools import CICD_TOOLS
 from agent.tools.confluence_tools import CONFLUENCE_TOOLS
 from agent.tools.github_tools import GITHUB_TOOLS
 from agent.tools.github_write_tools import GITHUB_WRITE_TOOLS
@@ -45,7 +46,7 @@ from agent.tools.jira_write_tools import JIRA_WRITE_TOOLS
 from agent.tools.servicenow_tools import SERVICENOW_TOOLS
 from agent.tools.servicenow_write_tools import SERVICENOW_WRITE_TOOLS
 
-READ_TOOLS = [*JIRA_TOOLS, *GITHUB_TOOLS, *CONFLUENCE_TOOLS, *SERVICENOW_TOOLS]
+READ_TOOLS = [*JIRA_TOOLS, *GITHUB_TOOLS, *CONFLUENCE_TOOLS, *SERVICENOW_TOOLS, *CICD_TOOLS]
 WRITE_TOOLS = [*JIRA_WRITE_TOOLS, *GITHUB_WRITE_TOOLS, *SERVICENOW_WRITE_TOOLS]
 
 
@@ -79,7 +80,8 @@ def _integrations_context() -> str:
         f"- Jira (stories, sprints, boards, developers): {settings.jira_url}\n"
         f"- Confluence (documentation spaces/pages): {settings.confluence_url}\n"
         f"- GitHub (repositories, pull requests, commits): {settings.github_url}\n"
-        f"- ServiceNow (deployments, incidents): {settings.servicenow_url}"
+        f"- ServiceNow (deployments, incidents): {settings.servicenow_url}\n"
+        "- CI/CD (recorded pipeline results, seeded demo data, read-only; cicd_* tools)"
     )
 
 

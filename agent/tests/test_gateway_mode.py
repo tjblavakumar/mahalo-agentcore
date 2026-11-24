@@ -204,6 +204,7 @@ def test_attach_gateway_tools_starts_client_exactly_once():
 # --------------------------------------------------------------------------- #
 
 def _agent_tool_funcs():
+    from agent.tools.cicd_tools import CICD_TOOLS
     from agent.tools.confluence_tools import CONFLUENCE_TOOLS
     from agent.tools.github_tools import GITHUB_TOOLS
     from agent.tools.github_write_tools import GITHUB_WRITE_TOOLS
@@ -219,6 +220,7 @@ def _agent_tool_funcs():
         *GITHUB_WRITE_TOOLS,
         *CONFLUENCE_TOOLS,
         *SERVICENOW_TOOLS,
+        *CICD_TOOLS,
         *SERVICENOW_WRITE_TOOLS,
     ]
     funcs = {}

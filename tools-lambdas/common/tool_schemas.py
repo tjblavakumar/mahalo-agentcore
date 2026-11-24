@@ -1,4 +1,4 @@
-"""Single source of truth for the 27 Gateway MCP tools (Task 4).
+"""Single source of truth for the 30 Gateway MCP tools (Task 4).
 
 One descriptor per agent operation, consumed by BOTH:
 
@@ -44,7 +44,7 @@ def _obj(properties: Dict[str, Any], required: List[str] | None = None) -> Dict[
 
 
 # --------------------------------------------------------------------------- #
-# The 27 tool descriptors. Grouped by service for readability; ``service`` tags
+# The 30 tool descriptors. Grouped by service for readability; ``service`` tags
 # which Gateway target (and Lambda) each belongs to.
 # --------------------------------------------------------------------------- #
 
@@ -410,7 +410,7 @@ TOOLS: List[Dict[str, Any]] = [
         "path_template": "/spaces",
         "arg_mapping": {},
     },
-    # ----- ServiceNow (6: 5 read + 1 write) -----
+    # ----- ServiceNow (9: 8 read + 1 write; 3 are CI/CD pipeline results) -----
     {
         "name": "servicenow_list_deployments",
         "service": "servicenow",
@@ -480,6 +480,73 @@ TOOLS: List[Dict[str, Any]] = [
         "arg_mapping": {},
     },
     {
+        "name": "cicd_get_pipeline_runs",
+        "service": "servicenow",
+        "description": (
+            "CI/CD pipeline results (recorded demo data, read-only). Seeded "
+            "sample runs, NOT live pipeline runs: no pipeline executed for any "
+            "commit made through Mahalo. List recorded runs with test counts "
+            "and security-scan findings (SAST, dependency scan). Pass "
+            "story_id (e.g. PAY-109) when known; it is the most reliable key. "
+            "Other filters: project_id (PAY|CART|AUTH|PROD|ORD), repo, branch, "
+            "status (passed|failed|in_progress), limit (1-50, default 10). "
+            "Use commit only for a sha already shown by this tool. Quote "
+            "ref_note in the answer."
+        ),
+        "input_schema": _obj(
+            {
+                "story_id": _STR,
+                "project_id": _STR,
+                "repo": _STR,
+                "branch": _STR,
+                "commit": _STR,
+                "status": _STR,
+                "limit": _INT,
+            }
+        ),
+        "method": "GET",
+        "path_template": "/cicd/runs",
+        "arg_mapping": {
+            "story_id": {"in": "query", "name": "story_id"},
+            "project_id": {"in": "query", "name": "project_id"},
+            "repo": {"in": "query", "name": "repo"},
+            "branch": {"in": "query", "name": "branch"},
+            "commit": {"in": "query", "name": "commit"},
+            "status": {"in": "query", "name": "status"},
+            "limit": {"in": "query", "name": "limit"},
+        },
+    },
+    {
+        "name": "cicd_pipeline_summary",
+        "service": "servicenow",
+        "description": (
+            "CI/CD pipeline results (recorded demo data, read-only). Seeded "
+            "sample runs, NOT live pipeline runs. Roll-up per project (or one "
+            "project_id): run counts, failing stories, open security findings "
+            "by severity, test totals of the latest runs, and "
+            "deployments_without_pipeline_run. Use for 'which projects have "
+            "failing pipelines or open security findings?'."
+        ),
+        "input_schema": _obj({"project_id": _STR}),
+        "method": "GET",
+        "path_template": "/cicd/summary",
+        "arg_mapping": {"project_id": {"in": "query", "name": "project_id"}},
+    },
+    {
+        "name": "cicd_story_delivery_status",
+        "service": "servicenow",
+        "description": (
+            "CI/CD pipeline results (recorded demo data, read-only). Seeded "
+            "sample runs, NOT live pipeline runs. For one story_id (e.g. "
+            "PAY-109): the latest pipeline run and history, the ServiceNow "
+            "deployments linked to the story, and incidents reachable only "
+            "through those deployments. Empty lists mean 'not recorded'."
+        ),
+        "input_schema": _obj({"story_id": _STR}, required=["story_id"]),
+        "method": "GET",
+        "path_template": "/cicd/stories/{story_id}/delivery",
+        "arg_mapping": {"story_id": {"in": "path", "name": "story_id"}},
+    },    {
         "name": "servicenow_create_incident",
         "service": "servicenow",
         "description": (

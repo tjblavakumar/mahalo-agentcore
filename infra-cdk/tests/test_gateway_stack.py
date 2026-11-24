@@ -87,7 +87,7 @@ def test_four_targets_with_expected_tool_names():
         assert by_name[target_name] == expected
 
 
-def test_all_25_tools_present_across_targets():
+def test_all_30_tools_present_across_targets():
     tmpl = _template()
     targets = tmpl.find_resources("AWS::BedrockAgentCore::GatewayTarget")
     all_names = set()
@@ -97,7 +97,7 @@ def test_all_25_tools_present_across_targets():
         ]
         all_names |= {t["Name"] for t in tools}
     assert all_names == set(tool_schemas.BY_NAME)
-    assert len(all_names) == 27
+    assert len(all_names) == 30
 
 
 def test_gateway_role_invokes_exactly_four_lambda_arns():
@@ -152,3 +152,18 @@ def _dumps(obj):
     import json
 
     return json.dumps(obj)
+
+
+def test_servicenow_target_lists_nine_tools_including_cicd_reads():
+    tmpl = _template()
+    targets = tmpl.find_resources("AWS::BedrockAgentCore::GatewayTarget")
+    by_name = {}
+    for res in targets.values():
+        props = res["Properties"]
+        tools = props["TargetConfiguration"]["Mcp"]["Lambda"]["ToolSchema"]["InlinePayload"]
+        by_name[props["Name"]] = {t["Name"] for t in tools}
+    snow = by_name["mock-servicenow"]
+    assert len(snow) == 9
+    assert {"cicd_get_pipeline_runs", "cicd_pipeline_summary", "cicd_story_delivery_status"} <= snow
+    # CI/CD tools ride the existing ServiceNow target: still exactly four targets.
+    assert len(by_name) == 4

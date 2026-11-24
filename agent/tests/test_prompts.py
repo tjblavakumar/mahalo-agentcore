@@ -67,10 +67,61 @@ def test_prompt_sample_skill_shape_and_known_tools(role):
     assert lines[3] == "---"
     assert "{" not in sample  # survives str.format in the agent builder
     # Read tools only, and each one exists in the registered tool modules.
-    modules = (confluence, github, jira, servicenow)
-    used = set(re.findall(r"\b(?:jira|servicenow|confluence|github)_[a-z_]+", sample))
+    import agent.tools.cicd_tools as cicd
+
+    modules = (confluence, github, jira, servicenow, cicd)
+    used = set(re.findall(r"\b(?:jira|servicenow|confluence|github|cicd)_[a-z_]+", sample))
     assert used
     for name in used:
         assert any(hasattr(m, name) for m in modules), name
     assert not used & {"jira_create_story", "jira_update_story", "servicenow_create_incident"}
     assert not any(n.startswith("github_commit") or n.startswith("github_create") for n in used)
+
+
+@pytest.mark.parametrize("role", sorted(ROLE_PROMPTS))
+def test_cicd_honesty_and_feature_status_rules_present(role):
+    prompt = _built(role)
+    assert "12. CI/CD HONESTY" in prompt
+    section = prompt.split("12. CI/CD HONESTY")[1].split("You have access")[0]
+    assert "seeded demo data, not a live pipeline" in section
+    assert "nothing ran for code Mahalo committed" in section
+    assert 'name "CI/CD" among the systems cited' in section
+    assert "quote ref_note" in section
+    assert '"just ran"' in section
+    assert "repository's actual commit" in section
+    assert "no pipeline run recorded" in section
+    assert "deployments_without_pipeline_run" in section
+    assert "13. FEATURE STATUS" in section
+    for name in ("jira_get_story", "github_get_repo_stats", "github_get_pull_requests",
+                 "cicd_story_delivery_status"):
+        assert name in section
+    for part in ("Story", "Code", "Review", "Pipeline", "Deployment", "Incidents"):
+        assert part in section
+    # The prompt and tool schemas are sent on every turn: keep rules 12 and 13 short.
+    assert len("12. CI/CD HONESTY" + section) < 1200
+
+
+@pytest.mark.parametrize("role", sorted(ROLE_PROMPTS))
+def test_rule_10_still_says_no_test_cases_but_allows_pipeline_counts(role):
+    prompt = _built(role)
+    rule10 = prompt.split("10. NO TEST DATA")[1].split("11. SKILL FILES")[0]
+    assert "hold NO test cases, coverage, or QA results" in rule10
+    assert "CI/CD pipeline counts and scan findings" in rule10
+    assert "do not show which test cases exist" in rule10.replace("They do not", "do not")
+
+
+@pytest.mark.parametrize("role", sorted(ROLE_PROMPTS))
+def test_branch_naming_hint_in_check_in_flow(role):
+    prompt = _built(role)
+    flow = prompt.split("CHECK-IN-CODE FLOW")[1].split("A `[SYSTEM]` message")[0]
+    assert "feature/<STORY-ID>-<short-slug>" in flow
+    assert "feature/PAY-109-crypto-payments" in flow
+    assert "propose github_create_branch first" in flow
+
+
+@pytest.mark.parametrize("role", sorted(ROLE_PROMPTS))
+def test_skill_rule_lists_cicd_results_and_no_longer_blocks_test_results(role):
+    rule11 = _built(role).split("11. SKILL FILES")[1].split("12. CI/CD HONESTY")[0]
+    assert "recorded CI/CD pipeline results" in rule11
+    assert "test cases or coverage" in rule11
+    assert "test results," not in rule11

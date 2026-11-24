@@ -83,6 +83,7 @@ KNOWN_SYSTEMS = ("jira", "confluence", "github", "servicenow")
 _SYSTEM_ALIASES: dict[str, str] = {
     "jira": "jira", "jiracloud": "jira", "jirasoftware": "jira",
     "servicenow": "servicenow", "snow": "servicenow", "servicenowitsm": "servicenow",
+    "cicd": "servicenow",
     "github": "github", "git": "github", "githubcom": "github",
     "confluence": "confluence", "wiki": "confluence", "confluencecloud": "confluence",
 }

@@ -11,7 +11,7 @@ from common import seed_dates
 from common.responses import error, json_response
 from common.router import Router
 
-from . import seed_data
+from . import cicd, seed_data
 
 PK_SERVICE = "SERVICE"
 PK_DEPLOYMENT = "DEPLOYMENT"
@@ -217,6 +217,9 @@ def build_router(store, token):
                 "open_incidents_by_severity": by_severity,
             },
         )
+
+    # --- CI/CD pipeline results (read-only demo data) ---
+    cicd.register_routes(router, store, _auth)
 
     # --- Admin (not a Gateway tool; token protected) ---
     @router.route("POST", "/admin/reset")
