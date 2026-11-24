@@ -921,3 +921,66 @@ def _extra_story(story_id, sprint, title, points, priority, status, assignee):
 
 
 STORIES.extend(_extra_story(*row) for row in _EXTRA_STORIES)
+
+_TS_FMT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def recent_activity(now, stories):
+    """Demo ACTIVITY items with offsets measured back from ``now`` (seed time).
+
+    Each item is emitted only when it matches the current story record, so
+    opening the story shows the same fact: an ``assigned`` item only for a story
+    whose assignee equals ``to``, a ``status`` item only when ``to`` equals the
+    story's status, a ``comment`` item only when that author and text already
+    exist in ``story["comments"]``. Nothing is invented. Items carry
+    ``origin="demo-seed"``.
+    """
+    from datetime import timedelta
+
+    # (hours ago, story, type, actor, to, from, text)
+    candidates = []
+    mine = [s for s in stories if s.get("assignee") == "dev-6" and s.get("status") != "done"]
+    for hours, story in zip((2, 3), mine[:2]):
+        candidates.append((hours, story, "assigned", None, story.get("assignee"), None, None))
+    started = [s for s in mine if s.get("status") == "in_progress"][:1]
+    for hours, story in zip((5,), started):
+        candidates.append((hours, story, "status", None, "in_progress", "todo", None))
+    reviews = [s for s in stories if s.get("status") == "in_review"]
+    for hours, story in zip((6, 7), reviews[:2]):
+        candidates.append((hours, story, "status", None, "in_review", "in_progress", None))
+    commented = [
+        s
+        for s in stories
+        if s.get("status") in ("in_review", "in_progress")
+        and s.get("comments")
+        and s["comments"][-1].get("author") != s.get("assignee")
+    ]
+    for hours, story in zip((4, 8), commented[:2]):
+        last = story["comments"][-1]
+        candidates.append((hours, story, "comment", last["author"], None, None, last["text"]))
+
+    out = []
+    for hours, story, kind, actor, to, frm, text in candidates:
+        if kind == "assigned" and story.get("assignee") != to:
+            continue
+        if kind == "status" and story.get("status") != to:
+            continue
+        if kind == "comment" and not any(
+            c.get("author") == actor and c.get("text") == text
+            for c in story.get("comments") or []
+        ):
+            continue
+        out.append(
+            {
+                "ts": (now - timedelta(hours=hours)).strftime(_TS_FMT),
+                "story_id": story["id"],
+                "project_id": story["project_id"],
+                "type": kind,
+                "actor": actor,
+                "to": to,
+                "from": frm,
+                "text": text[:200] if text else None,
+                "origin": "demo-seed",
+            }
+        )
+    return out

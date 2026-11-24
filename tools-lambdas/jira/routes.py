@@ -5,7 +5,11 @@ codes, and JSON shapes. State lives in DynamoDB via :class:`Store` with these
 collections (``pk``):
 
     DEVELOPER, PROJECT, SPRINT, STORY   (natural id under ``sk``; record under ``data``)
+    ACTIVITY                            (timestamped log of assignment, status and comment changes)
 """
+
+import logging
+from datetime import datetime, timedelta, timezone
 
 from common.auth import require_token
 from common import seed_dates
@@ -18,7 +22,13 @@ PK_DEVELOPER = "DEVELOPER"
 PK_PROJECT = "PROJECT"
 PK_SPRINT = "SPRINT"
 PK_STORY = "STORY"
+PK_ACTIVITY = "ACTIVITY"
 MAX_COMMENT_CHARS = 2000
+ACTIVITY_TEXT_CHARS = 200
+ACTIVITY_DEFAULT_DAYS = 7
+_TS_FMT = "%Y-%m-%dT%H:%M:%SZ"
+
+logger = logging.getLogger(__name__)
 
 
 def seed_items():
@@ -34,6 +44,31 @@ def seed_items():
         yield {"pk": PK_SPRINT, "sk": sprint["id"], "record": sprint}
     for story in stories:
         yield {"pk": PK_STORY, "sk": story["id"], "record": story}
+    # Demo activity: offsets from the moment of seeding, matched to the story records.
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    for item in seed_data.recent_activity(now, stories):
+        sk = f"demo#{item['ts']}#{item['story_id']}#{item['type']}"
+        yield {"pk": PK_ACTIVITY, "sk": sk, "record": item}
+
+
+def _log_activity(store, story, kind, actor=None, to=None, frm=None, text=None):
+    """Append one ACTIVITY item. Never raises: a failed log must not fail the write."""
+    try:
+        ts = datetime.now(timezone.utc).strftime(_TS_FMT)
+        item = {
+            "ts": ts,
+            "story_id": story["id"],
+            "project_id": story["project_id"],
+            "type": kind,
+            "actor": actor,
+            "to": to,
+            "from": frm,
+            "text": text[:ACTIVITY_TEXT_CHARS] if text else None,
+            "origin": "write",
+        }
+        store.put(PK_ACTIVITY, f"{ts}#{story['id']}#{kind}", item)
+    except Exception:
+        logger.warning("activity log failed for %s", story.get("id"))
 
 
 def build_router(store, token):
@@ -198,6 +233,9 @@ def build_router(store, token):
             "comments": [],
         }
         store.put(PK_STORY, new_id, new_story)
+        _log_activity(store, new_story, "created", to=new_story["assignee"])
+        if new_story["assignee"]:
+            _log_activity(store, new_story, "assigned", to=new_story["assignee"])
         return json_response(201, new_story)
 
     @router.route("PUT", "/stories/{story_id}")
@@ -210,10 +248,16 @@ def build_router(store, token):
         if not story:
             return error(404, "Story not found")
         body = request.json_body or {}
+        old_status = story.get("status")
+        old_assignee = story.get("assignee")
         for field in ("status", "assignee", "priority", "sprint_id", "story_points"):
             if body.get(field) is not None:
                 story[field] = body[field]
         store.put(PK_STORY, story_id, story)
+        if story.get("assignee") != old_assignee:
+            _log_activity(store, story, "assigned", to=story.get("assignee"), frm=old_assignee)
+        if story.get("status") != old_status:
+            _log_activity(store, story, "status", to=story.get("status"), frm=old_status)
         return json_response(200, story)
 
     @router.route("POST", "/stories/{story_id}/comments")
@@ -241,6 +285,7 @@ def build_router(store, token):
             {"author": author, "text": text, "date": seed_dates.today_utc().isoformat()}
         )
         store.put(PK_STORY, story_id, story)
+        _log_activity(store, story, "comment", actor=author, text=text)
         return json_response(201, story)
 
     # --- Sprints ---
@@ -263,6 +308,26 @@ def build_router(store, token):
                 total_stories = [s for s in stories if s["sprint_id"] == sprint["id"]]
                 sprint["total_points"] = sum(s["story_points"] for s in total_stories)
         return json_response(200, {"sprints": project_sprints})
+
+    # --- Activity (read-only; not a Gateway tool) ---
+    @router.route("GET", "/activity")
+    def list_activity(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        since = request.query.get("since")
+        if since:
+            try:
+                datetime.strptime(since, _TS_FMT)
+            except ValueError:
+                return error(422, "since must be an ISO UTC datetime")
+        else:
+            since = (datetime.now(timezone.utc) - timedelta(days=ACTIVITY_DEFAULT_DAYS)).strftime(
+                _TS_FMT
+            )
+        items = [a for a in store.query(PK_ACTIVITY) if a.get("ts", "") >= since]
+        items.sort(key=lambda a: a["ts"], reverse=True)
+        return json_response(200, {"activity": items, "total": len(items)})
 
     # --- Developers ---
 
