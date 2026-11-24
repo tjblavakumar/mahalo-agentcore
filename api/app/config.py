@@ -62,6 +62,9 @@ class Settings:
     servicenow_url: str = field(
         default_factory=lambda: _getenv("MAHALO_SERVICENOW_URL", "").rstrip("/")
     )
+    # Optional Git mock URL + token (briefing only); absent => Git reported unavailable.
+    github_url: str = field(default_factory=lambda: _getenv("MAHALO_GITHUB_URL", "").rstrip("/"))
+    github_token: str = field(default_factory=lambda: _getenv("MAHALO_GITHUB_TOKEN", ""))
     jira_token: str = field(default_factory=lambda: _getenv("MAHALO_JIRA_TOKEN", ""))
     confluence_token: str = field(default_factory=lambda: _getenv("MAHALO_CONFLUENCE_TOKEN", ""))
     servicenow_token: str = field(default_factory=lambda: _getenv("MAHALO_SERVICENOW_TOKEN", ""))
