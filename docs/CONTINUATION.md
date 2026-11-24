@@ -4,6 +4,25 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-15 CI/CD PIPELINE RESULTS ADDED AS A READ-ONLY DATA SOURCE: DEPLOYED, LIVE-VERIFIED WITH ONE DATA-DRIFT CAVEAT (commit 87615b9) ===
+> Why: the manager asked for an end-to-end story (story, code, review, tests, security, deploy, incidents). Tests and security now come from CI/CD data.
+> Where it lives: the ServiceNow mock Lambda (tools-lambdas/servicenow/cicd.py routes, tools-lambdas/servicenow/cicd_seed.py seed). Runs are built in
+> code from the seed, not stored in DynamoDB, so no table change or reset was needed. Agent side: agent/tools/cicd_tools.py. Three read-only tools
+> (never in WRITE_TOOL_NAMES), exposed through the existing mock-servicenow gateway target: cicd_get_pipeline_runs, cicd_pipeline_summary,
+> cicd_story_delivery_status. BASE_PROMPT rule 12 (CI/CD HONESTY): name "CI/CD" among the systems cited, never say a pipeline "ran", quote ref_note,
+> say "no pipeline run recorded" when empty. Labelling: every result carries system "CI/CD" and the label "Seeded demo data. Not a live pipeline run.";
+> branch and commit values are sample values, not read from Gitea, and nothing ran for code Mahalo committed. Pipeline counts cover only the 24 of 50
+> deployments that have a run, so they differ from ServiceNow's all-deployment totals.
+> Deployed via builder (--exclusively, order D5): MahaloMockServicenowStack, MahaloGatewayStack (diff showed only the ServicenowTarget payload update;
+> mock-servicenow target READY; gateway URL unchanged), MahaloRuntimeStack (MAHALO_BUILD_IMAGE=1). NOT deployed: MahaloMockGithubStack, Jira,
+> Confluence, Api, Frontend. GITHUB_MODE=real before and after; ServiceNow table 106 items before and after; /admin/reset not called; builder stopped.
+> Live verify (live-verify-report.md, no writes proposed, nothing approved): PASS dev "Did PAY-109 pass its tests and security scan?" (failed at
+> dependency_scan: 209 tests passed, 1 high dependency finding, labelled seeded); PASS exec crypto-payments cross-system answer (Jira, GitHub, CI/CD,
+> "Not recorded" where no data); PASS exec failing pipelines/open findings table (12 open findings across the five projects); PASS dev "assigned to
+> me" lists PAY-109 and PAY-110. PARTIAL: /JIRA_ROADMAP PAY via /skills/run is computed in code (Sprint A 29 of 30 as documented) but Sprint B is 30 of 30,
+> not the documented 26 of 30, because live Jira now holds extra PAY-111..PAY-120 stories created by approved demo writes (not a regression from this
+> commit). Restoring 26 of 30 needs POST /admin/reset, which is destructive and was not done. Typing /JIRA_ROADMAP in POST /chat does not run the
+> computed skill (the UI uses POST /skills/run), so demo it from the UI.
 > === STATUS-14 SKILL AUTHORING IN CHAT: SHIPPED AND LIVE-VERIFIED (commit 584b521) ===
 > Problem: "help me create a skill file ..." made the agent propose a git branch with Python files. Fix: BASE_PROMPT rule 11 (all personas) - a
 > create/write/draft-a-skill request returns ONE skill file in a four-backtick ```` ```markdown ```` fence (frontmatter + instructions), never a
