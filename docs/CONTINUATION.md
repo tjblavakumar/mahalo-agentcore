@@ -4,6 +4,24 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-16 ARCHITECT PERSONA "MAYA CHAYA" ADDED: DEPLOYED AND LIVE-VERIFIED (commit b1c2549) ===
+> What: a fifth persona, Maya Chaya (role architect, id arch, developer id dev-7), connected to the same systems as the other personas. Her own dashboard
+> (first widget: change failure rate by service from ServiceNow, content differs from dev, pm and exec), her own suggestions, and an architect role prompt
+> (design review, risks, gaps, recommendations). Role gating in agent/role_access.py: the three git writes are cancelled for architect and
+> jira_add_comment is cancelled for every other role, before the parent approval hook runs, so no approval card is raised. The design-review Jira
+> comment is a new write (Jira mock comment route, jira_add_comment added to the gateway Jira target schema, approval.py additions) that still needs
+> approval. Chat design docs (markdown fence with doc_type adr, design or design-review) get a Download button via designDocBlock.ts, which runs after the
+> skill detector so skill drafts keep their path. No Confluence write tool was added.
+> Deployed via builder (--exclusively): MahaloMockJiraStack (code only, dev-7 in the seed), MahaloRuntimeStack and MahaloApiStack (MAHALO_BUILD_IMAGE=1),
+> MahaloGatewayStack (JiraTarget updated in place, no replacement), then the frontend (S3 sync + invalidation). NOT deployed: MahaloMockGithubStack and the
+> other stacks. GITHUB_MODE=real before and after; builder stopped. Tests before commit: agent 358 + 3 skipped, api 248, tools-lambdas 245, vitest 343,
+> tsc and next build clean, infra-cdk gateway 7.
+> Live verify (.agents/tasks/architect-persona/live-verify.md, no /chat/approve call, nothing approved): PASS dashboard widgets differ per persona;
+> PASS arch identity ("Maya Chaya", Architect); PASS arch "highest change failure rate" cites ServiceNow (Product Service 75%, 6/8); PASS arch "Review the
+> design for PAY-109" returns a design-review document with no proposal; PASS arch commit request refused, no proposal; PASS dev "assigned to me" lists
+> PAY-109 and PAY-110; PASS pm /JIRA_ROADMAP PAY via /skills/run, Sprint A 29 of 30 and Sprint B 26 of 30; PASS "Maya Chaya" present in the deployed bundle.
+> Not exercised live: the approved design-review Jira comment (the review returned no comment proposal) and the design-doc Download button.
+> Note: a ?cb= query string on CloudFront chunk URLs returns the SPA HTML fallback, so fetch chunks without it.
 > === STATUS-15 CI/CD PIPELINE RESULTS ADDED AS A READ-ONLY DATA SOURCE: DEPLOYED, LIVE-VERIFIED WITH ONE DATA-DRIFT CAVEAT (commit 87615b9) ===
 > Why: the manager asked for an end-to-end story (story, code, review, tests, security, deploy, incidents). Tests and security now come from CI/CD data.
 > Where it lives: the ServiceNow mock Lambda (tools-lambdas/servicenow/cicd.py routes, tools-lambdas/servicenow/cicd_seed.py seed). Runs are built in
