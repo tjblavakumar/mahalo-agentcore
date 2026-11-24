@@ -203,7 +203,10 @@ _ARCH_WIDGETS: list[dict] = [
             "series": [{"name": "Open PRs", "dataKey": "open"}],
             "data": [
                 {"service": s, "open": n}
-                for s, n in zip(_ARCH_SERVICES, (3, 2, 2, 1, 1))
+                # Live Gitea open-PR counts read 2026-11-24 (state=open per repo).
+                # They drift after demos that open PRs; regenerate the chart live
+                # from the dashboard chatbox for current numbers.
+                for s, n in zip(_ARCH_SERVICES, (6, 3, 2, 1, 1))
             ],
         },
         "layout": {"x": 6, "y": 8, "w": 6, "h": 8},

@@ -49,6 +49,26 @@ def test_architect_git_writes_cancelled_without_interrupt(name, prefix):
     assert "Not permitted for your role" in event.cancel_tool
 
 
+@pytest.mark.parametrize("role", ["product_manager", "executive"])
+@pytest.mark.parametrize("prefix", ["", "mock-github___"])
+@pytest.mark.parametrize("name", GIT_WRITES)
+def test_pm_and_exec_git_writes_cancelled_without_interrupt(name, prefix, role):
+    """B1: only the developer may create branches, commit or open PRs."""
+    event = _Event(prefix + name, {"repo_id": "r", "branch_name": "b"})
+    RoleAccessApprovalHook(role)._before_tool_call(event)
+    assert event.interrupt_calls == []
+    assert isinstance(event.cancel_tool, str)
+    assert "Not permitted for your role" in event.cancel_tool
+
+
+def test_only_developer_may_use_git_writes():
+    for role, blocked in BLOCKED_TOOLS_BY_ROLE.items():
+        if role == "developer":
+            assert not (set(GIT_WRITES) & blocked)
+        else:
+            assert set(GIT_WRITES) <= blocked, role
+
+
 @pytest.mark.parametrize("name", GIT_WRITES)
 def test_developer_git_writes_still_interrupt(name):
     event = _Event(name, {"repo_id": "r", "branch_name": "b"})

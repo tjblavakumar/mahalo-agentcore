@@ -16,14 +16,16 @@ from strands.hooks import BeforeToolCallEvent
 from agent.approval import WriteApprovalHook, _bare_name
 
 # Bare tool names a role may NOT use. A role absent from this table has no extra
-# restriction. ``jira_add_comment`` (design-review comment) is architect-only.
+# restriction. Only the developer may create branches, commit or open PRs (user
+# decision B1); ``jira_add_comment`` (design-review comment) is architect-only.
+_GIT_WRITES = frozenset(
+    {"github_create_branch", "github_commit_files", "github_open_pull_request"}
+)
 BLOCKED_TOOLS_BY_ROLE: dict[str, frozenset[str]] = {
-    "architect": frozenset(
-        {"github_create_branch", "github_commit_files", "github_open_pull_request"}
-    ),
-    "product_manager": frozenset({"jira_add_comment"}),
+    "architect": _GIT_WRITES,
+    "product_manager": _GIT_WRITES | {"jira_add_comment"},
     "developer": frozenset({"jira_add_comment"}),
-    "executive": frozenset({"jira_add_comment"}),
+    "executive": _GIT_WRITES | {"jira_add_comment"},
 }
 
 
