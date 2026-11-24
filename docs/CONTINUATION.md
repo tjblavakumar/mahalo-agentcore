@@ -4,7 +4,15 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
-> === STATUS-16 ARCHITECT PERSONA "MAYA CHAYA" ADDED: DEPLOYED AND LIVE-VERIFIED (commit b1c2549) ===
+> === STATUS-16 ARCHITECT PERSONA "MAYA CHAYA" ADDED: DEPLOYED AND LIVE-VERIFIED (commit b1c2549, follow-up fix 2376bba) ===
+> FOLLOW-UP FIX 2376bba (orchestrator, deployed MahaloRuntimeStack + MahaloApiStack, both UPDATE_COMPLETE; builder stopped; GITHUB_MODE=real):
+> (1) B1 had NOT been implemented by the workflow: live, the PM still got a create_branch approval card. agent/role_access.py now blocks
+> github_create_branch/commit_files/open_pull_request for product_manager, executive AND architect (only developer may use them) + 13 tests
+> (agent 371 + 3 skipped, api 248). Live: PM "Create branch docs/readme-update ..." -> refused, no proposal. Known wrinkle: on a vague PM request
+> the model may first ask for a branch name before it hits the block. (2) F1 had not been done: live Gitea open PRs were payment 6, cart 3,
+> auth 2, product 1, order 1 (seed said 3,2,2,1,1); the architect "Open PRs by service (snapshot)" default now uses 6,3,2,1,1. It drifts after
+> demos that open PRs (all persona defaults are static snapshots by design). Also verified live: arch "Add a design-review comment to PAY-109"
+> -> pending_approval add_comment author dev-7 (NOT approved).
 > What: a fifth persona, Maya Chaya (role architect, id arch, developer id dev-7), connected to the same systems as the other personas. Her own dashboard
 > (first widget: change failure rate by service from ServiceNow, content differs from dev, pm and exec), her own suggestions, and an architect role prompt
 > (design review, risks, gaps, recommendations). Role gating in agent/role_access.py: the three git writes are cancelled for architect and
