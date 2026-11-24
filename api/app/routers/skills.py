@@ -392,9 +392,12 @@ def put_skill(
             "builtin_read_only",
             "Built-in skills are read-only. Upload under a different name.",
         )
-    persona = {"product_manager": "pm", "developer": "dev", "executive": "exec"}.get(
-        ident.role, "dev"
-    )
+    persona = {
+        "product_manager": "pm",
+        "architect": "arch",
+        "developer": "dev",
+        "executive": "exec",
+    }.get(ident.role, "dev")
     key = {"libraryId": LIBRARY_ID, "skillName": name}
     table = _get_table()
     try:

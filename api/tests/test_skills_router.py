@@ -574,3 +574,10 @@ def test_golden_skill_put():
 def test_chat_response_still_accepts_extra_keys_and_no_skill_run():
     resp = ChatResponse(response="x", session_id="s", status="complete", error={"type": "t"})
     assert resp.skill_run is None
+
+
+def test_put_as_architect_records_arch_persona(table, client):
+    resp = _put(client, headers={"X-Mahalo-Persona": "arch"})
+    assert resp.status_code == 200
+    assert resp.json()["skill"]["updated_by"] == "arch"
+

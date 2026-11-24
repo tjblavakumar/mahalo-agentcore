@@ -123,6 +123,17 @@ describe("AuthContext persona persistence", () => {
     expect(sessionGet).not.toHaveBeenCalled();
   });
 
+  it("restores the architect persona (arch) from localStorage", async () => {
+    const { auth } = await mountAuth();
+    act(() => {
+      expect(auth.login("arch", "arch123")).toBeNull();
+    });
+    expect(localStorageStub.getItem(STORAGE_KEY)).toBe("arch");
+    const persona = await mountAndRestore();
+    expect(persona?.personaId).toBe("arch");
+    expect(persona?.displayName).toBe("Maya Chaya");
+  });
+
   it("logout clears the persona from localStorage", async () => {
     const { auth } = await mountAuth();
     act(() => {

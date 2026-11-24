@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { authenticate } from "./personas";
+import { PERSONAS, authenticate } from "./personas";
 
 describe("authenticate (demo persona credential table)", () => {
   it("maps pm/pm123 to the Product Manager persona (dev-1)", () => {
@@ -24,6 +24,20 @@ describe("authenticate (demo persona credential table)", () => {
     expect(p?.personaId).toBe("exec");
     expect(p?.developerId).toBe("dev-5");
     expect(p?.role).toBe("executive");
+  });
+
+  it("maps arch/arch123 to the Architect persona Maya Chaya (dev-7)", () => {
+    const p = authenticate("arch", "arch123");
+    expect(p).not.toBeNull();
+    expect(p?.personaId).toBe("arch");
+    expect(p?.displayName).toBe("Maya Chaya");
+    expect(p?.personaLabel).toBe("Architect");
+    expect(p?.developerId).toBe("dev-7");
+    expect(p?.role).toBe("architect");
+  });
+
+  it("lists personas in lifecycle order", () => {
+    expect(Object.values(PERSONAS).map((p) => p.personaId)).toEqual(["pm", "arch", "dev", "exec"]);
   });
 
   it("returns null for a wrong password", () => {

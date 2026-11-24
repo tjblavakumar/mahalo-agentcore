@@ -1,6 +1,6 @@
 """Structure parity tests for the single-source-of-truth tool registry (Task 4).
 
-Asserts the 30 descriptors in ``common.tool_schemas``: the right count, the
+Asserts the 31 descriptors in ``common.tool_schemas``: the right count, the
 write-name set equal to the HITL set, each schema a top-level ``object``, exactly
 one of ``method``/``composite`` per tool, and that no tool/write name contains the
 Gateway ``___`` delimiter (the HITL strip invariant). The EXACT bidirectional
@@ -17,10 +17,11 @@ from common.tool_schemas import BY_NAME, TOOLS, WRITE_TOOL_NAMES  # noqa: F401
 # strands is installed. This lambda-side file asserts the schema structure that
 # is checkable without importing the agent package.
 
-# The six write tool names the HITL hook gates on (must equal agent/approval.py).
+# The seven write tool names the HITL hook gates on (must equal agent/approval.py).
 _EXPECTED_WRITES = {
     "jira_create_story",
     "jira_update_story",
+    "jira_add_comment",
     "github_create_branch",
     "github_commit_files",
     "github_open_pull_request",
@@ -28,9 +29,9 @@ _EXPECTED_WRITES = {
 }
 
 
-def test_thirty_tools():
-    assert len(TOOLS) == 30
-    assert len(BY_NAME) == 30
+def test_thirty_one_tools():
+    assert len(TOOLS) == 31
+    assert len(BY_NAME) == 31
 
 
 def test_write_name_set_matches():

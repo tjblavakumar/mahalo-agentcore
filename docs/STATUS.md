@@ -24,6 +24,18 @@ Thin-API Function URL -> `AuthType=NONE`; browser sends `X-Mahalo-Persona` heade
 GREEN (thin-API 21, frontend lint+19 tests+`npm run build` static export, infra
 frontend/api/app synth 12). Committed; NOT yet deployed.
 
+**ARCHITECT persona "Maya Chaya" (login `arch`, role `architect`, Jira dev-7) added -
+offline only, NOT deployed.** Fourth demo persona between PM and developer: same read
+access to every system, its own seeded dashboard (technical health per service),
+its own chat suggestions and role prompt. She may propose a design-review comment on
+a Jira story (new write tool `jira_add_comment`, same approval card; role-gated by
+`agent/role_access.py`) and cannot create branches, commit or open PRs. ADRs and
+design docs come back in chat as a downloadable `.md` file (not saved to
+Confluence). The architect review is a visible step, not a required gate. Deploy
+order and the one-off `dev-7` live put are in
+`.agents/tasks/architect-persona/design.md` section 7. Open-PR dashboard numbers
+are a snapshot for real Gitea mode and still need a read-only check against the
+live environment before release.
 **SECURITY:** all sensitive identifiers (AWS account id, SSO role ARN, SSO UserId,
 corporate email, SSO role name, OS user paths) were scrubbed from every tracked
 file AND purged from ALL git history via `git filter-repo`, then force-pushed.

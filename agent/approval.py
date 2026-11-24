@@ -24,6 +24,7 @@ from strands.hooks import BeforeToolCallEvent, HookProvider, HookRegistry
 WRITE_TOOL_NAMES: set[str] = {
     "jira_create_story",
     "jira_update_story",
+    "jira_add_comment",
     "github_create_branch",
     "github_commit_files",
     "github_open_pull_request",
@@ -85,6 +86,8 @@ def _describe(action: str, p: dict) -> str:
         )
     if action == "update_story":
         return f"Update story {p.get('story_id', '')}"
+    if action == "add_comment":
+        return f"Add a design-review comment to {p.get('story_id', '')}"
     if action == "create_branch":
         return (
             f"Create branch '{p.get('branch_name', '')}' in "

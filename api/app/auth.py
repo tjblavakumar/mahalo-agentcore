@@ -8,7 +8,7 @@ the Runtime already consumes.
 
 Demo-only posture (explicitly accepted): the browser is trusted — the header is
 not verified. Because the mapping is a fixed table, a malformed or hostile
-header can only ever select one of three known-good identities or the safe
+header can only ever select one of four known-good identities or the safe
 developer default; it can never inject an arbitrary developer_id/role. This
 dependency stays the single swap point for OKTA JWT-claim extraction in the
 GovCloud production path later.
@@ -24,6 +24,7 @@ from fastapi import Request
 # X-Mahalo-Persona value -> (developer_id, role). Keep in sync by hand.
 _PERSONA_MAP: dict[str, tuple[str, str]] = {
     "pm": ("dev-1", "product_manager"),
+    "arch": ("dev-7", "architect"),
     "dev": ("dev-6", "developer"),
     "exec": ("dev-5", "executive"),
 }

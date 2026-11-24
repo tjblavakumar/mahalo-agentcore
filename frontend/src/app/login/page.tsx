@@ -30,7 +30,7 @@ export default function LoginPage() {
     submit(userid, password);
   }
 
-  // Demo affordance: prefill + submit one of the three hardcoded personas.
+  // Demo affordance: prefill + submit one of the four hardcoded personas.
   function quickLogin(personaId: PersonaId) {
     const p = PERSONAS[personaId];
     setUserid(p.userid);
@@ -67,7 +67,7 @@ export default function LoginPage() {
                 required
                 autoComplete="username"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-gray-900"
-                placeholder="pm / dev / exec"
+                placeholder="pm / arch / dev / exec"
               />
             </div>
 
@@ -98,7 +98,7 @@ export default function LoginPage() {
 
           <div className="mt-6">
             <p className="text-center text-xs text-gray-400 mb-3">Quick login (demo)</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {(Object.values(PERSONAS)).map((p) => (
                 <button
                   key={p.personaId}

@@ -39,6 +39,7 @@ router = APIRouter(prefix="/model-config", tags=["model-config"])
 # (same rule as the dashboard router).
 _ROLE_TO_PERSONA: dict[str, str] = {
     "product_manager": "pm",
+    "architect": "arch",
     "developer": "dev",
     "executive": "exec",
 }

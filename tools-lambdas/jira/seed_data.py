@@ -2,7 +2,7 @@
 
 # skills: tags; capacity_points: points per sprint the developer can take, per
 # project (a missing project means none recorded); primary_service is optional
-# (dev-6 has none on purpose).
+# (dev-6 has none on purpose). dev-7 (Maya Chaya, the architect) has no capacity or primary_service so roadmap totals are unchanged.
 DEVELOPERS = [
     {
         "id": "dev-1", "name": "Marcus Chen", "email": "marcus@supermart.example",
@@ -38,6 +38,10 @@ DEVELOPERS = [
         "id": "dev-6", "name": "Lava Dev", "email": "lava@supermart.example",
         "skills": ["fraud-ml", "full-stack", "sso", "api-design"],
         "capacity_points": {"PAY": 8, "AUTH": 8, "ORD": 5},
+    },
+    {
+        "id": "dev-7", "name": "Maya Chaya", "email": "maya@supermart.example",
+        "skills": ["architecture", "security", "reliability", "api-design"],
     },
 ]
 PROJECTS = [

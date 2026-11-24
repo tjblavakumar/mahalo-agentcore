@@ -202,3 +202,16 @@ def test_put_dynamodb_error_returns_502(client):
         resp = client.put("/model-config", json=body, headers=_PM)
         model_config._table = None
     assert resp.status_code == 502
+
+
+def test_arch_config_stored_under_arch(table, client):
+    body = {
+        "codeGeneration": CODE_GEN_MODEL_ID,
+        "codeReview": _ALT_REVIEW,
+        "security": DEFAULT_REVIEW_MODEL_ID,
+    }
+    arch = {"X-Mahalo-Persona": "arch"}
+    assert client.put("/model-config", json=body, headers=arch).status_code == 200
+    assert "Item" in table.get_item(Key={"personaId": "arch"})
+    assert "Item" not in table.get_item(Key={"personaId": "dev"})
+    assert client.get("/model-config", headers=arch).json() == body

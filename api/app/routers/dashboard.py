@@ -33,6 +33,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 # role -> canonical personaId. Mirror of api/app/auth.py::_PERSONA_MAP roles.
 _ROLE_TO_PERSONA: dict[str, str] = {
     "product_manager": "pm",
+    "architect": "arch",
     "developer": "dev",
     "executive": "exec",
 }

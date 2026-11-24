@@ -87,7 +87,7 @@ def test_four_targets_with_expected_tool_names():
         assert by_name[target_name] == expected
 
 
-def test_all_30_tools_present_across_targets():
+def test_all_31_tools_present_across_targets():
     tmpl = _template()
     targets = tmpl.find_resources("AWS::BedrockAgentCore::GatewayTarget")
     all_names = set()
@@ -97,7 +97,7 @@ def test_all_30_tools_present_across_targets():
         ]
         all_names |= {t["Name"] for t in tools}
     assert all_names == set(tool_schemas.BY_NAME)
-    assert len(all_names) == 30
+    assert len(all_names) == 31
 
 
 def test_gateway_role_invokes_exactly_four_lambda_arns():

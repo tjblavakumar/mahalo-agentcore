@@ -176,12 +176,16 @@ def test_pay_worked_example(monkeypatch):
 def test_developer_fields(monkeypatch):
     _, _, devs = _jira(monkeypatch)
     by_id = {d["id"]: d for d in devs}
-    assert len(devs) == 6
+    assert len(devs) == 7
     for dev in devs:
-        assert dev["skills"] and dev["capacity_points"]
+        assert dev["skills"]
+        # dev-7 (Maya Chaya, architect) has no capacity so roadmap totals are unchanged.
+        assert dev["capacity_points"] if dev["id"] != "dev-7" else "capacity_points" not in dev
+    assert by_id["dev-7"]["name"] == "Maya Chaya"
+    assert "primary_service" not in by_id["dev-7"]
     assert "primary_service" not in by_id["dev-6"]
     assert by_id["dev-1"]["capacity_points"] == {"PAY": 16, "CART": 5}
-    totals = {p: sum(d["capacity_points"].get(p, 0) for d in devs) for p in PROJECTS}
+    totals = {p: sum(d.get("capacity_points", {}).get(p, 0) for d in devs) for p in PROJECTS}
     assert totals == {"PAY": 35, "CART": 26, "AUTH": 21, "PROD": 23, "ORD": 21}
 
 

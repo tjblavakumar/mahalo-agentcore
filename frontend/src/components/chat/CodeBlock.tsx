@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { detectSkillBlock, downloadSkillFile, type SkillFileBlock } from "@/lib/skills/chatBlock";
+import { detectDocBlock } from "@/lib/designDocBlock";
 
 interface CodeBlockProps {
   /** Language from the fence (```ts), when present. */
@@ -16,6 +17,9 @@ interface CodeBlockProps {
 
 export default function CodeBlock({ language, text, children, onOpenSkillUpload }: CodeBlockProps) {
   const skillFile = detectSkillBlock(language, text);
+  // Design documents / ADRs reuse the same Download button; skill detection wins.
+  const docFile = skillFile ? null : detectDocBlock(language, text);
+  const downloadable = skillFile ?? docFile;
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -40,13 +44,13 @@ export default function CodeBlock({ language, text, children, onOpenSkillUpload 
   return (
     <div className="not-prose my-3 overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-3 py-1">
-        <span className="text-xs font-mono text-gray-400">{skillFile ? skillFile.filename : (language ?? "")}</span>
+        <span className="text-xs font-mono text-gray-400">{downloadable ? downloadable.filename : (language ?? "")}</span>
         <div className="flex items-center gap-1">
-          {skillFile && (
+          {downloadable && (
             <button
               type="button"
-              onClick={() => downloadSkillFile(skillFile)}
-              aria-label={`Download ${skillFile.filename}`}
+              onClick={() => downloadSkillFile(downloadable)}
+              aria-label={`Download ${downloadable.filename}`}
               className="rounded px-2 py-0.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"
             >
               Download

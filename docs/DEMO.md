@@ -16,7 +16,7 @@ workflows. All values below reflect the deployed stacks in account
 MAHALO is a multi-persona SDLC assistant. One agent reaches four mock enterprise
 systems — **Jira, Confluence, GitHub (Gitea), ServiceNow** — and answers across
 all of them, synthesizes a cross-service dashboard, and performs writes behind a
-human approval gate. You log in as one of three personas (PM, Developer,
+human approval gate. You log in as one of four personas (PM, Architect, Developer,
 Executive) and the same agent tailors its answers to that role.
 
 ---

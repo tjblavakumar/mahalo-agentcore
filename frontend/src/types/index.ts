@@ -4,7 +4,7 @@
 
 import type { SkillRunInfo } from "@/lib/skills/types";
 
-export type UserRole = "product_manager" | "developer" | "executive";
+export type UserRole = "product_manager" | "architect" | "developer" | "executive";
 
 /**
  * The shared `/chat` wire types, used by both the chat page and the agent-driven

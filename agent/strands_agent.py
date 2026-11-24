@@ -28,7 +28,6 @@ from botocore.config import Config
 from strands import Agent
 from strands.models import BedrockModel
 
-from agent.approval import WriteApprovalHook
 from agent.config import settings
 from agent.gateway_client import _build_gateway_mcp_client
 from agent.memory_client import (
@@ -36,7 +35,8 @@ from agent.memory_client import (
     build_memory_session_manager,
     build_memory_session_spec,
 )
-from agent.prompts import ROLE_PROMPTS
+from agent.prompts import ROLE_DISPLAY, ROLE_PROMPTS
+from agent.role_access import RoleAccessApprovalHook
 from agent.tools.cicd_tools import CICD_TOOLS
 from agent.tools.confluence_tools import CONFLUENCE_TOOLS
 from agent.tools.github_tools import GITHUB_TOOLS
@@ -145,8 +145,8 @@ def _build_bedrock_model(
 
 def build_agent(
     role: str = "developer",
-    user_name: str = "Lava Dev",
-    user_role: str = "Developer",
+    user_name: str | None = None,
+    user_role: str | None = None,
     developer_id: str = "dev-6",
     tool_mode: str | None = None,
     *,
@@ -195,8 +195,14 @@ def build_agent(
     ``False`` keeps the Task-5 STM behavior (filter on) for every other build, so
     the DIRECT/GATEWAY CLI and the Task-5 tests are byte-for-byte unchanged.
 
-    Either way the same prefix-aware ``WriteApprovalHook`` gates the six writes.
+    Either way the same prefix-aware ``RoleAccessApprovalHook`` (a ``WriteApprovalHook``
+    that first refuses tools blocked for the role) gates the writes.
     """
+    # Identity line: only the architect has a role-specific display; every other
+    # role keeps the historical literals. Explicit arguments always win.
+    display_name, display_role = ROLE_DISPLAY.get(role, ("Lava Dev", "Developer"))
+    user_name = display_name if user_name is None else user_name
+    user_role = display_role if user_role is None else user_role
     mode = (tool_mode or settings.tool_mode).lower()
     use_memory = settings.memory_enabled if memory is None else memory
     model = _build_bedrock_model(settings.bedrock_model_id)
@@ -244,7 +250,7 @@ def build_agent(
             model=model,
             tools=[],
             system_prompt=system_prompt,
-            hooks=[WriteApprovalHook()],
+            hooks=[RoleAccessApprovalHook(role)],
         )
         return BuildResult(
             agent=agent, mcp_client=mcp_client, session_manager=session_manager
@@ -254,7 +260,7 @@ def build_agent(
         model=model,
         tools=[*READ_TOOLS, *WRITE_TOOLS],
         system_prompt=system_prompt,
-        hooks=[WriteApprovalHook()],
+        hooks=[RoleAccessApprovalHook(role)],
     )
     return BuildResult(agent=agent, session_manager=session_manager)
 

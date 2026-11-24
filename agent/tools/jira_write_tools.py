@@ -161,4 +161,25 @@ def jira_update_story(
     return f"✅ Story updated successfully: **{data['id']}** - {data['title']}"
 
 
-JIRA_WRITE_TOOLS = [jira_create_story, jira_update_story]
+@tool
+def jira_add_comment(story_id: str, author: str, text: str) -> str:
+    """Add a design-review comment to a Jira story. [WRITE ACTION - REQUIRES APPROVAL]
+    story_id: the story key (e.g. PAY-109) - must already exist.
+    author: the developer id of the logged-in user (e.g. dev-7).
+    text: 1 to 2000 characters, start with 'Design review:'."""
+    try:
+        data = make_request(
+            settings.jira_url,
+            settings.jira_token,
+            endpoint=f"/stories/{story_id}/comments",
+            method="POST",
+            body={"author": author, "text": text},
+        )
+    except (httpx.HTTPError, OSError) as exc:
+        return f"❌ Failed to add comment: {exc}"
+    if "error" in data:
+        return f"❌ Failed to add comment: {data['error']}"
+    return f"✅ Comment added to **{data['id']}** - {data['title']}"
+
+
+JIRA_WRITE_TOOLS = [jira_create_story, jira_update_story, jira_add_comment]

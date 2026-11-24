@@ -372,7 +372,7 @@ def test_hook_propose_path_raises_interrupt_for_every_write_tool(monkeypatch):
     monkeypatch.setattr(servicenow_write_tools, "make_request", _no_write)
 
     hook = WriteApprovalHook()
-    assert len(WRITE_TOOL_NAMES) == 6
+    assert len(WRITE_TOOL_NAMES) == 7
     for name in WRITE_TOOL_NAMES:
         event = _FakeBeforeToolCallEvent(name, {"repo_id": "r", "branch_name": "b"})
         with pytest.raises(InterruptException):

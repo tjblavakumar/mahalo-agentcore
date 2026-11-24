@@ -296,3 +296,47 @@ def test_put_accepts_pie_spec(table, client):
     resp = client.put("/dashboard/widgets", json=body, headers=_PM)
     assert resp.status_code == 200
     assert resp.json()["widgets"][0]["spec"]["type"] == "pie"
+
+
+# --- Architect persona -------------------------------------------------------
+_ARCH = {"X-Mahalo-Persona": "arch"}
+
+
+def test_arch_default_is_four_valid_technical_health_widgets():
+    widgets = default_widgets_for("arch")
+    assert [w["id"] for w in widgets] == [
+        "seed-arch-change-failure-rate",
+        "seed-arch-security-findings",
+        "seed-arch-incidents-linkage",
+        "seed-arch-open-prs",
+    ]
+    for widget in widgets:
+        assert widget["spec"]["type"] == "bar"
+        assert spec_is_structurally_valid(widget["spec"])
+        assert len(widget["spec"]["data"]) == 5
+    titles = {w["id"]: w["spec"]["title"] for w in widgets}
+    assert titles["seed-arch-security-findings"] == "Open security findings by service (recorded CI/CD runs)"
+    assert titles["seed-arch-open-prs"] == "Open PRs by service (snapshot)"
+    # Unique: no widget id is shared with any other persona's default.
+    others = {w["id"] for p in ("pm", "dev", "exec") for w in default_widgets_for(p)}
+    assert not others & {w["id"] for w in widgets}
+
+
+def test_arch_default_is_not_the_developer_default():
+    assert default_widgets_for("arch") != default_widgets_for("dev")
+
+
+def test_get_arch_without_item_returns_arch_seed(table, client):
+    resp = client.get("/dashboard/widgets", headers=_ARCH)
+    assert resp.status_code == 200
+    assert resp.json()["widgets"] == default_widgets_for("arch")
+    assert table.scan()["Count"] == 0
+
+
+def test_put_arch_stores_under_arch_not_dev(table, client):
+    widgets = default_widgets_for("arch")[:1]
+    assert client.put("/dashboard/widgets", json={"widgets": widgets}, headers=_ARCH).status_code == 200
+    assert "Item" in table.get_item(Key={"personaId": "arch"})
+    assert "Item" not in table.get_item(Key={"personaId": "dev"})
+    got = client.get("/dashboard/widgets", headers=_ARCH).json()["widgets"]
+    assert [w["id"] for w in got] == ["seed-arch-change-failure-rate"]

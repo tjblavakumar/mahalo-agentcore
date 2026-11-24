@@ -230,8 +230,8 @@ def test_approve_success_maps_to_action_result(monkeypatch):
         assert body["action"] == "approve"
         assert body["decision"] == "APPROVE"
         assert body["interrupt_id"] == "itr-1"
-        # role is NOT forwarded on approve (design §B.3).
-        assert "role" not in body
+        # role is forwarded on approve (no persona header -> developer).
+        assert body["role"] == "developer"
         return {"status": "complete", "response": "done", "session_id": session_id}
 
     monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
@@ -725,3 +725,57 @@ def test_chat_review_file_summaries_roundtrip_and_old_payloads(monkeypatch):
     second = _client().post("/chat", json={"message": "commit"}).json()
     assert "file_summaries" not in second["review"]
     assert second["review"]["model_label"] == "Nova Lite"
+
+
+def test_persona_header_arch_maps_to_dev7_architect(monkeypatch):
+    captured = _capture_chat_body(monkeypatch)
+    resp = _client().post(
+        "/chat", json={"message": "hi"}, headers={"X-Mahalo-Persona": "arch"}
+    )
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-7"
+    assert captured["role"] == "architect"
+
+
+def test_current_identity_maps_arch_header():
+    from app.auth import Identity, current_identity
+
+    class _FakeRequest:
+        def __init__(self, headers: dict):
+            self.headers = headers
+
+    assert current_identity(_FakeRequest({"X-Mahalo-Persona": " ARCH "})) == Identity(
+        "dev-7", "architect"
+    )
+    assert current_identity(_FakeRequest({"X-Mahalo-Persona": "wizard"})) == Identity(
+        "dev-6", "developer"
+    )
+
+
+def test_approve_forwards_role_for_architect(monkeypatch):
+    import app.routers.chat as chat
+
+    captured = {}
+
+    def _fake_invoke(*, session_id, body, runtime_user_id=None):
+        captured.update(body)
+        return {"status": "complete", "response": "ok", "session_id": session_id}
+
+    monkeypatch.setattr(chat, "invoke_runtime", _fake_invoke)
+    resp = _client().post(
+        "/chat/approve",
+        json={"session_id": "S1", "interrupt_id": "itr-1", "approved": True},
+        headers={"X-Mahalo-Persona": "arch"},
+    )
+    assert resp.status_code == 200
+    assert captured["developer_id"] == "dev-7"
+    assert captured["role"] == "architect"
+
+
+def test_role_to_persona_maps_do_not_drift_from_auth():
+    from app import auth
+    from app.routers import dashboard, model_config
+
+    expected = {role: persona for persona, (_dev, role) in auth._PERSONA_MAP.items()}
+    assert dashboard._ROLE_TO_PERSONA == expected
+    assert model_config._ROLE_TO_PERSONA == expected

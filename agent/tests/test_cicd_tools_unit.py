@@ -1,4 +1,4 @@
-﻿"""Offline unit tests for the read-only CI/CD pipeline tools (no network)."""
+"""Offline unit tests for the read-only CI/CD pipeline tools (no network)."""
 from __future__ import annotations
 
 import inspect
@@ -138,7 +138,7 @@ def test_tools_are_read_only_and_registered():
     assert names <= {t.tool_name for t in READ_TOOLS}
     assert not names & {t.tool_name for t in WRITE_TOOLS}
     assert not any(n.startswith("cicd_") for n in WRITE_TOOL_NAMES)
-    assert len(WRITE_TOOL_NAMES) == 6
+    assert len(WRITE_TOOL_NAMES) == 7
     assert names <= set(tool_schemas.BY_NAME)
     assert all(tool_schemas.BY_NAME[n]["service"] == "servicenow" for n in names)
     assert all(tool_schemas.BY_NAME[n].get("method") == "GET" for n in names)

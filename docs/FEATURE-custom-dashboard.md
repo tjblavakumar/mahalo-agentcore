@@ -66,6 +66,9 @@ chart-based, user-customizable dashboard:
   already populated; once the user customizes, their saved set replaces the
   default. Default starters (user approved "your assumption is good"):
     - PM (Marcus Chen): story points by sprint (bar); open PRs by project (bar).
+    - Architect (Maya Chaya): technical health per service (four bars, a static
+      snapshot): change failure rate; open security findings by severity (recorded
+      CI/CD runs); incidents with and without a linked deployment; open PRs.
     - Dev (Lava Dev): my open PRs (table); my stories by status (bar).
     - Exec (David Kim): delivery health by project (bar/line).
   Rejected: localStorage (per-browser, clearable); SQLite on the Gitea box

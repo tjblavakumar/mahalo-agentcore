@@ -126,9 +126,92 @@ _EXEC_WIDGETS: list[dict] = [
     },
 ]
 
+# Architect (arch, Maya Chaya): technical-health snapshot per service. The numbers
+# were computed from the mock seed data behind servicenow_deployment_status_by_project,
+# cicd_pipeline_summary, servicenow_list_incidents and github_pull_requests_all_repos.
+# The open-PR counts target REAL Gitea mode (the seeded Gitea PRs), not the mock
+# GitHub service. Like the other personas' defaults these are a static snapshot.
+_ARCH_SERVICES = [
+    "payment-service",
+    "cart-service",
+    "auth-service",
+    "product-service",
+    "order-service",
+]
+_ARCH_WIDGETS: list[dict] = [
+    {
+        "id": "seed-arch-change-failure-rate",
+        "spec": {
+            "type": "bar",
+            "title": "Change failure rate by service (failed or rolled back / all deployments)",
+            "xKey": "service",
+            "series": [{"name": "Change failure rate (%)", "dataKey": "rate"}],
+            "data": [
+                {"service": s, "rate": r}
+                for s, r in zip(_ARCH_SERVICES, (50, 50, 50, 60, 50))
+            ],
+        },
+        "layout": {"x": 0, "y": 0, "w": 6, "h": 8},
+    },
+    {
+        "id": "seed-arch-security-findings",
+        "spec": {
+            "type": "bar",
+            "title": "Open security findings by service (recorded CI/CD runs)",
+            "xKey": "service",
+            "series": [
+                {"name": "Critical", "dataKey": "critical"},
+                {"name": "High", "dataKey": "high"},
+                {"name": "Medium", "dataKey": "medium"},
+                {"name": "Low", "dataKey": "low"},
+            ],
+            "data": [
+                {"service": s, "critical": c, "high": h, "medium": m, "low": lo}
+                for s, (c, h, m, lo) in zip(
+                    _ARCH_SERVICES,
+                    ((0, 1, 2, 2), (0, 0, 0, 1), (0, 1, 0, 0), (0, 0, 0, 0), (0, 1, 0, 0)),
+                )
+            ],
+        },
+        "layout": {"x": 6, "y": 0, "w": 6, "h": 8},
+    },
+    {
+        "id": "seed-arch-incidents-linkage",
+        "spec": {
+            "type": "bar",
+            "title": "Incidents by service: linked vs no recorded deployment",
+            "xKey": "service",
+            "series": [
+                {"name": "With linked deployment", "dataKey": "linked"},
+                {"name": "No linked deployment", "dataKey": "unlinked"},
+            ],
+            "data": [
+                {"service": s, "linked": a, "unlinked": b}
+                for s, (a, b) in zip(
+                    _ARCH_SERVICES, ((9, 1), (9, 1), (10, 0), (10, 0), (10, 0))
+                )
+            ],
+        },
+        "layout": {"x": 0, "y": 8, "w": 6, "h": 8},
+    },
+    {
+        "id": "seed-arch-open-prs",
+        "spec": {
+            "type": "bar",
+            "title": "Open PRs by service (snapshot)",
+            "xKey": "service",
+            "series": [{"name": "Open PRs", "dataKey": "open"}],
+            "data": [
+                {"service": s, "open": n}
+                for s, n in zip(_ARCH_SERVICES, (3, 2, 2, 1, 1))
+            ],
+        },
+        "layout": {"x": 6, "y": 8, "w": 6, "h": 8},
+    },
+]
 _DEFAULTS: dict[str, list[dict]] = {
     "pm": _PM_WIDGETS,
-    "dev": _DEV_WIDGETS,
+    "arch": _ARCH_WIDGETS,    "dev": _DEV_WIDGETS,
     "exec": _EXEC_WIDGETS,
 }
 

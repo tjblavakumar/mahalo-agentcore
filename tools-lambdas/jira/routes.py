@@ -18,6 +18,7 @@ PK_DEVELOPER = "DEVELOPER"
 PK_PROJECT = "PROJECT"
 PK_SPRINT = "SPRINT"
 PK_STORY = "STORY"
+MAX_COMMENT_CHARS = 2000
 
 
 def seed_items():
@@ -214,6 +215,33 @@ def build_router(store, token):
                 story[field] = body[field]
         store.put(PK_STORY, story_id, story)
         return json_response(200, story)
+
+    @router.route("POST", "/stories/{story_id}/comments")
+    def add_comment(request):
+        denied = _auth(request)
+        if denied:
+            return denied
+        story_id = request.path_params["story_id"]
+        story = store.get(PK_STORY, story_id)
+        if not story:
+            return error(404, "Story not found")
+        body = request.json_body
+        if not isinstance(body, dict):
+            return error(422, "Request body must be a JSON object")
+        text = body.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return error(422, "Field 'text' is required")
+        text = text.strip()
+        if len(text) > MAX_COMMENT_CHARS:
+            return error(422, f"Field 'text' must be at most {MAX_COMMENT_CHARS} characters")
+        author = body.get("author")
+        if not isinstance(author, str) or not store.exists(PK_DEVELOPER, author):
+            return error(422, "Unknown author")
+        story.setdefault("comments", []).append(
+            {"author": author, "text": text, "date": seed_dates.today_utc().isoformat()}
+        )
+        store.put(PK_STORY, story_id, story)
+        return json_response(201, story)
 
     # --- Sprints ---
 

@@ -53,7 +53,7 @@ def test_list_projects(handler):
 def test_list_developers(handler):
     resp = invoke(handler, "GET", "/developers", token=TOKEN)
     assert resp["statusCode"] == 200
-    assert len(body_of(resp)["developers"]) == 6
+    assert len(body_of(resp)["developers"]) == 7
 
 
 def test_get_project_404(handler):
@@ -166,3 +166,60 @@ def test_update_story_applies_only_provided(handler):
 def test_update_story_404(handler):
     resp = invoke(handler, "PUT", "/stories/PAY-9999", token=TOKEN, body={"status": "done"})
     assert resp["statusCode"] == 404
+
+def test_add_comment_appends_and_returns_201(handler):
+    resp = invoke(
+        handler,
+        "POST",
+        "/stories/PAY-107/comments",
+        token=TOKEN,
+        body={"author": "dev-7", "text": "  Design review: ok  "},
+    )
+    assert resp["statusCode"] == 201
+    story = body_of(resp)
+    last = story["comments"][-1]
+    assert last["author"] == "dev-7" and last["text"] == "Design review: ok"
+    assert len(last["date"]) == 10
+    stored = body_of(invoke(handler, "GET", "/stories/PAY-107", token=TOKEN))
+    assert stored["comments"][-1] == last
+
+
+def test_add_comment_404_unknown_story(handler):
+    resp = invoke(
+        handler, "POST", "/stories/PAY-9999/comments", token=TOKEN,
+        body={"author": "dev-7", "text": "x"},
+    )
+    assert resp["statusCode"] == 404
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"author": "dev-7"},
+        {"author": "dev-7", "text": ""},
+        {"author": "dev-7", "text": "   "},
+        {"author": "dev-7", "text": 5},
+        {"author": "dev-7", "text": "x" * 2001},
+        {"text": "Design review: x"},
+        {"author": "dev-99", "text": "Design review: x"},
+        {"author": 7, "text": "Design review: x"},
+    ],
+)
+def test_add_comment_422_on_bad_input(handler, body):
+    resp = invoke(handler, "POST", "/stories/PAY-107/comments", token=TOKEN, body=body)
+    assert resp["statusCode"] == 422
+
+
+def test_add_comment_accepts_2000_chars(handler):
+    resp = invoke(
+        handler, "POST", "/stories/PAY-107/comments", token=TOKEN,
+        body={"author": "dev-7", "text": "x" * 2000},
+    )
+    assert resp["statusCode"] == 201
+
+
+def test_add_comment_401_without_token(handler):
+    resp = invoke(
+        handler, "POST", "/stories/PAY-107/comments", body={"author": "dev-7", "text": "x"}
+    )
+    assert resp["statusCode"] == 401

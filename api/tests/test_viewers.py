@@ -261,3 +261,11 @@ def test_reserved_item_not_returned_by_dashboard(client, upstream, table):
         r = client.get("/dashboard/widgets", headers={"X-Mahalo-Persona": persona})
         assert r.status_code == 200
         assert "lastRefreshEpoch" not in r.text
+
+
+def test_reserved_item_not_returned_by_dashboard_for_arch(client, upstream, table):
+    upstream.handler = _reset_reply
+    assert client.post("/admin/refresh-demo-data").status_code == 200
+    r = client.get("/dashboard/widgets", headers={"X-Mahalo-Persona": "arch"})
+    assert r.status_code == 200
+    assert "lastRefreshEpoch" not in r.text

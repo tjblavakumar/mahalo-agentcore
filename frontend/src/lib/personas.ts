@@ -5,7 +5,7 @@
  * live systems). There is no hashing and no token: a plaintext userid/password
  * check gates the UI and selects a persona. Each persona maps to exactly the two
  * fields the Runtime already consumes — `developerId` and `role` — using the real
- * dev-ids from the Jira seed data and the three `ROLE_PROMPTS` keys.
+ * dev-ids from the Jira seed data and the four `ROLE_PROMPTS` keys.
  *
  * This table is the client-side mirror of the server-side table in
  * `api/app/auth.py` (`_PERSONA_MAP`). Keep the two in sync by hand. Only the
@@ -15,7 +15,7 @@
 
 import type { UserRole } from "@/types";
 
-export type PersonaId = "pm" | "dev" | "exec";
+export type PersonaId = "pm" | "arch" | "dev" | "exec";
 
 export interface Persona {
   /** The X-Mahalo-Persona header value. */
@@ -26,11 +26,11 @@ export interface Persona {
   password: string;
   /** Shown in the UI header. */
   displayName: string;
-  /** Human label: "Product Manager" | "Developer" | "Executive". */
+  /** Human label: "Product Manager" | "Architect" | "Developer" | "Executive". */
   personaLabel: string;
-  /** Backend developer_id: dev-1 | dev-6 | dev-5. */
+  /** Backend developer_id: dev-1 | dev-7 | dev-6 | dev-5. */
   developerId: string;
-  /** Backend role: product_manager | developer | executive. */
+  /** Backend role: product_manager | architect | developer | executive. */
   role: UserRole;
 }
 
@@ -43,6 +43,15 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     personaLabel: "Product Manager",
     developerId: "dev-1",
     role: "product_manager",
+  },
+  arch: {
+    personaId: "arch",
+    userid: "arch",
+    password: "arch123",
+    displayName: "Maya Chaya",
+    personaLabel: "Architect",
+    developerId: "dev-7",
+    role: "architect",
   },
   dev: {
     personaId: "dev",

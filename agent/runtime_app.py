@@ -138,10 +138,41 @@ def _resolve_session_id(context) -> str:
 _FENCED_CODE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
 
 
+# Design documents / ADRs are prose, not code: a markdown fence whose frontmatter
+# carries a design ``doc_type`` is removed before code extraction so it does not
+# trigger the review stage. Every other fence (incl. skill drafts) is untouched.
+_DOC_FENCE_RE = re.compile(
+    r"(?ms)^(`{3,})[ \t]*(?:markdown|md)[ \t]*\n(.*?)\n\1[ \t]*$"
+)
+_DOC_TYPES = {"adr", "design", "design-review"}
+
+
+def _is_doc_body(body: str) -> bool:
+    lines = body.replace("\r", "").split("\n")
+    if lines[0].strip() != "---":
+        return False
+    doc_type = None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return doc_type in _DOC_TYPES
+        key, sep, value = line.partition(":")
+        if sep and key.strip().lower() == "doc_type":
+            doc_type = value.strip().lower()
+    return False  # no closing frontmatter line
+
+
+def _strip_doc_fences(text: str) -> str:
+    def _repl(m):
+        return "" if _is_doc_body(m.group(2)) else m.group(0)
+
+    return _DOC_FENCE_RE.sub(_repl, text)
+
+
 def _extract_fenced_code(text: str) -> str:
     """Return the concatenation of all fenced code blocks in ``text`` (or '')."""
     if not isinstance(text, str):
         return ""
+    text = _strip_doc_fences(text)
     blocks = _FENCED_CODE_RE.findall(text)
     return "\n\n".join(b.strip("\n") for b in blocks)
 
@@ -324,12 +355,15 @@ def _handle_approve(payload: dict, session_id: str) -> dict:
     developer_id = _resolve_developer_id(payload.get("developer_id"))
     interrupt_id = interrupt_id.strip()
 
-    # The approve leg does NOT forward 'role' (design §B.3): the resume replays
-    # pending_tool_execution without a model call, so the role-selected system
-    # prompt is never re-consumed. 'tool_mode' is the Runtime env constant, so the
-    # rebuilt registry matches the chat leg's by construction.
+    # 'role' is forwarded on the approve leg: the resume replays the stored tool
+    # call without a model call, then runs the tool and makes one model call for the
+    # final reply, so the role is needed for both the role-access hook and the
+    # role system prompt. A missing role resolves to the default (developer).
+    # 'tool_mode' is the Runtime env constant, so the rebuilt registry matches the
+    # chat leg's by construction.
+    role = _resolve_role(payload.get("role"))
     attached = build_and_attach(
-        session_id, developer_id=developer_id, pending_write=True
+        session_id, developer_id=developer_id, role=role, pending_write=True
     )
     try:
         # Derive the breadcrumb proposal from the RESTORED session state before

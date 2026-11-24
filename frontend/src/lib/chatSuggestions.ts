@@ -3,7 +3,7 @@
  *
  * The chat empty-state shows a few "starter" prompts. Rather than hardcoding
  * them, we derive them from the current context:
- *   - the user's role (product_manager / developer / executive)
+ *   - the user's role (product_manager / architect / developer / executive)
  *   - the project currently in scope (to inject real names / keys)
  *   - the systems the user has actually connected (Jira / Confluence / GitHub /
  *     ServiceNow)
@@ -64,6 +64,15 @@ export const ROLE_TEMPLATES: Record<UserRole, SuggestionTemplate[]> = {
     { text: "Summarize the latest documentation updates", requires: ["confluence"] },
     { text: "Are there any production incidents affecting {projectName}?", requires: ["servicenow"], needsProject: true },
     { text: "Give me a delivery status overview" },
+  ],
+  architect: [
+    // The chat page only passes github + jira as connected types, so the
+    // ServiceNow / CI/CD-backed prompts carry no `requires` or they would never show.
+    { text: "Review the design for PAY-109: risks, dependencies and what's missing" },
+    { text: "Which services have the highest change failure rate?" },
+    { text: "Draft an architecture decision record for adding crypto payments" },
+    { text: "Summarize security findings across all services" },
+    { text: "Which open stories touch more than one service?", requires: ["jira"] },
   ],
   developer: [
     { text: "Show open pull requests for {repo}", requires: ["github"], needsProject: true },

@@ -132,9 +132,9 @@ def approve_action(
 ) -> ActionResult:
     """Forward an approve/reject decision to the Runtime and project the reply.
 
-    Note (design §B.3): the approve leg forwards ``developer_id`` but NOT ``role``
-    and NOT ``tool_mode`` — the resume replays the pending tool execution without
-    a model call, and ``tool_mode`` is a Runtime-process env constant.
+    Note: the approve leg forwards ``developer_id`` and ``role`` (the Runtime needs
+    the role for its role-access hook and role system prompt when it resumes the
+    pending tool and answers) but NOT ``tool_mode``, a Runtime-process env constant.
 
     The optional ``proposal`` echo is forwarded verbatim when the client supplies
     it, but it is NOT required for chain correctness: the Runtime derives the
@@ -154,6 +154,7 @@ def approve_action(
                 "decision": decision,
                 "interrupt_id": req.interrupt_id,
                 "developer_id": ident.developer_id,
+                "role": ident.role,
                 "proposal": req.proposal,
             },
             runtime_user_id=_runtime_user_id(ident),

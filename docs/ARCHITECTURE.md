@@ -8,7 +8,7 @@ live URLs + logins see `docs/DEMO-LOGINS.md`; for the operational history see
 ## 1. What it is, in one paragraph
 
 MAHALO is a multi-persona SDLC assistant. A user logs into a web UI as one of
-three personas (PM, Developer, Executive), asks questions or builds a dashboard,
+four personas (PM, Architect, Developer, Executive), asks questions or builds a dashboard,
 and an AI agent answers by reasoning across **four enterprise systems at
 once** — Jira, Confluence, ServiceNow, and GitHub. Generated code is then checked
 by an **independent review sub-agent running on a different Bedrock model** (the

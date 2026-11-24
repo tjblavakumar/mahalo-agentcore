@@ -11,6 +11,7 @@ persona's role and identity. Switch personas freely to show different views.
 | Persona | Username | Who the agent acts as | Role flavor |
 |---|---|---|---|
 | Product Manager | `pm` | Marcus Chen (dev-1) | Roadmap / sprint / cross-project synthesis |
+| Architect | `arch` | Maya Chaya (dev-7) | Cross-service design review: risks, dependencies, change failure rate, security findings, ADRs |
 | Developer | `dev` | Lava Dev (dev-6) | My work: stories, branches, PRs, incidents |
 | Executive | `exec` | David Kim (dev-5) | High-level status, risk, delivery health |
 
@@ -73,11 +74,19 @@ agent reasons across them in one turn.
    - Ask: *"Give me a status summary across all my projects."* → sprint progress
      from Jira, open PRs from Gitea, open incidents from ServiceNow, blended.
 
-3. **Switch to Executive (`exec`).**
+3. **Switch to Architect (`arch`).** The review is a visible step, not a required gate.
+   - Ask: *"Review the design for PAY-109: risks, dependencies and what's missing"* →
+     a cross-service answer from Jira, Confluence, Gitea and ServiceNow/CI-CD.
+   - Ask the agent to record the review as a comment on the story → an approval card
+     (the same card as other writes); after you approve, the comment appears on the
+     story. The architect cannot commit code, create branches or open PRs.
+   - Ask: *"Draft an architecture decision record for adding crypto payments"* →
+     the ADR is a file in the chat with a Download button (it is not saved to Confluence).
+4. **Switch to Executive (`exec`).**
    - Ask: *"What's the delivery risk this sprint?"* → a higher-level synthesis
      across the same systems, framed for an exec.
 
-4. **Show the proof in Gitea.** Log into https://d3ec76atxiij9a.cloudfront.net/
+5. **Show the proof in Gitea.** Log into https://d3ec76atxiij9a.cloudfront.net/
    as `mahalo_admin` and walk the repos/PRs/branches — including the branch you
    just created live — so the audience sees the agent's writes are real.
 

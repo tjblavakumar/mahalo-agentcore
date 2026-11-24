@@ -123,3 +123,27 @@ describe("buildSuggestions", () => {
     expect(new Set(out).size).toBe(out.length);
   });
 });
+
+
+describe("architect suggestions", () => {
+  const GH_JIRA: IntegrationType[] = ["github", "jira"]; // what the chat page passes
+
+  it("returns four architect prompts, none shared with another role", () => {
+    const arch = buildSuggestions({ role: "architect", project: null, connectedTypes: GH_JIRA });
+    expect(arch).toEqual([
+      "Review the design for PAY-109: risks, dependencies and what's missing",
+      "Which services have the highest change failure rate?",
+      "Draft an architecture decision record for adding crypto payments",
+      "Summarize security findings across all services",
+    ]);
+    for (const role of ["product_manager", "developer", "executive"] as const) {
+      const other = buildSuggestions({ role, project: makeProject(), connectedTypes: ALL, limit: 20 });
+      expect(arch.filter((s) => other.includes(s))).toEqual([]);
+    }
+  });
+
+  it("keeps the multi-service prompt (needs jira) after the first four", () => {
+    const all = buildSuggestions({ role: "architect", project: null, connectedTypes: GH_JIRA, limit: 10 });
+    expect(all[4]).toBe("Which open stories touch more than one service?");
+  });
+});

@@ -219,6 +219,27 @@ TOOLS: List[Dict[str, Any]] = [
             "sprint_id": {"in": "body", "name": "sprint_id"},
         },
     },
+    {
+        "name": "jira_add_comment",
+        "service": "jira",
+        "description": (
+            "Add a design-review comment to a Jira story. "
+            "[WRITE ACTION - REQUIRES APPROVAL] "
+            "author: the developer id of the logged-in user; "
+            "text: 1 to 2000 characters, start with 'Design review:'."
+        ),
+        "input_schema": _obj(
+            {"story_id": _STR, "author": _STR, "text": _STR},
+            required=["story_id", "author", "text"],
+        ),
+        "method": "POST",
+        "path_template": "/stories/{story_id}/comments",
+        "arg_mapping": {
+            "story_id": {"in": "path", "name": "story_id"},
+            "author": {"in": "body", "name": "author"},
+            "text": {"in": "body", "name": "text"},
+        },
+    },
     # ----- GitHub (8: 5 read + 3 write) -----
     {
         "name": "github_list_repos",
@@ -584,10 +605,11 @@ TOOLS: List[Dict[str, Any]] = [
 # name -> descriptor, for O(1) adapter lookup.
 BY_NAME: Dict[str, Dict[str, Any]] = {t["name"]: t for t in TOOLS}
 
-# The six write tools (bare names), mirroring agent/approval.py::WRITE_TOOL_NAMES.
+# The seven write tools (bare names), mirroring agent/approval.py::WRITE_TOOL_NAMES.
 WRITE_TOOL_NAMES = {
     "jira_create_story",
     "jira_update_story",
+    "jira_add_comment",
     "github_create_branch",
     "github_commit_files",
     "github_open_pull_request",
