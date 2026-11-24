@@ -158,6 +158,20 @@ class MahaloApiStack(Stack):
             for svc in ("jira", "confluence", "servicenow"):
                 fn.add_environment(f"MAHALO_{svc.upper()}_URL", mock_stacks[svc].function_url.url)
                 fn.add_environment(f"MAHALO_{svc.upper()}_TOKEN", mock_stacks[svc].token)
+        # Login briefing reads the Git mock too. Its URL is NOT referenced from the
+        # Git stack (that would add a CloudFormation export to it and force a
+        # redeploy of MahaloMockGithubStack, which must stay untouched): it is read
+        # from -c githubUrl=... or MAHALO_GITHUB_URL at synth time and the variable
+        # is set only when present. The token is the plain default constant.
+        github_url = self.node.try_get_context("githubUrl") or os.environ.get("MAHALO_GITHUB_URL", "")
+        if github_url:
+            github_token = (
+                mock_stacks["github"].token
+                if mock_stacks and "github" in mock_stacks
+                else "mock-github-token-12345"
+            )
+            fn.add_environment("MAHALO_GITHUB_URL", github_url)
+            fn.add_environment("MAHALO_GITHUB_TOKEN", github_token)
         # Thin API -> Runtime: SigV4-signed InvokeAgentRuntime on the Runtime ARN.
         runtime.grant_invoke_runtime(fn)
         # Thin API -> dashboards table: GetItem/PutItem on the one persona item.

@@ -200,3 +200,23 @@ def test_api_code_offline_has_no_bundling(monkeypatch):
 def test_skills_dir_is_repo_root_skills():
     assert api_stack_mod._SKILLS_DIR.name == "skills"
     assert api_stack_mod._SKILLS_DIR.parent == Path(api_stack_mod._API_DIR).parent
+
+def _lambda_env(tmpl):
+    (fn,) = tmpl.find_resources("AWS::Lambda::Function").values()
+    return fn["Properties"]["Environment"]["Variables"]
+
+
+def test_github_env_absent_without_url(monkeypatch):
+    monkeypatch.delenv("MAHALO_GITHUB_URL", raising=False)
+    env = _lambda_env(_api_template())
+    assert "MAHALO_GITHUB_URL" not in env
+    assert "MAHALO_GITHUB_TOKEN" not in env
+
+
+def test_github_env_present_only_when_url_set_and_no_cross_stack_import(monkeypatch):
+    monkeypatch.setenv("MAHALO_GITHUB_URL", "https://git.example.test/")
+    tmpl = _api_template()
+    env = _lambda_env(tmpl)
+    assert env["MAHALO_GITHUB_URL"] == "https://git.example.test/"
+    assert env["MAHALO_GITHUB_TOKEN"] == "mock-github-token-12345"
+    assert "MahaloMockGithubStack" not in str(tmpl.to_json())
