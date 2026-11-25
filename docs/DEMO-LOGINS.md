@@ -100,3 +100,5 @@ agent reasons across them in one turn.
 - Gitea is reachable only over its HTTPS CloudFront URL (port 3000 is blocked by
   corporate networks). Use the https://d3ec76atxiij9a.cloudfront.net/ URL, not
   the raw EC2 host.
+
+After login, the chat screen shows a compact "Since yesterday" card with the top 5 items for the persona; "More" lists everything from the last 24 hours grouped by system. It appears once per login and can be dismissed.
