@@ -134,3 +134,66 @@ describe("api client (plain fetch)", () => {
     expect(thrown.error).toBe("network down");
   });
 });
+
+describe("getBriefing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("GETs /briefing with the persona header and an abort signal", async () => {
+    const { getBriefing } = await import("./api");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ headline: "Since yesterday" }));
+    const res = await getBriefing("arch");
+    expect(res.data).toEqual({ headline: "Since yesterday" });
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/briefing$/);
+    expect(options.method).toBe("GET");
+    expect(options.headers["X-Mahalo-Persona"]).toBe("arch");
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("aborts at 8 s and returns no data", async () => {
+    const { getBriefing, BRIEFING_TIMEOUT_MS } = await import("./api");
+    expect(BRIEFING_TIMEOUT_MS).toBe(8000);
+    fetchMock.mockImplementationOnce(
+      (_url: string, options: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          options.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        })
+    );
+    const pending = getBriefing("dev");
+    await vi.advanceTimersByTimeAsync(7999);
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(2);
+    const res = await pending;
+    expect(res.data).toBeNull();
+    expect(res.error).toBe("aborted");
+  });
+
+  it("aborts when the caller's signal aborts", async () => {
+    const { getBriefing } = await import("./api");
+    fetchMock.mockImplementationOnce(
+      (_url: string, options: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          options.signal?.addEventListener("abort", () => reject(new Error("caller aborted")));
+        })
+    );
+    const caller = new AbortController();
+    const pending = getBriefing("dev", caller.signal);
+    caller.abort();
+    const res = await pending;
+    expect(res.data).toBeNull();
+    expect(res.error).toBe("caller aborted");
+  });
+});

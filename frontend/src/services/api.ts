@@ -9,6 +9,7 @@
 
 import type { PersonaId } from "@/lib/personas";
 import type { ChatResponse, ModelConfig } from "@/types";
+import type { Briefing } from "@/lib/briefing";
 import type {
   SkillCheckResponse,
   SkillDetail,
@@ -113,8 +114,8 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(endpoint: string, personaId?: PersonaId) =>
-    request<T>(endpoint, { method: "GET" }, personaId),
+  get: <T>(endpoint: string, personaId?: PersonaId, signal?: AbortSignal) =>
+    request<T>(endpoint, { method: "GET", signal }, personaId),
   post: <T>(endpoint: string, body: unknown, personaId?: PersonaId, signal?: AbortSignal) =>
     request<T>(endpoint, { method: "POST", body: JSON.stringify(body), signal }, personaId),
   put: <T>(endpoint: string, body: unknown, personaId?: PersonaId) =>
@@ -179,6 +180,26 @@ export function runSkill(
   personaId?: PersonaId
 ) {
   return api.post<ChatResponse>("/skills/run", body, personaId);
+}
+
+/** The briefing is optional UI: give up after 8 s (2 s after the server's own deadline). */
+export const BRIEFING_TIMEOUT_MS = 8000;
+
+/**
+ * "Since yesterday" login briefing (read-only `GET /briefing`). Aborts after
+ * BRIEFING_TIMEOUT_MS or when the caller's signal aborts; the result then has
+ * `data: null`, which callers treat as "show nothing".
+ */
+export function getBriefing(personaId?: PersonaId, signal?: AbortSignal) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BRIEFING_TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  signal?.addEventListener("abort", onAbort);
+  return api.get<Briefing>("/briefing", personaId, controller.signal).finally(() => {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  });
 }
 
 export type { ApiResponse };

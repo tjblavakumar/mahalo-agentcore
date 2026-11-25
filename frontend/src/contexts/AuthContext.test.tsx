@@ -146,3 +146,43 @@ describe("AuthContext persona persistence", () => {
     expect(localStorageStub.getItem(STORAGE_KEY)).toBeNull();
   });
 });
+
+describe("AuthContext login id (once-per-login briefing)", () => {
+  it("login sets a new loginId each time and stores it next to the persona", async () => {
+    const { auth } = await mountAuth();
+    act(() => {
+      auth.login("dev", "dev123");
+    });
+    const first = localStorageStub.getItem("mahalo_login_id");
+    expect(first).toBeTruthy();
+    act(() => {
+      auth.login("dev", "dev123");
+    });
+    const second = localStorageStub.getItem("mahalo_login_id");
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
+  });
+
+  it("logout clears the login id and the briefing state", async () => {
+    const { auth } = await mountAuth();
+    act(() => {
+      auth.login("pm", "pm123");
+    });
+    localStorageStub.setItem("mahalo_briefing", JSON.stringify({ loginId: "x", status: "shown" }));
+    act(() => {
+      auth.logout();
+    });
+    expect(localStorageStub.getItem("mahalo_login_id")).toBeNull();
+    expect(localStorageStub.getItem("mahalo_briefing")).toBeNull();
+  });
+
+  it("a restored session without a login id has loginId null; with one it is restored", async () => {
+    localStorageStub.setItem(STORAGE_KEY, "dev");
+    let { auth } = await mountAuth();
+    expect(auth.persona?.personaId).toBe("dev");
+    expect(auth.loginId).toBeNull();
+    localStorageStub.setItem("mahalo_login_id", "login-1");
+    ({ auth } = await mountAuth());
+    expect(auth.loginId).toBe("login-1");
+  });
+});

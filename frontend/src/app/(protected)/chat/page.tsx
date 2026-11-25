@@ -22,6 +22,8 @@ import ChatMessage from "@/components/chat/ChatMessage";
 import StageProgress from "@/components/chat/StageProgress";
 import ProposalCard from "@/components/chat/ProposalCard";
 import ContextPanel from "@/components/chat/ContextPanel";
+import LoginBriefing from "@/components/chat/LoginBriefing";
+import { useLoginBriefing } from "@/components/chat/useLoginBriefing";
 import SkillCheckCard, { type SkillCardState } from "@/components/chat/SkillCheckCard";
 import SkillRunStatus from "@/components/chat/SkillRunStatus";
 import SkillLibraryPanel from "@/components/chat/SkillLibraryPanel";
@@ -70,7 +72,8 @@ interface CardResult {
 
 export default function ChatPage() {
   const router = useRouter();
-  const { persona, logout } = useAuth();
+  const { persona, loginId, logout } = useAuth();
+  const { briefing, dismiss: dismissBriefing } = useLoginBriefing(persona?.personaId, loginId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [reviewLabel, setReviewLabel] = useState(DEFAULT_REVIEW_OPTION.label);
@@ -426,6 +429,7 @@ export default function ChatPage() {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
+          {briefing && <LoginBriefing briefing={briefing} onDismiss={dismissBriefing} />}
           {messages.length === 0 && (
             <div className="text-center py-16">
               <p className="text-4xl mb-4">💬</p>
