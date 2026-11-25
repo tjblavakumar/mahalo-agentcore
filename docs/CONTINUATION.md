@@ -4,6 +4,27 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === RESUME HERE (user break, 2026-11-24): LOGIN BRIEFING IN FLIGHT, workflow wf_fa6f85cdf544b7b2 PAUSED in build-loop step "code" ===
+> Feature: "since yesterday" login briefing card on the chat screen (top 5 per persona from the last 24 h, "More" for everything, dismissible,
+> once per login). Design APPROVED by the user (.agents/tasks/login-briefing/design.md + decisions.md, git-ignored): new read-only thin-API
+> GET /briefing (no LLM, parallel GETs, 6 s deadline, 60 s cache), new Jira mock ACTIVITY log + GET /activity (Jira had no change timestamps),
+> window modes recent > topped_up (7 d) > widened > snapshot, per-persona ranking (dev ownership, pm project health, exec portfolio risk, arch
+> design/security). Live data option B: NO seed script; after MahaloMockJiraStack + MahaloApiStack deploy, run POST /admin/refresh-demo-data once.
+> STATE: worktree .worktrees/login-briefing, branch login-briefing (NOT merged, main untouched at 7fa42c4). Committed on the branch: 0192191 Jira
+> activity, 5630c89 GET /briefing + ranking, fbb32f9 thin-API Git URL/token env (tools-lambdas 258, api 303, infra test_api_stack 15 passed).
+> Frontend files (lib/briefing.ts, components/chat/LoginBriefing.tsx, useLoginBriefing.ts, chat page, AuthContext, api.ts + tests) were written;
+> the code step was told to commit them as "wip: ... (not yet tested)" and push the BRANCH only. Check `git -C .worktrees/login-briefing log`
+> and `git status` first; commit them by name if still uncommitted (exclude package-lock.json, node_modules, *.log).
+> NPM HANGS THE SHARED SHELL ON THIS MACHINE (4 times, even detached). Do NOT run npm/vitest/tsc/next build locally. NEXT STEPS:
+> 1) Make sure the branch is committed and pushed (git push origin login-briefing). 2) Start builder i-01cc3571c99412f28, on it check out the
+> branch in a temp dir (or the repo with `git fetch && git checkout -f origin/login-briefing`, then back to main after), run in frontend:
+> npm ci, npx vitest --run, npx tsc --noEmit, npx next build (with NEXT_PUBLIC_API_URL set); fix failures on the branch. Stop the builder.
+> 3) Resume the workflow (update_status running); tell the code step frontend checks passed on the builder and not to run npm locally, so it
+> signals success; code review (must verify every approved decision), then USER GATE before merge/deploy. Deploy list: MahaloMockJiraStack,
+> MahaloApiStack (MAHALO_BUILD_IMAGE=1), frontend; then refresh-demo-data; never MockGithub; no Runtime/Gateway deploy.
+> AFTER THIS: rework the deck + DEMO_script.md around one feature (crypto payments PAY-109) through business need -> PM story -> architect
+> review (Maya Chaya) -> developer build -> CI/CD tests and security -> deploy/support -> leadership view, plus the login briefing.
+
 > === STATUS-16 ARCHITECT PERSONA "MAYA CHAYA" ADDED: DEPLOYED AND LIVE-VERIFIED (commit b1c2549, follow-up fix 2376bba) ===
 > FOLLOW-UP FIX 2376bba (orchestrator, deployed MahaloRuntimeStack + MahaloApiStack, both UPDATE_COMPLETE; builder stopped; GITHUB_MODE=real):
 > (1) B1 had NOT been implemented by the workflow: live, the PM still got a create_branch approval card. agent/role_access.py now blocks
