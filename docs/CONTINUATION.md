@@ -4,6 +4,13 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-20 "QUICK BRIEF" BUTTON (commit 9e10206, frontend only, deployed) ===
+> The automatic login briefing shows once per login, so it vanished after navigating away and back. Chat header now has a blue "Quick
+> Brief" button (all personas): it fetches GET /briefing on demand (60 s server cache) and shows the card at the top of the chat, scrolling
+> up to it; "Loading…" while fetching; a one-line message on failure. useLoginBriefing gained open/loading/error; open() neither reads nor
+> changes the once-per-login state. 4 new tests (vitest 389). Built, tested (tsc 0, next build 0) and deployed on the EC2 builder; builder
+> stopped. Live chat bundle contains "Quick Brief". Not yet in the deck or demo script.
+>
 > === STATUS-19 UI BRANDING "Smart" + "Aegis/Mahalo" (commit a320a6c, frontend only, deployed) ===
 > User asked for UI-only changes: login page shows "Smart" (text-5xl extrabold) with "Aegis/Mahalo" underneath; sidebar "Smart" (text-3xl
 > extrabold) / "Aegis/Mahalo" / "AI-Powered SDLC Platform"; loading text and browser title "Smart · Aegis/Mahalo". NOT changed (by request):
