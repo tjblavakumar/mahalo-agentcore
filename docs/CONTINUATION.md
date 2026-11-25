@@ -4,7 +4,24 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
-> === RESUME HERE (user break, 2026-11-24): LOGIN BRIEFING IN FLIGHT, workflow wf_fa6f85cdf544b7b2 PAUSED in build-loop step "code" ===
+> === STATUS-17 LOGIN BRIEFING SHIPPED AND LIVE-VERIFIED (main ab4ffd9; supersedes the RESUME HERE block below) ===
+> Merged to main (ab4ffd9, commits 44e1338 Jira ACTIVITY, 5da0c09 /briefing, 4cb7458 api_stack Git URL, 53878a8 frontend). Code review APPROVED.
+> Frontend checks ran on the EC2 builder (npm hangs the shared shell on this workstation): vitest 385, tsc 0, next build 0. tools-lambdas 258,
+> api 303, infra test_api_stack 15. The workflow's deploy step failed to send its SSM command, so the ORCHESTRATOR deployed via the builder:
+> MahaloMockJiraStack + MahaloApiStack (MAHALO_BUILD_IMAGE=1, MAHALO_GITHUB_URL read from the MahaloMockGithubStack GithubUrl output; the
+> function now has MAHALO_GITHUB_URL + MAHALO_GITHUB_TOKEN) + frontend (S3 sync + invalidation). GITHUB_MODE=real before/after; builder stopped.
+> Then POST /admin/refresh-demo-data (option B): Jira DEVELOPER 7 (incl. dev-7 Maya Chaya), STORY 104, ACTIVITY 6; dates re-based to today.
+> LIVE GET /briefing (cold 4.4 s, warm ~50 ms): dev mode recent, top 5 = PAY-109 assigned to you, PAY-110 assigned to you, AUTH-306 moved to
+> in_progress, 3 x production deploy failed (AUTH, ORD, PAY), 3 x P1 incident opened and resolved; pm = P1s, PAY-109/110 assigned to Lava Dev,
+> PAY-108 in_review, comment on ORD-503; exec mode topped_up = P1s, failed deploys, a successful release, earlier P1s; arch = failed deploys,
+> SAML SSO design page updated, P1s, comments on PAY-108/ORD-503. Regression PASS: /JIRA_ROADMAP PAY 29/30 and 26/30; dev assigned lists
+> PAY-109/110; PM branch request and architect commit request refused with no proposal; bundle contains the briefing card. The run
+> wf_fa6f85cdf544b7b2 was ended by the orchestrator after this verification (its live-verify/status steps would only repeat it).
+> Small wording nit seen live: grouped lines read "3 x P1 incident opened" (no plural). NEXT: rework the deck + DEMO_script.md around one
+> feature (crypto payments PAY-109): business need -> PM story -> architect review (Maya Chaya) -> developer build -> CI/CD tests and
+> security -> deploy/support -> leadership view, with the login briefing as the opening of each persona's demo.
+>
+> === (superseded) RESUME HERE (user break, 2026-11-24): LOGIN BRIEFING IN FLIGHT, workflow wf_fa6f85cdf544b7b2 PAUSED in build-loop step "code" ===
 > Feature: "since yesterday" login briefing card on the chat screen (top 5 per persona from the last 24 h, "More" for everything, dismissible,
 > once per login). Design APPROVED by the user (.agents/tasks/login-briefing/design.md + decisions.md, git-ignored): new read-only thin-API
 > GET /briefing (no LLM, parallel GETs, 6 s deadline, 60 s cache), new Jira mock ACTIVITY log + GET /activity (Jira had no change timestamps),
