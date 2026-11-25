@@ -4,6 +4,16 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-18 DECK + DEMO SCRIPT REWORKED AROUND ONE FEATURE (docs only, no code or deploy change) ===
+> docs/Mahalo_SuperMart_Demo.pptx is now 17 slides following crypto payments (PAY-109) through 7 stages: business need -> Marcus (story,
+> /JIRA_ROADMAP) -> Maya (design review, ADR Download, approved Jira comment) -> Lava (briefing shows the assignment and Maya's comment; code
+> + second-model review + commit) -> CI/CD (209 tests passed, dependency scan HIGH finding blocks release) -> release/support (change failure
+> rate, failing pipelines) -> David ("Where is crypto payments?"). Each persona opens with the login briefing. Stage chevrons on each demo
+> slide. mahalo-connected.svg/png redrawn with four personas + five systems (CI/CD) + "Only developers commit code". docs/DEMO_script.md
+> rewritten to match, with a pre-demo checklist (Settings -> Refresh demo data, Gitea up, warm-up, hard refresh). Text fit checked by
+> estimate only (no PowerPoint on this workstation): review the layout visually. Live-checked: arch ADR prompt returns a doc_type: adr block.
+> The challenges infographic (slide 4) still shows the original three people.
+>
 > === STATUS-17 LOGIN BRIEFING SHIPPED AND LIVE-VERIFIED (main ab4ffd9; supersedes the RESUME HERE block below) ===
 > Merged to main (ab4ffd9, commits 44e1338 Jira ACTIVITY, 5da0c09 /briefing, 4cb7458 api_stack Git URL, 53878a8 frontend). Code review APPROVED.
 > Frontend checks ran on the EC2 builder (npm hangs the shared shell on this workstation): vitest 385, tsc 0, next build 0. tools-lambdas 258,
