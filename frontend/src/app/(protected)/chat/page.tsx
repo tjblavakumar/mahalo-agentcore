@@ -73,7 +73,20 @@ interface CardResult {
 export default function ChatPage() {
   const router = useRouter();
   const { persona, loginId, logout } = useAuth();
-  const { briefing, dismiss: dismissBriefing } = useLoginBriefing(persona?.personaId, loginId);
+  const {
+    briefing,
+    dismiss: dismissBriefing,
+    open: openBriefing,
+    loading: briefingLoading,
+    error: briefingError,
+  } = useLoginBriefing(persona?.personaId, loginId);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
+
+  async function handleQuickBrief() {
+    messagesAreaRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+    await openBriefing();
+    messagesAreaRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+  }
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [reviewLabel, setReviewLabel] = useState(DEFAULT_REVIEW_OPTION.label);
@@ -410,6 +423,16 @@ export default function ChatPage() {
           </div>
           {persona && (
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleQuickBrief()}
+                disabled={briefingLoading}
+                aria-label="Quick Brief"
+                title="Show what changed for you since yesterday"
+                className="px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              >
+                {briefingLoading ? "Loading…" : "Quick Brief"}
+              </button>
               <span className="text-sm text-gray-600">
                 {persona.personaLabel} · {persona.displayName}
               </span>
@@ -428,7 +451,12 @@ export default function ChatPage() {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div ref={messagesAreaRef} className="flex-1 overflow-y-auto px-6 py-4">
+          {briefingError && !briefing && (
+            <p role="status" className="mb-4 text-sm text-gray-500">
+              {briefingError}
+            </p>
+          )}
           {briefing && <LoginBriefing briefing={briefing} onDismiss={dismissBriefing} />}
           {messages.length === 0 && (
             <div className="text-center py-16">

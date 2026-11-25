@@ -324,3 +324,88 @@ describe("once per login (useLoginBriefing)", () => {
     expect(signal?.aborted).toBe(true);
   });
 });
+
+/** Harness with a "Quick Brief" button wired to the hook's open(), like the chat header. */
+function QuickBriefHarness({ loginId }: { loginId: string | null }) {
+  const { briefing: b, dismiss, open, loading, error } = useLoginBriefing("dev", loginId);
+  return (
+    <div>
+      <button type="button" aria-label="Quick Brief" disabled={loading} onClick={() => void open()}>
+        {loading ? "Loading…" : "Quick Brief"}
+      </button>
+      {error && !b && <p data-testid="briefing-error">{error}</p>}
+      {b && <LoginBriefing briefing={b} onDismiss={dismiss} />}
+    </div>
+  );
+}
+
+async function mountQuickBrief(loginId: string | null) {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => {
+    root.render(<QuickBriefHarness loginId={loginId} />);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function clickAndSettle(el: Element | null) {
+  await act(async () => {
+    (el as HTMLElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+describe("Quick Brief (on demand)", () => {
+  it("re-opens the briefing after it was dismissed, in the same login", async () => {
+    getBriefingMock.mockResolvedValue({ data: briefing(), error: null });
+    await mountQuickBrief("login-1");
+    click(container.querySelector('button[aria-label="Dismiss briefing"]'));
+    expect(container.querySelector('[data-testid="login-briefing"]')).toBeNull();
+    getBriefingMock.mockClear();
+    await clickAndSettle(container.querySelector('button[aria-label="Quick Brief"]'));
+    expect(getBriefingMock).toHaveBeenCalledTimes(1);
+    expect(getBriefingMock.mock.calls[0][0]).toBe("dev");
+    expect(container.querySelector('[data-testid="login-briefing"]')).not.toBeNull();
+    // The once-per-login state is untouched by the on-demand fetch.
+    expect(JSON.parse(storage.getItem("mahalo_briefing")!)).toEqual({ loginId: "login-1", status: "dismissed" });
+  });
+
+  it("works even when the automatic login briefing will not show (restored session)", async () => {
+    getBriefingMock.mockResolvedValue({ data: briefing(), error: null });
+    await mountQuickBrief(null);
+    expect(getBriefingMock).not.toHaveBeenCalled();
+    await clickAndSettle(container.querySelector('button[aria-label="Quick Brief"]'));
+    expect(getBriefingMock).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="login-briefing"]')).not.toBeNull();
+  });
+
+  it("shows a short message instead of a card when the fetch fails", async () => {
+    await mountQuickBrief(null);
+    getBriefingMock.mockResolvedValue({ data: null, error: "Briefing unavailable", status: 502 });
+    await clickAndSettle(container.querySelector('button[aria-label="Quick Brief"]'));
+    expect(container.querySelector('[data-testid="login-briefing"]')).toBeNull();
+    expect(container.querySelector('[data-testid="briefing-error"]')?.textContent).toContain(
+      "not available right now",
+    );
+  });
+
+  it("shows Loading while the request is in flight", async () => {
+    await mountQuickBrief(null);
+    let resolve: (v: unknown) => void = () => {};
+    getBriefingMock.mockImplementation(() => new Promise((r) => (resolve = r)));
+    await clickAndSettle(container.querySelector('button[aria-label="Quick Brief"]'));
+    const btn = container.querySelector('button[aria-label="Quick Brief"]') as HTMLButtonElement;
+    expect(btn.textContent).toBe("Loading…");
+    expect(btn.disabled).toBe(true);
+    await act(async () => {
+      resolve({ data: briefing(), error: null });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(btn.textContent).toBe("Quick Brief");
+    expect(container.querySelector('[data-testid="login-briefing"]')).not.toBeNull();
+  });
+});
