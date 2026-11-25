@@ -25,8 +25,9 @@ export default function Sidebar() {
     <aside className="w-64 bg-gray-900 text-white flex flex-col min-h-screen">
       {/* Logo */}
       <div className="p-6 border-b border-gray-700">
-        <h1 className="text-xl font-bold tracking-wide">Mahalo</h1>
-        <p className="text-xs text-gray-400">SuperMart · AI-Powered SDLC Platform</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">Smart</h1>
+        <p className="text-sm font-semibold text-blue-300">Aegis/Mahalo</p>
+        <p className="text-xs text-gray-400 mt-1">AI-Powered SDLC Platform</p>
       </div>
 
       {/* User */}

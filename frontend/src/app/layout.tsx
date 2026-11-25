@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Mahalo - SuperMart AI-Powered SDLC Platform",
+  title: "Smart · Aegis/Mahalo - AI-Powered SDLC Platform",
   description: "Multi-persona SDLC platform with conversational AI agent",
 };
 
