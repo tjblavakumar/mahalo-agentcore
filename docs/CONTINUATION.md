@@ -4,6 +4,15 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-21 PORTFOLIO OVERVIEWS ALWAYS INCLUDE PIPELINE AND SECURITY (commit 55e0faa, agent prompt only, deployed) ===
+> Before: the PM "status summary across all my projects — sprint progress, open PRs, and incidents" answered only those three (no CI/CD);
+> the executive risk/portfolio answers included security only because the model chose to. BASE_PROMPT now has a "PORTFOLIO SECURITY:" rule:
+> any portfolio, status, health or delivery-risk overview across several projects also calls cicd_pipeline_summary once and adds a
+> "Pipeline and security" line per project (failed runs, open high/critical findings), labelled recorded CI/CD demo data, even when the user
+> listed other topics. Test added for all 4 roles (agent 375 + 3 skipped). MahaloRuntimeStack deployed (UPDATE_COMPLETE); builder stopped;
+> GITHUB_MODE=real. Live: the PM summary now has "Pipeline and Security (Recorded CI/CD Demo Data)" naming PAY, AUTH, ORD with high
+> findings; the exec risk answer names PAY-109, AUTH-306, ORD-503 as blocked. The user manages the deck/demo-script wording.
+>
 > === STATUS-20 "QUICK BRIEF" BUTTON (commit 9e10206, frontend only, deployed) ===
 > The automatic login briefing shows once per login, so it vanished after navigating away and back. Chat header now has a blue "Quick
 > Brief" button (all personas): it fetches GET /briefing on demand (60 s server cache) and shows the card at the top of the chat, scrolling
