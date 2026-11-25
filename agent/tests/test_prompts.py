@@ -125,3 +125,14 @@ def test_skill_rule_lists_cicd_results_and_no_longer_blocks_test_results(role):
     assert "recorded CI/CD pipeline results" in rule11
     assert "test cases or coverage" in rule11
     assert "test results," not in rule11
+
+
+@pytest.mark.parametrize("role", sorted(ROLE_PROMPTS))
+def test_portfolio_overviews_include_pipeline_and_security(role):
+    prompt = _built(role)
+    assert "PORTFOLIO SECURITY:" in prompt
+    rule = prompt.split("PORTFOLIO SECURITY:")[1].split("\n")[0]
+    assert "cicd_pipeline_summary" in rule
+    assert "Pipeline and security" in rule
+    assert "even when the user listed other topics" in rule
+    assert "recorded CI/CD demo data" in rule
