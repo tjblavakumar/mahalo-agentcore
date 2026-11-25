@@ -4,6 +4,12 @@ This file lets a new chat session (opened with `mahalo-agentcore` as the workspa
 root) continue the AgentCore rewrite with zero prior context. Read it top to
 bottom before doing anything.
 
+> === STATUS-19 UI BRANDING "Smart" + "Aegis/Mahalo" (commit a320a6c, frontend only, deployed) ===
+> User asked for UI-only changes: login page shows "Smart" (text-5xl extrabold) with "Aegis/Mahalo" underneath; sidebar "Smart" (text-3xl
+> extrabold) / "Aegis/Mahalo" / "AI-Powered SDLC Platform"; loading text and browser title "Smart · Aegis/Mahalo". NOT changed (by request):
+> agent prompt, seed data, emails (@supermart.example), deck and demo script (still say SuperMart and Mahalo), storage keys, "MahaloJira".
+> Built and tested on the EC2 builder (vitest 385, next build 0), S3 sync + invalidation; builder stopped. Live /login shows the new brand.
+>
 > === STATUS-18 DECK + DEMO SCRIPT REWORKED AROUND ONE FEATURE (docs only, no code or deploy change) ===
 > docs/Mahalo_SuperMart_Demo.pptx is now 17 slides following crypto payments (PAY-109) through 7 stages: business need -> Marcus (story,
 > /JIRA_ROADMAP) -> Maya (design review, ADR Download, approved Jira comment) -> Lava (briefing shows the assignment and Maya's comment; code
